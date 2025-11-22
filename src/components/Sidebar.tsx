@@ -274,7 +274,7 @@ export function Sidebar({
           onChange={(e) => onGeneratorChange(e.target.value)}
           className="w-full px-3 py-2 bg-gray-700 rounded border border-gray-600 focus:border-blue-500 focus:outline-none text-white"
         >
-          {generators.map((gen) => (
+          {[...generators].sort((a, b) => a.name.localeCompare(b.name)).map((gen) => (
             <option key={gen.id} value={gen.id}>{gen.name}</option>
           ))}
         </select>
