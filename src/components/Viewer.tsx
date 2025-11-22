@@ -4,30 +4,37 @@ import { OrbitControls, Html, Line } from '@react-three/drei'
 import * as THREE from 'three'
 import { STLLoader } from 'three-stdlib'
 
-// Grid with measurement labels
+// Grid with measurement labels (Z-up coordinate system)
 function MeasuredGrid({ size = 100, divisions = 10 }: { size?: number; divisions?: number }) {
   const step = size / divisions
 
-  // Generate label positions along X and Z axes
+  // Generate label positions along X, Y, and Z axes
   const labels: { pos: [number, number, number]; text: string }[] = []
 
   for (let i = -divisions / 2; i <= divisions / 2; i++) {
     const value = i * step
     if (i !== 0) {
       // X axis labels
-      labels.push({ pos: [value, 0, -size / 2 - 3], text: `${value}` })
-      // Z axis labels
-      labels.push({ pos: [-size / 2 - 3, 0, value], text: `${value}` })
+      labels.push({ pos: [value, -size / 2 - 3, 0], text: `${value}` })
+      // Y axis labels
+      labels.push({ pos: [-size / 2 - 3, value, 0], text: `${value}` })
+    }
+    // Z axis labels (only positive, from 0 upward)
+    if (i > 0) {
+      labels.push({ pos: [-3, -3, value], text: `${value}` })
     }
   }
 
   return (
     <group>
-      <gridHelper args={[size, divisions, '#555', '#333']} />
+      {/* Grid on XY plane (rotated from default XZ) */}
+      <gridHelper args={[size, divisions, '#555', '#333']} rotation={[Math.PI / 2, 0, 0]} />
 
-      {/* Axis lines */}
-      <Line points={[[-size/2, 0.01, 0], [size/2, 0.01, 0]]} color="#ff4444" lineWidth={2} />
-      <Line points={[[0, 0.01, -size/2], [0, 0.01, size/2]]} color="#4444ff" lineWidth={2} />
+      {/* Axis lines on XY plane */}
+      <Line points={[[-size/2, 0, 0.01], [size/2, 0, 0.01]]} color="#ff4444" lineWidth={2} />
+      <Line points={[[0, -size/2, 0.01], [0, size/2, 0.01]]} color="#44ff44" lineWidth={2} />
+      {/* Z axis line (vertical) */}
+      <Line points={[[0, 0, 0], [0, 0, size/2]]} color="#4444ff" lineWidth={2} />
 
       {/* Measurement labels */}
       {labels.map((label, i) => (
@@ -50,6 +57,9 @@ function MeasuredGrid({ size = 100, divisions = 10 }: { size?: number; divisions
       {/* Axis labels */}
       <Html position={[size/2 + 5, 0, 0]} style={{ color: '#ff6666', fontSize: '12px', fontWeight: 'bold' }} center>
         X (mm)
+      </Html>
+      <Html position={[0, size/2 + 5, 0]} style={{ color: '#66ff66', fontSize: '12px', fontWeight: 'bold' }} center>
+        Y (mm)
       </Html>
       <Html position={[0, 0, size/2 + 5]} style={{ color: '#6666ff', fontSize: '12px', fontWeight: 'bold' }} center>
         Z (mm)
@@ -89,7 +99,8 @@ function Model({ geometry }: ModelProps) {
     const fov = (camera as THREE.PerspectiveCamera).fov * (Math.PI / 180)
     const distance = maxDim / (2 * Math.tan(fov / 2)) * 1.5
 
-    camera.position.set(distance, distance * 0.5, distance)
+    camera.position.set(distance, -distance, distance * 0.8)
+    camera.up.set(0, 0, 1)
     camera.lookAt(0, 0, 0)
     camera.updateProjectionMatrix()
   }, [geometry, camera])
@@ -124,8 +135,7 @@ export function Viewer({ stlBlob, isCompiling }: ViewerProps) {
         const arrayBuffer = reader.result as ArrayBuffer
         const geo = loader.parse(arrayBuffer)
 
-        // Rotate from OpenSCAD's Z-up to Three.js Y-up orientation
-        geo.rotateX(-Math.PI / 2)
+        // Keep OpenSCAD's Z-up orientation (no rotation needed)
 
         geo.computeVertexNormals()
         setGeometry(geo)
@@ -146,7 +156,7 @@ export function Viewer({ stlBlob, isCompiling }: ViewerProps) {
   return (
     <div className="relative w-full h-full bg-gray-900">
       {/* Always render Canvas to preserve WebGL context */}
-      <Canvas camera={{ position: [50, 50, 50], fov: 50 }}>
+      <Canvas camera={{ position: [50, -50, 40], fov: 50, up: [0, 0, 1] }}>
         <ambientLight intensity={0.4} />
         <directionalLight position={[10, 10, 5]} intensity={1} />
         <directionalLight position={[-10, -10, -5]} intensity={0.3} />
