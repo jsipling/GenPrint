@@ -1,10 +1,12 @@
-import type { Generator, ParameterValues } from '../generators'
+import type { Generator, ParameterValues, NumberParameterDef, StringParameterDef } from '../generators'
 import type { CompileStatus } from '../hooks/useOpenSCAD'
 
 interface SidebarProps {
-  generator: Generator
+  generators: Generator[]
+  selectedGenerator: Generator
+  onGeneratorChange: (id: string) => void
   params: ParameterValues
-  onParamChange: (name: string, value: number) => void
+  onParamChange: (name: string, value: number | string) => void
   status: CompileStatus
   error: string | null
   onDownload: () => void
@@ -35,7 +37,9 @@ function StatusBadge({ status, error }: { status: CompileStatus; error: string |
 }
 
 export function Sidebar({
-  generator,
+  generators,
+  selectedGenerator,
+  onGeneratorChange,
   params,
   onParamChange,
   status,
@@ -54,34 +58,70 @@ export function Sidebar({
         <StatusBadge status={status} error={error} />
       </div>
 
+      <section className="mb-4">
+        <label htmlFor="generator-select" className="block text-sm mb-1">Model</label>
+        <select
+          id="generator-select"
+          value={selectedGenerator.id}
+          onChange={(e) => onGeneratorChange(e.target.value)}
+          className="w-full px-3 py-2 bg-gray-700 rounded border border-gray-600 focus:border-blue-500 focus:outline-none text-white"
+        >
+          {generators.map((gen) => (
+            <option key={gen.id} value={gen.id}>{gen.name}</option>
+          ))}
+        </select>
+      </section>
+
       <section className="mb-6">
-        <h2 className="text-lg font-semibold mb-1">{generator.name}</h2>
-        <p className="text-sm text-gray-400 mb-4">{generator.description}</p>
+        <h2 className="text-lg font-semibold mb-1">{selectedGenerator.name}</h2>
+        <p className="text-sm text-gray-400 mb-4">{selectedGenerator.description}</p>
 
         <div className="space-y-4">
-          {generator.parameters.map((param) => {
+          {selectedGenerator.parameters.map((param) => {
             const value = params[param.name] ?? param.default
+
+            if (param.type === 'string') {
+              const stringParam = param as StringParameterDef
+              return (
+                <div key={param.name}>
+                  <label htmlFor={param.name} className="block text-sm mb-1">
+                    {param.label}
+                  </label>
+                  <input
+                    type="text"
+                    id={param.name}
+                    value={String(value)}
+                    maxLength={stringParam.maxLength}
+                    onChange={(e) => onParamChange(param.name, e.target.value)}
+                    className="w-full px-3 py-2 bg-gray-700 rounded border border-gray-600 focus:border-blue-500 focus:outline-none text-white"
+                  />
+                </div>
+              )
+            }
+
+            const numParam = param as NumberParameterDef
+            const numValue = Number(value)
             return (
               <div key={param.name}>
                 <div className="flex justify-between text-sm mb-1">
                   <label htmlFor={param.name}>{param.label}</label>
                   <span className="text-gray-400">
-                    {value}{param.unit ? ` ${param.unit}` : ''}
+                    {numValue}{numParam.unit ? ` ${numParam.unit}` : ''}
                   </span>
                 </div>
                 <input
                   type="range"
                   id={param.name}
-                  min={param.min}
-                  max={param.max}
-                  step={param.step ?? 1}
-                  value={value}
+                  min={numParam.min}
+                  max={numParam.max}
+                  step={numParam.step ?? 1}
+                  value={numValue}
                   onChange={(e) => onParamChange(param.name, parseFloat(e.target.value))}
                   className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
                 />
                 <div className="flex justify-between text-xs text-gray-500 mt-1">
-                  <span>{param.min}</span>
-                  <span>{param.max}</span>
+                  <span>{numParam.min}</span>
+                  <span>{numParam.max}</span>
                 </div>
               </div>
             )

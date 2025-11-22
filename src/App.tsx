@@ -14,10 +14,18 @@ function getDefaultParams(generator: typeof generators[0]): ParameterValues {
 }
 
 export default function App() {
-  const [selectedGenerator] = useState(generators[0]!)
+  const [selectedGenerator, setSelectedGenerator] = useState(generators[0]!)
   const [params, setParams] = useState<ParameterValues>(() =>
     getDefaultParams(selectedGenerator)
   )
+
+  const handleGeneratorChange = (generatorId: string) => {
+    const gen = generators.find(g => g.id === generatorId)
+    if (gen) {
+      setSelectedGenerator(gen)
+      setParams(getDefaultParams(gen))
+    }
+  }
 
   const { status, error, stlBlob, compile } = useOpenSCAD()
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -65,7 +73,7 @@ export default function App() {
     }
   }, [params, doCompile])
 
-  const handleParamChange = (name: string, value: number) => {
+  const handleParamChange = (name: string, value: number | string) => {
     setParams((prev) => ({ ...prev, [name]: value }))
   }
 
@@ -85,7 +93,9 @@ export default function App() {
   return (
     <div className="flex h-screen">
       <Sidebar
-        generator={selectedGenerator}
+        generators={generators}
+        selectedGenerator={selectedGenerator}
+        onGeneratorChange={handleGeneratorChange}
         params={params}
         onParamChange={handleParamChange}
         status={status}

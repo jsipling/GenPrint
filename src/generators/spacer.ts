@@ -6,6 +6,7 @@ export const spacerGenerator: Generator = {
   description: 'A simple cylindrical spacer with a center hole',
   parameters: [
     {
+      type: 'number',
       name: 'outer_diameter',
       label: 'Outer Diameter',
       min: 10,
@@ -15,6 +16,7 @@ export const spacerGenerator: Generator = {
       unit: 'mm'
     },
     {
+      type: 'number',
       name: 'inner_hole',
       label: 'Inner Hole Diameter',
       min: 2,
@@ -24,6 +26,7 @@ export const spacerGenerator: Generator = {
       unit: 'mm'
     },
     {
+      type: 'number',
       name: 'height',
       label: 'Height',
       min: 1,

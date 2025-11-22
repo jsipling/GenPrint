@@ -1,8 +1,62 @@
 import { useRef, useEffect, useState } from 'react'
 import { Canvas, useThree } from '@react-three/fiber'
-import { OrbitControls } from '@react-three/drei'
+import { OrbitControls, Html, Line } from '@react-three/drei'
 import * as THREE from 'three'
 import { STLLoader } from 'three-stdlib'
+
+// Grid with measurement labels
+function MeasuredGrid({ size = 100, divisions = 10 }: { size?: number; divisions?: number }) {
+  const step = size / divisions
+
+  // Generate label positions along X and Z axes
+  const labels: { pos: [number, number, number]; text: string }[] = []
+
+  for (let i = -divisions / 2; i <= divisions / 2; i++) {
+    const value = i * step
+    if (i !== 0) {
+      // X axis labels
+      labels.push({ pos: [value, 0, -size / 2 - 3], text: `${value}` })
+      // Z axis labels
+      labels.push({ pos: [-size / 2 - 3, 0, value], text: `${value}` })
+    }
+  }
+
+  return (
+    <group>
+      <gridHelper args={[size, divisions, '#555', '#333']} />
+
+      {/* Axis lines */}
+      <Line points={[[-size/2, 0.01, 0], [size/2, 0.01, 0]]} color="#ff4444" lineWidth={2} />
+      <Line points={[[0, 0.01, -size/2], [0, 0.01, size/2]]} color="#4444ff" lineWidth={2} />
+
+      {/* Measurement labels */}
+      {labels.map((label, i) => (
+        <Html
+          key={i}
+          position={label.pos}
+          style={{
+            fontSize: '10px',
+            color: '#888',
+            whiteSpace: 'nowrap',
+            userSelect: 'none',
+            pointerEvents: 'none'
+          }}
+          center
+        >
+          {label.text}
+        </Html>
+      ))}
+
+      {/* Axis labels */}
+      <Html position={[size/2 + 5, 0, 0]} style={{ color: '#ff6666', fontSize: '12px', fontWeight: 'bold' }} center>
+        X (mm)
+      </Html>
+      <Html position={[0, 0, size/2 + 5]} style={{ color: '#6666ff', fontSize: '12px', fontWeight: 'bold' }} center>
+        Z (mm)
+      </Html>
+    </group>
+  )
+}
 
 interface ModelProps {
   geometry: THREE.BufferGeometry
@@ -98,7 +152,7 @@ export function Viewer({ stlBlob, isCompiling }: ViewerProps) {
         <directionalLight position={[-10, -10, -5]} intensity={0.3} />
         {geometry && <Model geometry={geometry} />}
         <OrbitControls makeDefault />
-        <gridHelper args={[100, 10, '#444', '#333']} />
+        <MeasuredGrid size={100} divisions={10} />
       </Canvas>
 
       {/* Overlay states */}
