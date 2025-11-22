@@ -202,7 +202,7 @@ function ParameterInput({ param, params, onParamChange, onParamCommit, onSliderD
             onParamCommit?.(param.name, parseFloat((e.target as HTMLInputElement).value))
           }
         }}
-        className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+        className="custom-slider"
         aria-valuemin={effectiveMin}
         aria-valuemax={effectiveMax}
         aria-valuenow={numValue}
