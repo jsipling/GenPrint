@@ -48,6 +48,12 @@ vi.mock('./components/Sidebar', () => ({
   )
 }))
 
+vi.mock('./components/CompilerOutput', () => ({
+  CompilerOutput: ({ output }: { output: string | null }) => (
+    output ? <div data-testid="compiler-output">{output}</div> : null
+  )
+}))
+
 // Mock useOpenSCAD hook
 const mockCompile = vi.fn()
 vi.mock('./hooks/useOpenSCAD', () => ({

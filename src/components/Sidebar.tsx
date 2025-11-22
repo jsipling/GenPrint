@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import type { Generator, ParameterValues, ParameterDef } from '../generators'
 import { isStringParam, isSelectParam, isBooleanParam } from '../generators'
 import type { CompileStatus } from '../hooks/useOpenSCAD'
@@ -11,37 +10,8 @@ interface SidebarProps {
   onParamChange: (name: string, value: number | string | boolean) => void
   status: CompileStatus
   error: string | null
-  compilerOutput: string | null
   onDownload: () => void
   canDownload: boolean
-}
-
-function CompilerOutput({ output }: { output: string }) {
-  const [expanded, setExpanded] = useState(false)
-
-  return (
-    <div className="mt-2">
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="text-xs text-gray-400 hover:text-gray-300 flex items-center gap-1"
-        aria-expanded={expanded}
-        aria-controls="compiler-output"
-      >
-        <span className="transform transition-transform" style={{ transform: expanded ? 'rotate(90deg)' : 'none' }}>
-          ▶
-        </span>
-        Compiler Output
-      </button>
-      {expanded && (
-        <pre
-          id="compiler-output"
-          className="mt-1 p-2 bg-gray-900 rounded text-xs text-gray-400 overflow-auto max-h-32 whitespace-pre-wrap break-words"
-        >
-          {output}
-        </pre>
-      )}
-    </div>
-  )
 }
 
 function StatusBadge({ status, error }: { status: CompileStatus; error: string | null }) {
@@ -243,7 +213,6 @@ export function Sidebar({
   onParamChange,
   status,
   error,
-  compilerOutput,
   onDownload,
   canDownload
 }: SidebarProps) {
@@ -256,9 +225,6 @@ export function Sidebar({
 
       <div className="mb-4">
         <StatusBadge status={status} error={error} />
-        {compilerOutput && (
-          <CompilerOutput output={compilerOutput} />
-        )}
       </div>
 
       <section className="mb-4">

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Viewer } from './components/Viewer'
 import { Sidebar } from './components/Sidebar'
+import { CompilerOutput } from './components/CompilerOutput'
 import { useOpenSCAD } from './hooks/useOpenSCAD'
 import { generators, flattenParameters, type ParameterValues } from './generators'
 
@@ -123,15 +124,17 @@ export default function App() {
         onParamChange={handleParamChange}
         status={status}
         error={error}
-        compilerOutput={compilerOutput}
         onDownload={handleDownload}
         canDownload={stlBlob !== null && status === 'ready'}
       />
-      <main className="flex-1">
-        <Viewer
-          stlBlob={stlBlob}
-          isCompiling={status === 'compiling'}
-        />
+      <main className="flex-1 flex flex-col">
+        <div className="flex-1 min-h-0">
+          <Viewer
+            stlBlob={stlBlob}
+            isCompiling={status === 'compiling'}
+          />
+        </div>
+        <CompilerOutput output={compilerOutput} />
       </main>
     </div>
   )
