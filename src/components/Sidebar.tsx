@@ -79,7 +79,7 @@ function ParameterInput({ param, params, onParamChange, onParamCommit, onSliderD
               id={param.name}
               checked={checked}
               onChange={(e) => onParamChange(param.name, e.target.checked)}
-              className="w-4 h-4 bg-gray-700 rounded border border-gray-600 focus:ring-blue-500 accent-blue-500"
+              className="custom-checkbox"
             />
             <label htmlFor={param.name} className="text-sm">
               {param.label}
@@ -115,7 +115,7 @@ function ParameterInput({ param, params, onParamChange, onParamCommit, onSliderD
               id={param.name}
               checked={checked}
               onChange={(e) => onParamChange(param.name, e.target.checked)}
-              className="w-4 h-4 bg-gray-700 rounded border border-gray-600 focus:ring-blue-500 accent-blue-500"
+              className="custom-checkbox"
             />
             <label htmlFor={param.name} className="text-sm font-medium">
               {param.label}
@@ -149,7 +149,7 @@ function ParameterInput({ param, params, onParamChange, onParamCommit, onSliderD
           id={param.name}
           checked={checked}
           onChange={(e) => onParamChange(param.name, e.target.checked)}
-          className="w-4 h-4 bg-gray-700 rounded border border-gray-600 focus:ring-blue-500 accent-blue-500"
+          className="custom-checkbox"
         />
         <label htmlFor={param.name} className="text-sm">
           {param.label}

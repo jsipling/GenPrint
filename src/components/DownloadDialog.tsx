@@ -81,7 +81,7 @@ export function DownloadDialog({
                 type="checkbox"
                 checked={selectedIds.has(part.id)}
                 onChange={() => togglePart(part.id)}
-                className="w-4 h-4 bg-gray-700 rounded border border-gray-600 focus:ring-blue-500 accent-blue-500"
+                className="custom-checkbox"
               />
               <span className="text-white">{part.name}</span>
             </label>
