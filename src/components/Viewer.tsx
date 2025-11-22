@@ -13,11 +13,10 @@ function MeasuredGrid({ size = 100, divisions = 10 }: { size?: number; divisions
   const ticks: { points: [[number, number, number], [number, number, number]]; color: string }[] = []
   const labels: { pos: [number, number, number]; text: string; size: string }[] = []
 
-  // X axis ticks and labels (positive only)
-  for (let mm = 1; mm <= size / 2; mm += 1) {
+  // X axis ticks and labels (positive only, 5mm intervals for performance)
+  for (let mm = 5; mm <= size / 2; mm += 5) {
     const isCm = mm % 10 === 0
-    const is5mm = mm % 5 === 0
-    const tick = isCm ? tickSize : (is5mm ? smallTickSize : 0.4)
+    const tick = isCm ? tickSize : smallTickSize
 
     // Tick on X axis
     ticks.push({ points: [[mm, -tick, 0.01], [mm, tick, 0.01]], color: '#ff4444' })
@@ -28,11 +27,10 @@ function MeasuredGrid({ size = 100, divisions = 10 }: { size?: number; divisions
     }
   }
 
-  // Y axis ticks and labels (positive only)
-  for (let mm = 1; mm <= size / 2; mm += 1) {
+  // Y axis ticks and labels (positive only, 5mm intervals for performance)
+  for (let mm = 5; mm <= size / 2; mm += 5) {
     const isCm = mm % 10 === 0
-    const is5mm = mm % 5 === 0
-    const tick = isCm ? tickSize : (is5mm ? smallTickSize : 0.4)
+    const tick = isCm ? tickSize : smallTickSize
 
     // Tick on Y axis
     ticks.push({ points: [[-tick, mm, 0.01], [tick, mm, 0.01]], color: '#44ff44' })
@@ -43,11 +41,10 @@ function MeasuredGrid({ size = 100, divisions = 10 }: { size?: number; divisions
     }
   }
 
-  // Z axis ticks and labels (vertical, positive only)
-  for (let mm = 1; mm <= size / 2; mm += 1) {
+  // Z axis ticks and labels (vertical, positive only, 5mm intervals for performance)
+  for (let mm = 5; mm <= size / 2; mm += 5) {
     const isCm = mm % 10 === 0
-    const is5mm = mm % 5 === 0
-    const tick = isCm ? tickSize : (is5mm ? smallTickSize : 0.4)
+    const tick = isCm ? tickSize : smallTickSize
 
     // Tick on Z axis
     ticks.push({ points: [[-tick, 0, mm], [tick, 0, mm]], color: '#4444ff' })
@@ -155,13 +152,17 @@ interface ViewerProps {
   isCompiling: boolean
 }
 
+const DEFAULT_GRID_SIZE = 400 // Default measurement range in mm
+
 export function Viewer({ stlBlob, isCompiling }: ViewerProps) {
   const [geometry, setGeometry] = useState<THREE.BufferGeometry | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [modelMaxDim, setModelMaxDim] = useState<number>(0)
 
   useEffect(() => {
     if (!stlBlob) {
       setGeometry(null)
+      setModelMaxDim(0)
       return
     }
 
@@ -176,6 +177,15 @@ export function Viewer({ stlBlob, isCompiling }: ViewerProps) {
         // Keep OpenSCAD's Z-up orientation (no rotation needed)
 
         geo.computeVertexNormals()
+        geo.computeBoundingBox()
+
+        // Calculate model size for grid sizing
+        if (geo.boundingBox) {
+          const size = new THREE.Vector3()
+          geo.boundingBox.getSize(size)
+          setModelMaxDim(Math.max(size.x, size.y, size.z))
+        }
+
         setGeometry(geo)
         setLoadError(null)
       } catch (err) {
@@ -191,6 +201,11 @@ export function Viewer({ stlBlob, isCompiling }: ViewerProps) {
     reader.readAsArrayBuffer(stlBlob)
   }, [stlBlob])
 
+  // Grid size: default 400mm, grows with model if larger
+  const gridRange = Math.max(DEFAULT_GRID_SIZE, Math.ceil(modelMaxDim / 10) * 10)
+  const gridSize = gridRange * 2 // Grid is centered, so double the range
+  const gridDivisions = gridSize / 10 // 10mm per division
+
   return (
     <div className="relative w-full h-full bg-gray-900">
       {/* Always render Canvas to preserve WebGL context */}
@@ -200,7 +215,7 @@ export function Viewer({ stlBlob, isCompiling }: ViewerProps) {
         <directionalLight position={[-10, -10, -5]} intensity={0.3} />
         {geometry && <Model geometry={geometry} />}
         <OrbitControls makeDefault />
-        <MeasuredGrid size={100} divisions={10} />
+        <MeasuredGrid size={gridSize} divisions={gridDivisions} />
       </Canvas>
 
       {/* Overlay states */}
