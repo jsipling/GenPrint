@@ -67,7 +67,14 @@ export const gearGenerator: Generator = {
           type: 'number',
           name: 'hub_diameter',
           label: 'Hub Diameter',
-          min: 5, max: 100, default: 15, step: 1, unit: 'mm'
+          min: 5, max: 100, default: 15, step: 1, unit: 'mm',
+          dynamicMax: (params) => {
+            const teeth = Number(params['teeth']) || 20
+            const mod = Number(params['module']) || 2
+            // Root diameter = pitch diameter - 2.5 * module
+            const rootDiameter = mod * (teeth - 2.5)
+            return Math.floor(rootDiameter)
+          }
         },
         {
           type: 'number',
