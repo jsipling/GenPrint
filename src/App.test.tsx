@@ -86,7 +86,7 @@ describe('App', () => {
     expect(selectedGen.textContent).toBe('Spacer')
 
     const genCount = screen.getByTestId('generator-count')
-    expect(genCount.textContent).toBe('8')
+    expect(genCount.textContent).toBe('9')
   })
 
   it('initializes with default parameters for selected generator', async () => {

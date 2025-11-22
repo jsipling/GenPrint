@@ -6,6 +6,7 @@ import { thumbKnobGenerator } from './thumbKnob'
 import { washerGenerator } from './washer'
 import { bracketGenerator } from './bracket'
 import { hookGenerator } from './hook'
+import { gridfinityBinGenerator } from './gridfinityBin'
 import type { Generator } from './types'
 
 export const generators: Generator[] = [
@@ -16,7 +17,8 @@ export const generators: Generator[] = [
   thumbKnobGenerator,
   washerGenerator,
   bracketGenerator,
-  hookGenerator
+  hookGenerator,
+  gridfinityBinGenerator
 ]
 
 export type { Generator, GeneratorPart, ParameterDef, ParameterValues, NumberParameterDef, StringParameterDef, SelectParameterDef, BooleanParameterDef } from './types'
