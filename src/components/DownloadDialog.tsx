@@ -51,15 +51,17 @@ export function DownloadDialog({
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-fade-in"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
       aria-labelledby="download-dialog-title"
+      style={{ animation: 'fadeIn 150ms ease-out' }}
     >
       <div
         className="bg-gray-800 rounded-lg p-6 max-w-sm w-full mx-4 shadow-xl"
         onClick={(e) => e.stopPropagation()}
+        style={{ animation: 'scaleIn 150ms ease-out' }}
       >
         <h2 id="download-dialog-title" className="text-lg font-semibold text-white mb-4">
           Download {generatorName}
