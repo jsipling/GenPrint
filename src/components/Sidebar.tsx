@@ -229,30 +229,34 @@ export function Sidebar({
   canDownload
 }: SidebarProps) {
   return (
-    <aside className="w-72 bg-gray-800 text-white p-4 flex flex-col h-full overflow-y-auto">
-      <header className="mb-6">
-        <h1 className="text-xl font-bold text-blue-400">GenPrint</h1>
-        <p className="text-sm text-gray-400 mt-1">Parametric 3D Model Generator</p>
-      </header>
+    <aside className="w-72 bg-gray-800 text-white flex flex-col h-full">
+      <div className="p-4 pb-0">
+        <header className="mb-6">
+          <h1 className="text-xl font-bold text-blue-400">GenPrint</h1>
+          <p className="text-sm text-gray-400 mt-1">Parametric 3D Model Generator</p>
+        </header>
 
-      <section className="mb-4">
-        <label htmlFor="generator-select" className="block text-sm mb-1">Model</label>
-        <select
-          id="generator-select"
-          value={selectedGenerator.id}
-          onChange={(e) => onGeneratorChange(e.target.value)}
-          className="w-full px-3 py-2 bg-gray-700 rounded border border-gray-600 focus:border-blue-500 focus:outline-none text-white"
-        >
-          {[...generators].sort((a, b) => a.name.localeCompare(b.name)).map((gen) => (
-            <option key={gen.id} value={gen.id}>{gen.name}</option>
-          ))}
-        </select>
-      </section>
+        <section className="mb-4">
+          <label htmlFor="generator-select" className="block text-sm mb-1">Model</label>
+          <select
+            id="generator-select"
+            value={selectedGenerator.id}
+            onChange={(e) => onGeneratorChange(e.target.value)}
+            className="w-full px-3 py-2 bg-gray-700 rounded border border-gray-600 focus:border-blue-500 focus:outline-none text-white"
+          >
+            {[...generators].sort((a, b) => a.name.localeCompare(b.name)).map((gen) => (
+              <option key={gen.id} value={gen.id}>{gen.name}</option>
+            ))}
+          </select>
+        </section>
 
-      <section className="mb-6">
-        <h2 className="text-lg font-semibold mb-1">{selectedGenerator.name}</h2>
-        <p className="text-sm text-gray-400 mb-4">{selectedGenerator.description}</p>
+        <section>
+          <h2 className="text-lg font-semibold mb-1">{selectedGenerator.name}</h2>
+          <p className="text-sm text-gray-400 mb-4">{selectedGenerator.description}</p>
+        </section>
+      </div>
 
+      <div className="flex-1 overflow-y-auto px-4 pb-4">
         <div className="space-y-4">
           {/* Sort parameters: main options first, feature toggles (booleans with children) last */}
           {[...selectedGenerator.parameters]
@@ -275,15 +279,18 @@ export function Sidebar({
               />
             ))}
         </div>
-      </section>
+      </div>
 
-      <div className="mt-auto pt-4 border-t border-gray-700">
+      <div className="p-4 border-t border-gray-700">
         <button
           onClick={onDownload}
           disabled={!canDownload}
-          className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded font-medium transition-colors"
+          className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded font-medium transition-colors flex items-center justify-center gap-2"
           aria-label={canDownload ? `Download ${selectedGenerator.name} as STL file` : 'Download not available - model not ready'}
         >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
           Download STL
         </button>
       </div>
