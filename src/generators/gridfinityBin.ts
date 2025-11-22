@@ -1,4 +1,5 @@
-import type { Generator, ParameterValues } from './types'
+import type { Generator, ParameterValues, QualityLevel } from './types'
+import { getQualityFn } from './types'
 
 /**
  * Gridfinity Extended Bin Generator
@@ -61,6 +62,7 @@ function getBinParams(params: ParameterValues) {
   const fingerSlide = Boolean(params['finger_slide'])
   const wallThickness = Math.max(0.8, Math.min(Number(params['wall_thickness'] || 1.2), 3))
   const floorThickness = Math.max(0.7, Math.min(Number(params['floor_thickness'] || 0.7), 3))
+  const quality = (params['_quality'] as QualityLevel) || 'normal'
 
   return {
     gridX,
@@ -75,7 +77,8 @@ function getBinParams(params: ParameterValues) {
     dividersY,
     fingerSlide,
     wallThickness,
-    floorThickness
+    floorThickness,
+    quality
   }
 }
 
@@ -137,7 +140,7 @@ finger_slide = ${p.fingerSlide};
 wall_thickness = ${p.wallThickness};
 floor_thickness = ${p.floorThickness};
 
-$fn = 48;
+${getQualityFn(p.quality)}
 
 // === DERIVED DIMENSIONS ===
 bin_width = grid_x * gf_pitch - gf_clearance;

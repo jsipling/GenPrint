@@ -1,4 +1,5 @@
-import type { Generator, ParameterValues } from './types'
+import type { Generator, ParameterValues, QualityLevel } from './types'
+import { getQualityFn } from './types'
 
 export const signGenerator: Generator = {
   id: 'custom-sign',
@@ -53,6 +54,7 @@ export const signGenerator: Generator = {
     const padding = Number(params['padding'])
     const baseDepth = Number(params['base_depth'])
     const cornerRadius = Number(params['corner_radius'])
+    const quality = (params['_quality'] as QualityLevel) || 'normal'
 
     return `// Parameters
 sign_text = "${text}";
@@ -61,7 +63,7 @@ text_depth = ${textDepth};
 padding = ${padding};
 base_depth = ${baseDepth};
 corner_radius = ${cornerRadius};
-$fn = 60;
+${getQualityFn(quality)}
 
 // Stroke-based font module
 module draw_path(points, stroke_width) {

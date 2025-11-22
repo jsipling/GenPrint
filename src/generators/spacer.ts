@@ -1,4 +1,5 @@
-import type { Generator, ParameterValues } from './types'
+import type { Generator, ParameterValues, QualityLevel } from './types'
+import { getQualityFn } from './types'
 
 export const spacerGenerator: Generator = {
   id: 'spacer',
@@ -37,6 +38,7 @@ export const spacerGenerator: Generator = {
   scadTemplate: (params: ParameterValues) => {
     const outerDiameter = Number(params['outer_diameter'])
     const height = Number(params['height'])
+    const quality = (params['_quality'] as QualityLevel) || 'normal'
 
     // Clamp inner_hole to be at most outer_diameter - 2mm for minimum wall thickness
     const maxInnerHole = outerDiameter - 2
@@ -46,7 +48,7 @@ export const spacerGenerator: Generator = {
 outer_diameter = ${outerDiameter};
 inner_hole = ${innerHole};
 height = ${height};
-$fn = 60;
+${getQualityFn(quality)}
 
 difference() {
     cylinder(h=height, d=outer_diameter);

@@ -79,6 +79,27 @@ export interface Generator {
 export type ParameterValues = Record<string, number | string | boolean>
 
 /**
+ * Quality levels for rendering. Affects $fn (circle segments).
+ * - draft: Fast preview (~24 segments)
+ * - normal: Balanced quality (~48 segments)
+ * - high: Production quality (~64 segments)
+ */
+export type QualityLevel = 'draft' | 'normal' | 'high'
+
+export const QUALITY_FN: Record<QualityLevel, number> = {
+  draft: 24,
+  normal: 48,
+  high: 64
+}
+
+/**
+ * Returns OpenSCAD $fn setting for the given quality level.
+ */
+export function getQualityFn(quality: QualityLevel = 'normal'): string {
+  return `$fn = ${QUALITY_FN[quality]};`
+}
+
+/**
  * Flattens nested parameters (from boolean children) into a single array.
  * Useful for iterating over all parameters regardless of nesting.
  */

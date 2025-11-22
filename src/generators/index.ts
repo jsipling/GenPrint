@@ -21,5 +21,5 @@ export const generators: Generator[] = [
   gridfinityBinGenerator
 ]
 
-export type { Generator, GeneratorPart, ParameterDef, ParameterValues, NumberParameterDef, StringParameterDef, SelectParameterDef, BooleanParameterDef } from './types'
-export { isNumberParam, isStringParam, isSelectParam, isBooleanParam, flattenParameters } from './types'
+export type { Generator, GeneratorPart, ParameterDef, ParameterValues, NumberParameterDef, StringParameterDef, SelectParameterDef, BooleanParameterDef, QualityLevel } from './types'
+export { isNumberParam, isStringParam, isSelectParam, isBooleanParam, flattenParameters, getQualityFn, QUALITY_FN } from './types'

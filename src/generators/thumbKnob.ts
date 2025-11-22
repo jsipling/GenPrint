@@ -1,4 +1,5 @@
-import type { Generator, ParameterValues } from './types'
+import type { Generator, ParameterValues, QualityLevel } from './types'
+import { getQualityFn } from './types'
 
 export const thumbKnobGenerator: Generator = {
   id: 'thumb-knob',
@@ -93,6 +94,7 @@ export const thumbKnobGenerator: Generator = {
     // Ensure knob is large enough: hex diameter + wall (3mm) + ridge depth (1.5mm) on each side
     const minKnobD = hexD + 9
     const safeKnobD = Math.max(knobD, minKnobD)
+    const quality = (params['_quality'] as QualityLevel) || 'normal'
 
     return `
 // --- Parameters ---
@@ -110,7 +112,7 @@ hex_depth = ${hexDepth};
 // Diameter = Flat / cos(30) ~= Flat / 0.866025
 hex_d = hex_flat / 0.866025;
 
-$fn = 60;
+${getQualityFn(quality)}
 
 // --- Geometry ---
 

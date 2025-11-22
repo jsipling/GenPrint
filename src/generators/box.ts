@@ -1,4 +1,5 @@
-import type { Generator, GeneratorPart, ParameterValues } from './types'
+import type { Generator, GeneratorPart, ParameterValues, QualityLevel } from './types'
+import { getQualityFn } from './types'
 
 // Shared SCAD code for box generator parts
 function getBoxParams(params: ParameterValues) {
@@ -16,6 +17,7 @@ function getBoxParams(params: ParameterValues) {
   const dividersY = Math.floor(Number(params['dividers_y']))
   const fingerGrip = Boolean(params['finger_grip'])
   const stackable = Boolean(params['stackable'])
+  const quality = (params['_quality'] as QualityLevel) || 'normal'
 
   // Keep walls and corners printable even if users input extreme values
   const safeWall = Math.max(0.6, Math.min(
@@ -36,7 +38,7 @@ function getBoxParams(params: ParameterValues) {
   return {
     width, depth, height, includeLid, fingerGrip, stackable,
     safeWall, safeCorner, safeLidHeight, safeLidClearance,
-    safeLipHeight, safeBottom, safeDividersX, safeDividersY
+    safeLipHeight, safeBottom, safeDividersX, safeDividersY, quality
   }
 }
 
@@ -56,7 +58,7 @@ dividers_x = ${p.safeDividersX};
 dividers_y = ${p.safeDividersY};
 finger_grip = ${p.fingerGrip ? 'true' : 'false'};
 stackable = ${p.stackable ? 'true' : 'false'};
-$fn = 60;
+${getQualityFn(p.quality)}
 
 // Derived dimensions
 inner_width = max(1, width - wall_thickness*2);

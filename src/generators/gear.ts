@@ -1,4 +1,5 @@
-import type { Generator, ParameterValues } from './types'
+import type { Generator, ParameterValues, QualityLevel } from './types'
+import { getQualityFn } from './types'
 
 export const gearGenerator: Generator = {
   id: 'spur_gear',
@@ -120,6 +121,8 @@ export const gearGenerator: Generator = {
     // Ensure hub is at least as big as the bore + wall
     const safeHubDiameter = Math.max(hubDiameter, safeBore + 4)
 
+    const quality = (params['_quality'] as QualityLevel) || 'normal'
+
     return `// Parameters
 teeth = ${teeth};
 m = ${mod};
@@ -131,7 +134,7 @@ hub_h = ${hubHeight};
 pressure_angle = ${pressureAngle};
 clearance = ${tolerance};
 tip_sharpness = ${tipSharpness};
-$fn = 64;
+${getQualityFn(quality)}
 
 // Derived Dimensions
 pitch_r = teeth * m / 2;

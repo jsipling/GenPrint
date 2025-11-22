@@ -1,4 +1,5 @@
-import type { Generator, ParameterValues } from './types'
+import type { Generator, ParameterValues, QualityLevel } from './types'
+import { getQualityFn } from './types'
 
 export const bracketGenerator: Generator = {
   id: 'bracket',
@@ -83,6 +84,7 @@ export const bracketGenerator: Generator = {
     const holeCountArm2 = Number(params['hole_count_arm_2'])
     const addRib = Boolean(params['add_rib'])
     const ribThickness = Number(params['rib_thickness'])
+    const quality = (params['_quality'] as QualityLevel) || 'normal'
 
     return `
 // Dimensions
@@ -96,7 +98,7 @@ hole_count_arm_2 = ${holeCountArm2};
 add_rib = ${addRib};
 rib_thickness = ${ribThickness};
 
-$fn = 32;
+${getQualityFn(quality)}
 
 difference() {
     union() {

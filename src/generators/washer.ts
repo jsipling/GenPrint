@@ -1,4 +1,5 @@
-import type { Generator, ParameterValues } from './types'
+import type { Generator, ParameterValues, QualityLevel } from './types'
+import { getQualityFn, QUALITY_FN } from './types'
 
 export const washerGenerator: Generator = {
   id: 'washer',
@@ -38,10 +39,15 @@ export const washerGenerator: Generator = {
     const outerD = Number(params['outer_diameter'])
     const innerD = Number(params['inner_diameter'])
     const thickness = Number(params['thickness'])
+    const quality = (params['_quality'] as QualityLevel) || 'normal'
 
     // Ensure inner diameter leaves at least 1mm wall
     const maxInner = outerD - 2
     const safeInnerD = Math.min(innerD, maxInner)
+
+    // Scale $fn based on quality and size
+    const baseFn = QUALITY_FN[quality]
+    const scaledFn = Math.max(baseFn, Math.floor(outerD * 2))
 
     return `
 // Dimensions
@@ -49,7 +55,7 @@ outer_d = ${outerD};
 inner_d = ${safeInnerD};
 thickness = ${thickness};
 
-$fn = max(32, outer_d * 3);
+$fn = ${scaledFn};
 
 difference() {
     cylinder(h = thickness, d = outer_d);

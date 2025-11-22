@@ -1,4 +1,5 @@
-import type { Generator, ParameterValues } from './types'
+import type { Generator, ParameterValues, QualityLevel } from './types'
+import { getQualityFn } from './types'
 
 export const hookGenerator: Generator = {
   id: 'hook',
@@ -42,6 +43,7 @@ export const hookGenerator: Generator = {
     const hookHeight = Number(params['hook_height'])
     const thickness = Number(params['thickness'])
     const holeDiameter = Number(params['hole_diameter'])
+    const quality = (params['_quality'] as QualityLevel) || 'normal'
 
     return `// Parameters
 width = ${width};
@@ -49,7 +51,7 @@ hook_depth = ${hookDepth};
 hook_height = ${hookHeight};
 thickness = ${thickness};
 hole_d = ${holeDiameter};
-$fn = 60;
+${getQualityFn(quality)}
 
 difference() {
     linear_extrude(height=width)

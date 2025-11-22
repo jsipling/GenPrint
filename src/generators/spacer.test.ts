@@ -37,7 +37,7 @@ describe('spacerGenerator', () => {
     expect(scad).toContain('outer_diameter = 20')
     expect(scad).toContain('inner_hole = 5')
     expect(scad).toContain('height = 10')
-    expect(scad).toContain('$fn = 60')
+    expect(scad).toMatch(/\$fn = \d+/)
   })
 
   it('should generate SCAD code with difference operation', () => {

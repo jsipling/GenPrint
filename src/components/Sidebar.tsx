@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import type { Generator, ParameterValues, ParameterDef } from '../generators'
+import type { Generator, ParameterValues, ParameterDef, QualityLevel } from '../generators'
 import { isStringParam, isSelectParam, isBooleanParam } from '../generators'
 
 interface SidebarProps {
@@ -14,6 +14,8 @@ interface SidebarProps {
   onDownload: () => void
   onReset: () => void
   canDownload: boolean
+  quality: QualityLevel
+  onQualityChange: (quality: QualityLevel) => void
 }
 
 interface ParameterInputProps {
@@ -239,7 +241,9 @@ export function Sidebar({
   onSliderDragEnd,
   onDownload,
   onReset,
-  canDownload
+  canDownload,
+  quality,
+  onQualityChange
 }: SidebarProps) {
   return (
     <aside className="w-72 bg-gray-800 text-white flex flex-col h-full">
@@ -305,6 +309,24 @@ export function Sidebar({
       </div>
 
       <div className="p-4 border-t border-gray-700 bg-gray-900">
+        <div className="mb-3">
+          <label className="block text-xs text-gray-400 mb-1">Render Quality</label>
+          <div className="flex gap-1">
+            {(['draft', 'normal', 'high'] as const).map((q) => (
+              <button
+                key={q}
+                onClick={() => onQualityChange(q)}
+                className={`flex-1 py-1 px-2 text-xs rounded transition-colors ${
+                  quality === q
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                }`}
+              >
+                {q.charAt(0).toUpperCase() + q.slice(1)}
+              </button>
+            ))}
+          </div>
+        </div>
         <button
           onClick={onDownload}
           disabled={!canDownload}

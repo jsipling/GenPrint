@@ -156,7 +156,7 @@ describe('thumbKnobGenerator', () => {
       tolerance: 0.15
     })
 
-    expect(scad).toContain('$fn = 60')
+    expect(scad).toMatch(/\$fn = \d+/)
   })
 
   it('should clamp knob diameter to safe minimum for large screws', () => {

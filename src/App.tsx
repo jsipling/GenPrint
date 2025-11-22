@@ -4,7 +4,7 @@ import { Sidebar } from './components/Sidebar'
 import { CompilerOutput } from './components/CompilerOutput'
 import { DownloadDialog } from './components/DownloadDialog'
 import { useOpenSCAD } from './hooks/useOpenSCAD'
-import { generators, flattenParameters, type ParameterValues, type GeneratorPart } from './generators'
+import { generators, flattenParameters, type ParameterValues, type GeneratorPart, type QualityLevel } from './generators'
 
 const DEBOUNCE_MS = 1000
 
@@ -67,6 +67,7 @@ export default function App() {
     return urlState.params ? { ...defaults, ...urlState.params } : defaults
   })
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [quality, setQuality] = useState<QualityLevel>('normal')
 
   // Update URL when state changes
   useEffect(() => {
@@ -100,6 +101,10 @@ export default function App() {
   const generatorRef = useRef(selectedGenerator)
   generatorRef.current = selectedGenerator
 
+  // Use ref to always have latest quality without triggering effects
+  const qualityRef = useRef(quality)
+  qualityRef.current = quality
+
   const doCompile = useCallback((currentParams: ParameterValues) => {
     if (isCompilingRef.current) {
       // Queue the latest params to compile after current finishes
@@ -109,7 +114,9 @@ export default function App() {
 
     isCompilingRef.current = true
     pendingParamsRef.current = null
-    const scadCode = generatorRef.current.scadTemplate(currentParams)
+    // Pass quality via special _quality param
+    const paramsWithQuality = { ...currentParams, _quality: qualityRef.current }
+    const scadCode = generatorRef.current.scadTemplate(paramsWithQuality)
     compileRef.current(scadCode).finally(() => {
       isCompilingRef.current = false
       // If params changed while compiling, compile again with latest
@@ -183,6 +190,15 @@ export default function App() {
       doCompile(defaultParams)
     }
   }, [selectedGenerator, doCompile])
+
+  // Quality change triggers immediate recompile
+  const handleQualityChange = useCallback((newQuality: QualityLevel) => {
+    setQuality(newQuality)
+    qualityRef.current = newQuality
+    if (hasCompiledOnceRef.current) {
+      doCompile(params)
+    }
+  }, [doCompile, params])
 
   const [showDownloadDialog, setShowDownloadDialog] = useState(false)
 
@@ -279,6 +295,8 @@ export default function App() {
           onDownload={handleDownload}
           onReset={handleReset}
           canDownload={stlBlob !== null && status === 'ready'}
+          quality={quality}
+          onQualityChange={handleQualityChange}
         />
       </div>
 
