@@ -126,9 +126,9 @@ function Model({ geometry }: ModelProps) {
     const center = new THREE.Vector3()
     box.getCenter(center)
 
-    // Center X/Y at origin, place bottom of model on floor (Z=0)
+    // Place model corner at origin (min X, Y, Z all at 0)
     if (meshRef.current) {
-      meshRef.current.position.set(-center.x, -center.y, -box.min.z)
+      meshRef.current.position.set(-box.min.x, -box.min.y, -box.min.z)
     }
 
     const size = new THREE.Vector3()
