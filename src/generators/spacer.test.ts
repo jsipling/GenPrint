@@ -3,8 +3,8 @@ import { spacerGenerator } from './spacer'
 
 describe('spacerGenerator', () => {
   it('should have correct metadata', () => {
-    expect(spacerGenerator.id).toBe('cylindrical-spacer')
-    expect(spacerGenerator.name).toBe('Cylindrical Spacer')
+    expect(spacerGenerator.id).toBe('spacer')
+    expect(spacerGenerator.name).toBe('Spacer')
     expect(spacerGenerator.description).toBe('A simple cylindrical spacer with a center hole')
   })
 

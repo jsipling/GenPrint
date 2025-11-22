@@ -75,7 +75,7 @@ describe('App', () => {
     render(<App />)
 
     const selectedGen = screen.getByTestId('selected-generator')
-    expect(selectedGen.textContent).toBe('Cylindrical Spacer')
+    expect(selectedGen.textContent).toBe('Spacer')
 
     const genCount = screen.getByTestId('generator-count')
     expect(genCount.textContent).toBe('8')
@@ -97,7 +97,7 @@ describe('App', () => {
     render(<App />)
 
     // Initially shows spacer
-    expect(screen.getByTestId('selected-generator').textContent).toBe('Cylindrical Spacer')
+    expect(screen.getByTestId('selected-generator').textContent).toBe('Spacer')
 
     // Click to change generator
     fireEvent.click(screen.getByTestId('change-generator'))

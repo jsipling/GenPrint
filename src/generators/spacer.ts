@@ -1,8 +1,8 @@
 import type { Generator, ParameterValues } from './types'
 
 export const spacerGenerator: Generator = {
-  id: 'cylindrical-spacer',
-  name: 'Cylindrical Spacer',
+  id: 'spacer',
+  name: 'Spacer',
   description: 'A simple cylindrical spacer with a center hole',
   parameters: [
     {
