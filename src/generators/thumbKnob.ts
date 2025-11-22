@@ -71,7 +71,9 @@ export const thumbKnobGenerator: Generator = {
 
     // Fallback to M3 if something goes wrong with the lookup
     const specValues = specs[size] ?? specs['M3'] ?? [3.2, 5.5, 3.0]
-    const [holeD, hexFlat, hexDepth] = specValues
+    const holeD = specValues[0] ?? 3.2
+    const hexFlat = specValues[1] ?? 5.5
+    const hexDepth = specValues[2] ?? 3.0
 
     // Calculate hex corner-to-corner diameter
     const hexD = (hexFlat + tol * 2) / 0.866025

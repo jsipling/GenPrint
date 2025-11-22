@@ -3,6 +3,9 @@ import { signGenerator } from './sign'
 import { boxGenerator } from './box'
 import { gearGenerator } from './gear'
 import { thumbKnobGenerator } from './thumbKnob'
+import { washerGenerator } from './washer'
+import { bracketGenerator } from './bracket'
+import { hookGenerator } from './hook'
 import type { Generator } from './types'
 
 export const generators: Generator[] = [
@@ -10,7 +13,10 @@ export const generators: Generator[] = [
   signGenerator,
   boxGenerator,
   gearGenerator,
-  thumbKnobGenerator
+  thumbKnobGenerator,
+  washerGenerator,
+  bracketGenerator,
+  hookGenerator
 ]
 
 export type { Generator, ParameterDef, ParameterValues, NumberParameterDef, StringParameterDef, SelectParameterDef, BooleanParameterDef } from './types'
