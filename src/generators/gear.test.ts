@@ -9,7 +9,7 @@ describe('gearGenerator', () => {
   })
 
   it('should have correct parameters defined', () => {
-    expect(gearGenerator.parameters).toHaveLength(9)
+    expect(gearGenerator.parameters).toHaveLength(10)
 
     const teeth = gearGenerator.parameters.find(p => p.name === 'teeth')
     expect(teeth).toBeDefined()
@@ -255,10 +255,55 @@ describe('gearGenerator', () => {
       hub_diameter: 15,
       hub_height: 0,
       pressure_angle: 20,
-      tolerance: 0
+      tolerance: 0,
+      tip_sharpness: 0
     })
 
     // Should contain a bore_d value less than 50
     expect(scad).toContain('bore_d = 31')
+  })
+
+  it('should have tip_sharpness parameter', () => {
+    const tipSharpness = gearGenerator.parameters.find(p => p.name === 'tip_sharpness')
+    expect(tipSharpness).toBeDefined()
+    expect(tipSharpness?.type).toBe('number')
+    expect(tipSharpness?.default).toBe(0)
+    expect(tipSharpness?.min).toBe(0)
+    expect(tipSharpness?.max).toBe(1)
+  })
+
+  it('should include tip_sharpness in SCAD output', () => {
+    const scad = gearGenerator.scadTemplate({
+      teeth: 20,
+      module: 2,
+      height: 5,
+      bore_diameter: 5,
+      include_hub: false,
+      hub_diameter: 15,
+      hub_height: 0,
+      pressure_angle: 20,
+      tolerance: 0,
+      tip_sharpness: 0.5
+    })
+
+    expect(scad).toContain('tip_sharpness = 0.5')
+  })
+
+  it('should generate pointed tip when tip_sharpness is 1', () => {
+    const scad = gearGenerator.scadTemplate({
+      teeth: 20,
+      module: 2,
+      height: 5,
+      bore_diameter: 5,
+      include_hub: false,
+      hub_diameter: 15,
+      hub_height: 0,
+      pressure_angle: 20,
+      tolerance: 0,
+      tip_sharpness: 1
+    })
+
+    // Should include tip point logic in polygon
+    expect(scad).toContain('tip_point')
   })
 })

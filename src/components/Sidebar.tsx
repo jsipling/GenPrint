@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { Generator, ParameterValues } from '../generators'
+import type { Generator, ParameterValues, ParameterDef } from '../generators'
 import { isStringParam, isSelectParam, isBooleanParam } from '../generators'
 import type { CompileStatus } from '../hooks/useOpenSCAD'
 
@@ -67,6 +67,121 @@ function StatusBadge({ status, error }: { status: CompileStatus; error: string |
   )
 }
 
+interface ParameterInputProps {
+  param: ParameterDef
+  params: ParameterValues
+  onParamChange: (name: string, value: number | string | boolean) => void
+  depth?: number
+}
+
+function ParameterInput({ param, params, onParamChange, depth = 0 }: ParameterInputProps) {
+  const value = params[param.name] ?? param.default
+
+  if (isStringParam(param)) {
+    return (
+      <div className={depth > 0 ? 'ml-6 pl-3 border-l border-gray-600' : ''}>
+        <label htmlFor={param.name} className="block text-sm mb-1">
+          {param.label}
+        </label>
+        <input
+          type="text"
+          id={param.name}
+          value={String(value)}
+          maxLength={param.maxLength}
+          onChange={(e) => onParamChange(param.name, e.target.value)}
+          className="w-full px-3 py-2 bg-gray-700 rounded border border-gray-600 focus:border-blue-500 focus:outline-none text-white"
+        />
+      </div>
+    )
+  }
+
+  if (isSelectParam(param)) {
+    return (
+      <div className={depth > 0 ? 'ml-6 pl-3 border-l border-gray-600' : ''}>
+        <label htmlFor={param.name} className="block text-sm mb-1">
+          {param.label}
+        </label>
+        <select
+          id={param.name}
+          value={String(value)}
+          onChange={(e) => onParamChange(param.name, e.target.value)}
+          className="w-full px-3 py-2 bg-gray-700 rounded border border-gray-600 focus:border-blue-500 focus:outline-none text-white"
+        >
+          {param.options.map((option) => (
+            <option key={option} value={option}>{option}</option>
+          ))}
+        </select>
+      </div>
+    )
+  }
+
+  if (isBooleanParam(param)) {
+    const checked = Boolean(value)
+    const hasChildren = param.children && param.children.length > 0
+    return (
+      <div className={depth > 0 ? 'ml-6 pl-3 border-l border-gray-600' : ''}>
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            id={param.name}
+            checked={checked}
+            onChange={(e) => onParamChange(param.name, e.target.checked)}
+            className="w-4 h-4 bg-gray-700 rounded border border-gray-600 focus:ring-blue-500 accent-blue-500"
+          />
+          <label htmlFor={param.name} className="text-sm">
+            {param.label}
+          </label>
+        </div>
+        {hasChildren && checked && (
+          <div className="mt-3 space-y-3">
+            {param.children!.map((child) => (
+              <ParameterInput
+                key={child.name}
+                param={child}
+                params={params}
+                onParamChange={onParamChange}
+                depth={depth + 1}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // TypeScript now knows param is NumberParameterDef
+  const numValue = Number(value)
+  const valueText = `${numValue}${param.unit ? ` ${param.unit}` : ''}`
+  return (
+    <div className={depth > 0 ? 'ml-6 pl-3 border-l border-gray-600' : ''}>
+      <div className="flex justify-between text-sm mb-1">
+        <label htmlFor={param.name}>{param.label}</label>
+        <span className="text-gray-400" aria-hidden="true">
+          {valueText}
+        </span>
+      </div>
+      <input
+        type="range"
+        id={param.name}
+        min={param.min}
+        max={param.max}
+        step={param.step ?? 1}
+        value={numValue}
+        onChange={(e) => onParamChange(param.name, parseFloat(e.target.value))}
+        className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+        aria-valuemin={param.min}
+        aria-valuemax={param.max}
+        aria-valuenow={numValue}
+        aria-valuetext={valueText}
+      />
+      <div className="flex justify-between text-xs text-gray-500 mt-1" aria-hidden="true">
+        <span>{param.min}</span>
+        <span>{param.max}</span>
+      </div>
+    </div>
+  )
+}
+
 export function Sidebar({
   generators,
   selectedGenerator,
@@ -112,97 +227,14 @@ export function Sidebar({
         <p className="text-sm text-gray-400 mb-4">{selectedGenerator.description}</p>
 
         <div className="space-y-4">
-          {selectedGenerator.parameters.map((param) => {
-            const value = params[param.name] ?? param.default
-
-            if (isStringParam(param)) {
-              return (
-                <div key={param.name}>
-                  <label htmlFor={param.name} className="block text-sm mb-1">
-                    {param.label}
-                  </label>
-                  <input
-                    type="text"
-                    id={param.name}
-                    value={String(value)}
-                    maxLength={param.maxLength}
-                    onChange={(e) => onParamChange(param.name, e.target.value)}
-                    className="w-full px-3 py-2 bg-gray-700 rounded border border-gray-600 focus:border-blue-500 focus:outline-none text-white"
-                  />
-                </div>
-              )
-            }
-
-            if (isSelectParam(param)) {
-              return (
-                <div key={param.name}>
-                  <label htmlFor={param.name} className="block text-sm mb-1">
-                    {param.label}
-                  </label>
-                  <select
-                    id={param.name}
-                    value={String(value)}
-                    onChange={(e) => onParamChange(param.name, e.target.value)}
-                    className="w-full px-3 py-2 bg-gray-700 rounded border border-gray-600 focus:border-blue-500 focus:outline-none text-white"
-                  >
-                    {param.options.map((option) => (
-                      <option key={option} value={option}>{option}</option>
-                    ))}
-                  </select>
-                </div>
-              )
-            }
-
-            if (isBooleanParam(param)) {
-              const checked = Boolean(value)
-              return (
-                <div key={param.name} className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id={param.name}
-                    checked={checked}
-                    onChange={(e) => onParamChange(param.name, e.target.checked)}
-                    className="w-4 h-4 bg-gray-700 rounded border border-gray-600 focus:ring-blue-500 accent-blue-500"
-                  />
-                  <label htmlFor={param.name} className="text-sm">
-                    {param.label}
-                  </label>
-                </div>
-              )
-            }
-
-            // TypeScript now knows param is NumberParameterDef
-            const numValue = Number(value)
-            const valueText = `${numValue}${param.unit ? ` ${param.unit}` : ''}`
-            return (
-              <div key={param.name}>
-                <div className="flex justify-between text-sm mb-1">
-                  <label htmlFor={param.name}>{param.label}</label>
-                  <span className="text-gray-400" aria-hidden="true">
-                    {valueText}
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  id={param.name}
-                  min={param.min}
-                  max={param.max}
-                  step={param.step ?? 1}
-                  value={numValue}
-                  onChange={(e) => onParamChange(param.name, parseFloat(e.target.value))}
-                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                  aria-valuemin={param.min}
-                  aria-valuemax={param.max}
-                  aria-valuenow={numValue}
-                  aria-valuetext={valueText}
-                />
-                <div className="flex justify-between text-xs text-gray-500 mt-1" aria-hidden="true">
-                  <span>{param.min}</span>
-                  <span>{param.max}</span>
-                </div>
-              </div>
-            )
-          })}
+          {selectedGenerator.parameters.map((param) => (
+            <ParameterInput
+              key={param.name}
+              param={param}
+              params={params}
+              onParamChange={onParamChange}
+            />
+          ))}
         </div>
       </section>
 

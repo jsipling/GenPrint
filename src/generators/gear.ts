@@ -63,6 +63,13 @@ export const gearGenerator: Generator = {
       label: 'Fit Tolerance',
       min: 0, max: 0.5, default: 0, step: 0.05, unit: 'mm',
       description: 'Increases backlash for better printing fit'
+    },
+    {
+      type: 'number',
+      name: 'tip_sharpness',
+      label: 'Tip Sharpness',
+      min: 0, max: 1, default: 0, step: 0.1, unit: '',
+      description: '0 = flat tip (standard), 1 = pointed tip'
     }
   ],
   scadTemplate: (params: ParameterValues) => {
@@ -75,6 +82,7 @@ export const gearGenerator: Generator = {
     const hubHeight = Number(params['hub_height'])
     const pressureAngle = Number(params['pressure_angle'])
     const tolerance = Number(params['tolerance'])
+    const tipSharpness = Number(params['tip_sharpness'])
 
     // Calculations for safety and geometry
     const pitchDiameter = teeth * mod
@@ -97,6 +105,7 @@ hub_d = ${safeHubDiameter};
 hub_h = ${hubHeight};
 pressure_angle = ${pressureAngle};
 clearance = ${tolerance};
+tip_sharpness = ${tipSharpness};
 $fn = 64;
 
 // Derived Dimensions
@@ -177,11 +186,28 @@ module one_tooth() {
     // Build closed polygon: root-arc, right flank, tip, left flank (reversed)
     root_half_angle = half_pitch_angle + 2; // slightly wider at root
 
+    // Calculate tip point for pointed teeth
+    // When tip_sharpness = 0: flat tip (no extra point)
+    // When tip_sharpness = 1: pointed tip at outer_r on centerline
+    right_tip = right_pts[steps];
+    left_tip = left_pts[steps];
+    // Midpoint between the two flank tips
+    mid_tip = [(right_tip[0] + left_tip[0]) / 2, (right_tip[1] + left_tip[1]) / 2];
+    // Full point at outer radius on x-axis
+    point_tip = [outer_r, 0];
+    // Interpolate based on tip_sharpness
+    tip_point = [
+        mid_tip[0] + tip_sharpness * (point_tip[0] - mid_tip[0]),
+        mid_tip[1] + tip_sharpness * (point_tip[1] - mid_tip[1])
+    ];
+
     polygon(concat(
         // Start at root on right side
         [[root_r * cos(-root_half_angle), root_r * sin(-root_half_angle)]],
         // Right involute flank
         right_pts,
+        // Tip point (interpolated between flat and pointed)
+        tip_sharpness > 0 ? [tip_point] : [],
         // Left involute flank (reversed, tip to base)
         [for (i = [steps : -1 : 0]) left_pts[i]],
         // End at root on left side

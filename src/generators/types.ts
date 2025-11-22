@@ -31,6 +31,7 @@ export interface BooleanParameterDef {
   name: string
   label: string
   default: boolean
+  children?: ParameterDef[]
 }
 
 export type ParameterDef = NumberParameterDef | StringParameterDef | SelectParameterDef | BooleanParameterDef
@@ -61,3 +62,18 @@ export interface Generator {
 }
 
 export type ParameterValues = Record<string, number | string | boolean>
+
+/**
+ * Flattens nested parameters (from boolean children) into a single array.
+ * Useful for iterating over all parameters regardless of nesting.
+ */
+export function flattenParameters(params: ParameterDef[]): ParameterDef[] {
+  const result: ParameterDef[] = []
+  for (const param of params) {
+    result.push(param)
+    if (isBooleanParam(param) && param.children) {
+      result.push(...flattenParameters(param.children))
+    }
+  }
+  return result
+}
