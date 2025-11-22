@@ -4,7 +4,7 @@ import { signGenerator } from './sign'
 describe('signGenerator', () => {
   it('should have correct metadata', () => {
     expect(signGenerator.id).toBe('custom-sign')
-    expect(signGenerator.name).toBe('Custom Sign')
+    expect(signGenerator.name).toBe('Sign')
   })
 
   it('should generate SCAD code using stroke-based text', () => {

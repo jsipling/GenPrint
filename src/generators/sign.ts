@@ -66,7 +66,7 @@ module stroke_char_2d(char, size, thickness) {
 
 export const signGenerator: Generator = {
   id: 'custom-sign',
-  name: 'Custom Sign',
+  name: 'Sign',
   description: 'A nameplate with raised vector text and optional mounting holes.',
   parameters: [
     {

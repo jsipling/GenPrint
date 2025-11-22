@@ -104,7 +104,7 @@ describe('App', () => {
 
     // Now shows sign generator
     await waitFor(() => {
-      expect(screen.getByTestId('selected-generator').textContent).toBe('Custom Sign')
+      expect(screen.getByTestId('selected-generator').textContent).toBe('Sign')
     })
 
     // Params should be reset to sign's defaults
