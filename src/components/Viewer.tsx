@@ -218,7 +218,7 @@ export function Viewer({ stlBlob, isCompiling }: ViewerProps) {
         <directionalLight position={[10, 10, 5]} intensity={1} />
         <directionalLight position={[-10, -10, -5]} intensity={0.3} />
         {geometry && <Model geometry={geometry} />}
-        <OrbitControls makeDefault />
+        <OrbitControls makeDefault panSpeed={2} />
         <MeasuredGrid size={gridSize} divisions={gridDivisions} />
       </Canvas>
 
