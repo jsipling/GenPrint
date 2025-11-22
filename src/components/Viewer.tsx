@@ -1,8 +1,25 @@
 import { useRef, useEffect, useState } from 'react'
-import { Canvas, useThree } from '@react-three/fiber'
+import { Canvas, useThree, useFrame } from '@react-three/fiber'
 import { OrbitControls, Html, Line } from '@react-three/drei'
 import * as THREE from 'three'
 import { STLLoader } from 'three-stdlib'
+import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
+
+// Dynamic pan speed controls - scales with camera distance
+function DynamicControls() {
+  const controlsRef = useRef<OrbitControlsImpl>(null)
+
+  useFrame(({ camera }) => {
+    if (controlsRef.current) {
+      // Scale pan speed with camera distance (closer = faster relative movement)
+      const distance = camera.position.length()
+      const basePanSpeed = 0.02
+      controlsRef.current.panSpeed = Math.max(0.5, distance * basePanSpeed)
+    }
+  })
+
+  return <OrbitControls ref={controlsRef} makeDefault zoomSpeed={1.5} />
+}
 
 // Grid with measurement labels (Z-up coordinate system)
 function MeasuredGrid({ size = 100, divisions = 10 }: { size?: number; divisions?: number }) {
@@ -218,7 +235,7 @@ export function Viewer({ stlBlob, isCompiling }: ViewerProps) {
         <directionalLight position={[10, 10, 5]} intensity={1} />
         <directionalLight position={[-10, -10, -5]} intensity={0.3} />
         {geometry && <Model geometry={geometry} />}
-        <OrbitControls makeDefault panSpeed={2} />
+        <DynamicControls />
         <MeasuredGrid size={gridSize} divisions={gridDivisions} />
       </Canvas>
 
