@@ -56,9 +56,15 @@ export function CompilerOutput({ output, status, error }: CompilerOutputProps) {
         aria-expanded={expanded}
         aria-controls="compiler-output"
       >
-        <span className="transform transition-transform" style={{ transform: expanded ? 'rotate(90deg)' : 'none' }}>
-          ▶
-        </span>
+        <svg
+          className="w-4 h-4 transition-transform"
+          style={{ transform: expanded ? 'rotate(90deg)' : 'none' }}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
         <span className="font-medium">Compiler Output</span>
         {statusText && (
           <>
