@@ -1,153 +1,61 @@
-import type { Generator, ParameterValues } from './types'
+import type { Generator, GeneratorPart, ParameterValues } from './types'
 
-export const boxGenerator: Generator = {
-  id: 'box',
-  name: 'Box',
-  description: 'A customizable box with optional lid',
-  parameters: [
-    {
-      type: 'number',
-      name: 'width',
-      label: 'Width',
-      min: 20, max: 200, default: 50, step: 1, unit: 'mm'
-    },
-    {
-      type: 'number',
-      name: 'depth',
-      label: 'Depth',
-      min: 20, max: 200, default: 50, step: 1, unit: 'mm'
-    },
-    {
-      type: 'number',
-      name: 'height',
-      label: 'Height',
-      min: 10, max: 100, default: 30, step: 1, unit: 'mm'
-    },
-    {
-      type: 'number',
-      name: 'wall_thickness',
-      label: 'Wall Thickness',
-      min: 1, max: 5, default: 2, step: 0.5, unit: 'mm'
-    },
-    {
-      type: 'number',
-      name: 'corner_radius',
-      label: 'Corner Radius',
-      min: 0, max: 10, default: 3, step: 1, unit: 'mm',
-      dynamicMax: (params) => {
-        const width = Number(params['width']) || 50
-        const depth = Number(params['depth']) || 50
-        const wall = Number(params['wall_thickness']) || 2
-        // Corner radius limited by smaller dimension minus wall
-        return Math.floor(Math.min(width, depth) / 2 - wall)
-      }
-    },
-    {
-      type: 'boolean',
-      name: 'include_lid',
-      label: 'Include Lid',
-      default: true,
-      children: [
-        {
-          type: 'number',
-          name: 'lid_height',
-          label: 'Lid Height',
-          min: 4, max: 40, default: 8, step: 0.5, unit: 'mm'
-        },
-        {
-          type: 'number',
-          name: 'lid_clearance',
-          label: 'Lid Clearance',
-          min: 0, max: 1, default: 0.2, step: 0.05, unit: 'mm'
-        },
-        {
-          type: 'number',
-          name: 'lid_lip_height',
-          label: 'Lid Lip Depth',
-          min: 2, max: 30, default: 5, step: 0.5, unit: 'mm'
-        }
-      ]
-    },
-    {
-      type: 'number',
-      name: 'bottom_thickness',
-      label: 'Bottom Thickness',
-      min: 1, max: 10, default: 2, step: 0.5, unit: 'mm'
-    },
-    {
-      type: 'number',
-      name: 'dividers_x',
-      label: 'Dividers (Width)',
-      min: 0, max: 10, default: 0, step: 1, unit: '',
-      description: 'Number of dividers along width'
-    },
-    {
-      type: 'number',
-      name: 'dividers_y',
-      label: 'Dividers (Depth)',
-      min: 0, max: 10, default: 0, step: 1, unit: '',
-      description: 'Number of dividers along depth'
-    },
-    {
-      type: 'boolean',
-      name: 'finger_grip',
-      label: 'Finger Grip',
-      default: false
-    },
-    {
-      type: 'boolean',
-      name: 'stackable',
-      label: 'Stackable',
-      default: false
-    }
-  ],
-  scadTemplate: (params: ParameterValues) => {
-    const width = Number(params['width'])
-    const depth = Number(params['depth'])
-    const height = Number(params['height'])
-    const wallThickness = Number(params['wall_thickness'])
-    const cornerRadius = Number(params['corner_radius'])
-    const includeLid = Boolean(params['include_lid'])
-    const lidHeight = Number(params['lid_height'])
-    const lidClearance = Number(params['lid_clearance'])
-    const lidLipHeight = Number(params['lid_lip_height'])
-    const bottomThickness = Number(params['bottom_thickness'])
-    const dividersX = Math.floor(Number(params['dividers_x']))
-    const dividersY = Math.floor(Number(params['dividers_y']))
-    const fingerGrip = Boolean(params['finger_grip'])
-    const stackable = Boolean(params['stackable'])
+// Shared SCAD code for box generator parts
+function getBoxParams(params: ParameterValues) {
+  const width = Number(params['width'])
+  const depth = Number(params['depth'])
+  const height = Number(params['height'])
+  const wallThickness = Number(params['wall_thickness'])
+  const cornerRadius = Number(params['corner_radius'])
+  const includeLid = Boolean(params['include_lid'])
+  const lidHeight = Number(params['lid_height'])
+  const lidClearance = Number(params['lid_clearance'])
+  const lidLipHeight = Number(params['lid_lip_height'])
+  const bottomThickness = Number(params['bottom_thickness'])
+  const dividersX = Math.floor(Number(params['dividers_x']))
+  const dividersY = Math.floor(Number(params['dividers_y']))
+  const fingerGrip = Boolean(params['finger_grip'])
+  const stackable = Boolean(params['stackable'])
 
-    // Keep walls and corners printable even if users input extreme values
-    const safeWall = Math.max(0.6, Math.min(
-      wallThickness,
-      width / 2 - 0.5,
-      depth / 2 - 0.5,
-      height - 1
-    ))
-    const safeBottom = Math.max(0.6, Math.min(bottomThickness, height - 1))
-    const maxCorner = Math.max(0, Math.min(width, depth) / 2 - safeWall)
-    const safeCorner = Math.max(0, Math.min(cornerRadius, maxCorner))
-    const safeLidClearance = Math.min(Math.max(lidClearance, 0), 1)
-    const safeLidHeight = Math.max(lidHeight, safeWall + 1)
-    const safeLipHeight = Math.max(1, Math.min(lidLipHeight, height - safeWall))
-    const safeDividersX = Math.max(0, Math.min(dividersX, 10))
-    const safeDividersY = Math.max(0, Math.min(dividersY, 10))
+  // Keep walls and corners printable even if users input extreme values
+  const safeWall = Math.max(0.6, Math.min(
+    wallThickness,
+    width / 2 - 0.5,
+    depth / 2 - 0.5,
+    height - 1
+  ))
+  const safeBottom = Math.max(0.6, Math.min(bottomThickness, height - 1))
+  const maxCorner = Math.max(0, Math.min(width, depth) / 2 - safeWall)
+  const safeCorner = Math.max(0, Math.min(cornerRadius, maxCorner))
+  const safeLidClearance = Math.min(Math.max(lidClearance, 0), 1)
+  const safeLidHeight = Math.max(lidHeight, safeWall + 1)
+  const safeLipHeight = Math.max(1, Math.min(lidLipHeight, height - safeWall))
+  const safeDividersX = Math.max(0, Math.min(dividersX, 10))
+  const safeDividersY = Math.max(0, Math.min(dividersY, 10))
 
-    return `// Parameters
-width = ${width};
-depth = ${depth};
-height = ${height};
-wall_thickness = ${safeWall};
-corner_radius = ${safeCorner};
-include_lid = ${includeLid ? 'true' : 'false'};
-lid_height = ${safeLidHeight};
-lid_clearance = ${safeLidClearance};
-lid_lip_height = ${safeLipHeight};
-bottom_thickness = ${safeBottom};
-dividers_x = ${safeDividersX};
-dividers_y = ${safeDividersY};
-finger_grip = ${fingerGrip ? 'true' : 'false'};
-stackable = ${stackable ? 'true' : 'false'};
+  return {
+    width, depth, height, includeLid, fingerGrip, stackable,
+    safeWall, safeCorner, safeLidHeight, safeLidClearance,
+    safeLipHeight, safeBottom, safeDividersX, safeDividersY
+  }
+}
+
+function getBoxPreamble(p: ReturnType<typeof getBoxParams>) {
+  return `// Parameters
+width = ${p.width};
+depth = ${p.depth};
+height = ${p.height};
+wall_thickness = ${p.safeWall};
+corner_radius = ${p.safeCorner};
+include_lid = ${p.includeLid ? 'true' : 'false'};
+lid_height = ${p.safeLidHeight};
+lid_clearance = ${p.safeLidClearance};
+lid_lip_height = ${p.safeLipHeight};
+bottom_thickness = ${p.safeBottom};
+dividers_x = ${p.safeDividersX};
+dividers_y = ${p.safeDividersY};
+finger_grip = ${p.fingerGrip ? 'true' : 'false'};
+stackable = ${p.stackable ? 'true' : 'false'};
 $fn = 60;
 
 // Derived dimensions
@@ -278,7 +186,135 @@ module lid() {
         }
     }
 }
+`
+}
 
+const boxPart: GeneratorPart = {
+  id: 'body',
+  name: 'Box',
+  scadTemplate: (params: ParameterValues) => {
+    const p = getBoxParams(params)
+    return getBoxPreamble(p) + `
+box_body();
+`
+  }
+}
+
+const lidPart: GeneratorPart = {
+  id: 'lid',
+  name: 'Lid',
+  scadTemplate: (params: ParameterValues) => {
+    const p = getBoxParams(params)
+    return getBoxPreamble(p) + `
+lid();
+`
+  }
+}
+
+export const boxGenerator: Generator = {
+  id: 'box',
+  name: 'Box',
+  description: 'A customizable box with optional lid',
+  parameters: [
+    {
+      type: 'number',
+      name: 'width',
+      label: 'Width',
+      min: 20, max: 200, default: 50, step: 1, unit: 'mm'
+    },
+    {
+      type: 'number',
+      name: 'depth',
+      label: 'Depth',
+      min: 20, max: 200, default: 50, step: 1, unit: 'mm'
+    },
+    {
+      type: 'number',
+      name: 'height',
+      label: 'Height',
+      min: 10, max: 100, default: 30, step: 1, unit: 'mm'
+    },
+    {
+      type: 'number',
+      name: 'wall_thickness',
+      label: 'Wall Thickness',
+      min: 1, max: 5, default: 2, step: 0.5, unit: 'mm'
+    },
+    {
+      type: 'number',
+      name: 'corner_radius',
+      label: 'Corner Radius',
+      min: 0, max: 10, default: 3, step: 1, unit: 'mm',
+      dynamicMax: (params) => {
+        const width = Number(params['width']) || 50
+        const depth = Number(params['depth']) || 50
+        const wall = Number(params['wall_thickness']) || 2
+        // Corner radius limited by smaller dimension minus wall
+        return Math.floor(Math.min(width, depth) / 2 - wall)
+      }
+    },
+    {
+      type: 'boolean',
+      name: 'include_lid',
+      label: 'Include Lid',
+      default: true,
+      children: [
+        {
+          type: 'number',
+          name: 'lid_height',
+          label: 'Lid Height',
+          min: 4, max: 40, default: 8, step: 0.5, unit: 'mm'
+        },
+        {
+          type: 'number',
+          name: 'lid_clearance',
+          label: 'Lid Clearance',
+          min: 0, max: 1, default: 0.2, step: 0.05, unit: 'mm'
+        },
+        {
+          type: 'number',
+          name: 'lid_lip_height',
+          label: 'Lid Lip Depth',
+          min: 2, max: 30, default: 5, step: 0.5, unit: 'mm'
+        }
+      ]
+    },
+    {
+      type: 'number',
+      name: 'bottom_thickness',
+      label: 'Bottom Thickness',
+      min: 1, max: 10, default: 2, step: 0.5, unit: 'mm'
+    },
+    {
+      type: 'number',
+      name: 'dividers_x',
+      label: 'Dividers (Width)',
+      min: 0, max: 10, default: 0, step: 1, unit: '',
+      description: 'Number of dividers along width'
+    },
+    {
+      type: 'number',
+      name: 'dividers_y',
+      label: 'Dividers (Depth)',
+      min: 0, max: 10, default: 0, step: 1, unit: '',
+      description: 'Number of dividers along depth'
+    },
+    {
+      type: 'boolean',
+      name: 'finger_grip',
+      label: 'Finger Grip',
+      default: false
+    },
+    {
+      type: 'boolean',
+      name: 'stackable',
+      label: 'Stackable',
+      default: false
+    }
+  ],
+  scadTemplate: (params: ParameterValues) => {
+    const p = getBoxParams(params)
+    return getBoxPreamble(p) + `
 box_body();
 
 if (include_lid) {
@@ -286,5 +322,6 @@ if (include_lid) {
         lid();
 }
 `
-  }
+  },
+  parts: [boxPart, lidPart]
 }

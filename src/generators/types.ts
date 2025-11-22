@@ -57,12 +57,20 @@ export function isBooleanParam(param: ParameterDef): param is BooleanParameterDe
   return param.type === 'boolean'
 }
 
+export interface GeneratorPart {
+  id: string
+  name: string
+  scadTemplate: (params: Record<string, number | string | boolean>) => string
+}
+
 export interface Generator {
   id: string
   name: string
   description: string
   parameters: ParameterDef[]
   scadTemplate: (params: Record<string, number | string | boolean>) => string
+  /** Optional separate parts that can be downloaded individually */
+  parts?: GeneratorPart[]
 }
 
 export type ParameterValues = Record<string, number | string | boolean>

@@ -19,5 +19,5 @@ export const generators: Generator[] = [
   hookGenerator
 ]
 
-export type { Generator, ParameterDef, ParameterValues, NumberParameterDef, StringParameterDef, SelectParameterDef, BooleanParameterDef } from './types'
+export type { Generator, GeneratorPart, ParameterDef, ParameterValues, NumberParameterDef, StringParameterDef, SelectParameterDef, BooleanParameterDef } from './types'
 export { isNumberParam, isStringParam, isSelectParam, isBooleanParam, flattenParameters } from './types'

@@ -2,8 +2,9 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { Viewer } from './components/Viewer'
 import { Sidebar } from './components/Sidebar'
 import { CompilerOutput } from './components/CompilerOutput'
+import { DownloadDialog } from './components/DownloadDialog'
 import { useOpenSCAD } from './hooks/useOpenSCAD'
-import { generators, flattenParameters, type ParameterValues } from './generators'
+import { generators, flattenParameters, type ParameterValues, type GeneratorPart } from './generators'
 
 const DEBOUNCE_MS = 1000
 
@@ -128,18 +129,61 @@ export default function App() {
     })
   }, [doCompile])
 
-  const handleDownload = () => {
-    if (!stlBlob) return
+  const [showDownloadDialog, setShowDownloadDialog] = useState(false)
 
-    const url = URL.createObjectURL(stlBlob)
+  // Check if model has downloadable parts (parts defined and relevant feature enabled)
+  const getDownloadableParts = useCallback((): GeneratorPart[] => {
+    if (!selectedGenerator.parts) return []
+    // For box, only show parts if lid is included
+    if (selectedGenerator.id === 'box' && !params['include_lid']) return []
+    return selectedGenerator.parts
+  }, [selectedGenerator, params])
+
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `${selectedGenerator.id}.stl`
+    a.download = filename
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
   }
+
+  const downloadParts = async (partsToDownload: GeneratorPart[]) => {
+    for (const part of partsToDownload) {
+      const scadCode = part.scadTemplate(params)
+      const blob = await compile(scadCode)
+      if (blob) {
+        downloadBlob(blob, `${selectedGenerator.id}-${part.id}.stl`)
+      }
+    }
+    // Recompile combined model to restore viewer
+    doCompile(params)
+  }
+
+  const handleDownload = () => {
+    if (!stlBlob) return
+
+    const parts = getDownloadableParts()
+    if (parts.length === 0) {
+      // No separate parts, download combined
+      downloadBlob(stlBlob, `${selectedGenerator.id}.stl`)
+    } else if (parts.length === 1) {
+      // Single part, download directly without dialog
+      downloadParts(parts)
+    } else {
+      // Multiple parts, show dialog
+      setShowDownloadDialog(true)
+    }
+  }
+
+  const handleDownloadSelected = (selectedParts: GeneratorPart[]) => {
+    setShowDownloadDialog(false)
+    downloadParts(selectedParts)
+  }
+
+  const downloadableParts = getDownloadableParts()
 
   return (
     <div className="flex h-screen">
@@ -152,8 +196,6 @@ export default function App() {
         onParamCommit={handleParamCommit}
         onSliderDragStart={handleSliderDragStart}
         onSliderDragEnd={handleSliderDragEnd}
-        status={status}
-        error={error}
         onDownload={handleDownload}
         canDownload={stlBlob !== null && status === 'ready'}
       />
@@ -164,8 +206,16 @@ export default function App() {
             isCompiling={status === 'compiling'}
           />
         </div>
-        <CompilerOutput output={compilerOutput} />
+        <CompilerOutput output={compilerOutput} status={status} error={error} />
       </main>
+
+      <DownloadDialog
+        isOpen={showDownloadDialog}
+        generatorName={selectedGenerator.name}
+        parts={downloadableParts}
+        onDownload={handleDownloadSelected}
+        onClose={() => setShowDownloadDialog(false)}
+      />
     </div>
   )
 }

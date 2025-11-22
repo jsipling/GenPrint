@@ -13,18 +13,18 @@ describe('CompilerOutput', () => {
     cleanup()
   })
 
-  it('does not render when output is null', () => {
-    const { container } = render(<CompilerOutput output={null} />)
-    expect(container.firstChild).toBe(null)
+  it('renders header even when output is null', () => {
+    render(<CompilerOutput output={null} status="ready" error={null} />)
+    expect(screen.getByText('Compiler Output')).toBeTruthy()
   })
 
   it('renders when output is provided', () => {
-    render(<CompilerOutput output="Test output message" />)
+    render(<CompilerOutput output="Test output message" status="ready" error={null} />)
     expect(screen.getByText('Compiler Output')).toBeTruthy()
   })
 
   it('is expanded by default in development mode', () => {
-    render(<CompilerOutput output="Test output message" />)
+    render(<CompilerOutput output="Test output message" status="ready" error={null} />)
 
     // In dev mode, output should be visible immediately
     const outputContainer = screen.getByTestId('compiler-output')
@@ -33,7 +33,7 @@ describe('CompilerOutput', () => {
   })
 
   it('toggles visibility when clicked', () => {
-    render(<CompilerOutput output="Test output message" />)
+    render(<CompilerOutput output="Test output message" status="ready" error={null} />)
 
     const toggleButton = screen.getByRole('button', { name: /compiler output/i })
     const initialExpanded = toggleButton.getAttribute('aria-expanded')
@@ -46,7 +46,7 @@ describe('CompilerOutput', () => {
 
   it('highlights ECHO lines with distinct styling', () => {
     const output = 'ECHO: "some value"'
-    render(<CompilerOutput output={output} />)
+    render(<CompilerOutput output={output} status="ready" error={null} />)
 
     const outputContainer = screen.getByTestId('compiler-output')
     const echoLine = outputContainer.querySelector('.text-cyan-400')
@@ -56,7 +56,7 @@ describe('CompilerOutput', () => {
 
   it('highlights WARNING lines with warning styling', () => {
     const output = 'WARNING: something might be wrong'
-    render(<CompilerOutput output={output} />)
+    render(<CompilerOutput output={output} status="ready" error={null} />)
 
     const outputContainer = screen.getByTestId('compiler-output')
     const warningLine = outputContainer.querySelector('.text-yellow-400')
@@ -66,7 +66,7 @@ describe('CompilerOutput', () => {
 
   it('highlights ERROR lines with error styling', () => {
     const output = 'ERROR: compilation failed'
-    render(<CompilerOutput output={output} />)
+    render(<CompilerOutput output={output} status="ready" error={null} />)
 
     const outputContainer = screen.getByTestId('compiler-output')
     const errorLine = outputContainer.querySelector('.text-red-400')

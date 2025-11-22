@@ -21,8 +21,6 @@ const defaultProps = {
   onGeneratorChange: vi.fn(),
   params: { size: 50 },
   onParamChange: vi.fn(),
-  status: 'ready' as const,
-  error: null,
   onDownload: vi.fn(),
   canDownload: true
 }
@@ -51,16 +49,6 @@ describe('Sidebar', () => {
   it('renders parameter inputs', () => {
     render(<Sidebar {...defaultProps} />)
     expect(screen.getByLabelText('Size')).toBeTruthy()
-  })
-
-  it('shows status badge', () => {
-    render(<Sidebar {...defaultProps} status="compiling" />)
-    expect(screen.getByText('Compiling...')).toBeTruthy()
-  })
-
-  it('shows error message when present', () => {
-    render(<Sidebar {...defaultProps} status="error" error="Something went wrong" />)
-    expect(screen.getByText('Something went wrong')).toBeTruthy()
   })
 
   it('disables download button when canDownload is false', () => {

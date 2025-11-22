@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import type { CompileStatus } from '../hooks/useOpenSCAD'
 
 function getLineStyle(line: string): string {
   const trimmed = line.trim().toUpperCase()
@@ -14,17 +15,38 @@ function getLineStyle(line: string): string {
   return 'text-gray-400'
 }
 
-interface CompilerOutputProps {
-  output: string | null
+function getStatusText(status: CompileStatus): string {
+  switch (status) {
+    case 'idle': return 'Idle'
+    case 'loading': return 'Loading WASM...'
+    case 'compiling': return 'Compiling...'
+    case 'ready': return 'Ready'
+    case 'error': return 'Error'
+  }
 }
 
-export function CompilerOutput({ output }: CompilerOutputProps) {
+function getStatusColor(status: CompileStatus): string {
+  switch (status) {
+    case 'idle': return 'text-gray-500'
+    case 'loading': return 'text-yellow-400'
+    case 'compiling': return 'text-blue-400'
+    case 'ready': return 'text-green-400'
+    case 'error': return 'text-red-400'
+  }
+}
+
+interface CompilerOutputProps {
+  output: string | null
+  status: CompileStatus
+  error: string | null
+}
+
+export function CompilerOutput({ output, status, error }: CompilerOutputProps) {
   // In development mode, show output expanded by default
   const [expanded, setExpanded] = useState(import.meta.env.DEV)
 
-  if (!output) return null
-
-  const lines = output.split('\n')
+  const lines = output ? output.split('\n') : []
+  const statusText = getStatusText(status)
 
   return (
     <div className="bg-gray-900 border-t border-gray-700">
@@ -38,6 +60,19 @@ export function CompilerOutput({ output }: CompilerOutputProps) {
           ▶
         </span>
         <span className="font-medium">Compiler Output</span>
+        {statusText && (
+          <>
+            <span className="text-gray-600">-</span>
+            <span className={getStatusColor(status)} role="status" aria-live="polite">
+              {statusText}
+            </span>
+          </>
+        )}
+        {error && (
+          <span className="text-red-400 text-xs truncate max-w-xs" role="alert">
+            {error}
+          </span>
+        )}
       </button>
       {expanded && (
         <div

@@ -1,6 +1,5 @@
 import type { Generator, ParameterValues, ParameterDef } from '../generators'
 import { isStringParam, isSelectParam, isBooleanParam } from '../generators'
-import type { CompileStatus } from '../hooks/useOpenSCAD'
 
 interface SidebarProps {
   generators: Generator[]
@@ -11,33 +10,8 @@ interface SidebarProps {
   onParamCommit?: (name: string, value: number | string | boolean) => void
   onSliderDragStart?: () => void
   onSliderDragEnd?: () => void
-  status: CompileStatus
-  error: string | null
   onDownload: () => void
   canDownload: boolean
-}
-
-function StatusBadge({ status, error }: { status: CompileStatus; error: string | null }) {
-  const badges: Record<CompileStatus, { text: string; className: string }> = {
-    idle: { text: 'Idle', className: 'bg-gray-600' },
-    loading: { text: 'Loading WASM...', className: 'bg-yellow-600' },
-    ready: { text: 'Ready', className: 'bg-green-600' },
-    compiling: { text: 'Compiling...', className: 'bg-blue-600' },
-    error: { text: 'Error', className: 'bg-red-600' }
-  }
-
-  const badge = badges[status]
-
-  return (
-    <div className="space-y-1" role="status" aria-live="polite">
-      <span className={`inline-block px-2 py-1 text-xs rounded ${badge.className}`}>
-        {badge.text}
-      </span>
-      {error && (
-        <p className="text-xs text-red-400 break-words" role="alert">{error}</p>
-      )}
-    </div>
-  )
 }
 
 interface ParameterInputProps {
@@ -251,8 +225,6 @@ export function Sidebar({
   onParamCommit,
   onSliderDragStart,
   onSliderDragEnd,
-  status,
-  error,
   onDownload,
   canDownload
 }: SidebarProps) {
@@ -262,10 +234,6 @@ export function Sidebar({
         <h1 className="text-xl font-bold text-blue-400">GenPrint</h1>
         <p className="text-sm text-gray-400 mt-1">Parametric 3D Model Generator</p>
       </header>
-
-      <div className="mb-4">
-        <StatusBadge status={status} error={error} />
-      </div>
 
       <section className="mb-4">
         <label htmlFor="generator-select" className="block text-sm mb-1">Model</label>
