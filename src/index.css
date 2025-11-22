@@ -120,3 +120,36 @@ html, body, #root {
 .custom-slider:focus::-webkit-slider-thumb {
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
 }
+
+/* Custom select styling */
+.custom-select {
+  appearance: none;
+  background-color: #374151;
+  border: 1px solid #4b5563;
+  border-radius: 0.375rem;
+  padding: 0.5rem 2.5rem 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: white;
+  cursor: pointer;
+  transition: all 150ms ease;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.5rem center;
+  background-size: 1.25rem;
+}
+
+.custom-select:hover {
+  border-color: #6b7280;
+}
+
+.custom-select:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+}
+
+.custom-select option {
+  background-color: #1f2937;
+  color: white;
+  padding: 0.5rem;
+}

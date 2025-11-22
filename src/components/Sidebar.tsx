@@ -242,7 +242,7 @@ export function Sidebar({
             id="generator-select"
             value={selectedGenerator.id}
             onChange={(e) => onGeneratorChange(e.target.value)}
-            className="w-full px-3 py-2 bg-gray-700 rounded border border-gray-600 focus:border-blue-500 focus:outline-none text-white"
+            className="w-full custom-select"
           >
             {[...generators].sort((a, b) => a.name.localeCompare(b.name)).map((gen) => (
               <option key={gen.id} value={gen.id}>{gen.name}</option>
