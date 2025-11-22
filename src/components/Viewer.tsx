@@ -13,9 +13,8 @@ function MeasuredGrid({ size = 100, divisions = 10 }: { size?: number; divisions
   const ticks: { points: [[number, number, number], [number, number, number]]; color: string }[] = []
   const labels: { pos: [number, number, number]; text: string; size: string }[] = []
 
-  // X axis ticks and labels
-  for (let mm = -size / 2; mm <= size / 2; mm += 1) {
-    if (mm === 0) continue
+  // X axis ticks and labels (positive only)
+  for (let mm = 1; mm <= size / 2; mm += 1) {
     const isCm = mm % 10 === 0
     const is5mm = mm % 5 === 0
     const tick = isCm ? tickSize : (is5mm ? smallTickSize : 0.4)
@@ -29,9 +28,8 @@ function MeasuredGrid({ size = 100, divisions = 10 }: { size?: number; divisions
     }
   }
 
-  // Y axis ticks and labels
-  for (let mm = -size / 2; mm <= size / 2; mm += 1) {
-    if (mm === 0) continue
+  // Y axis ticks and labels (positive only)
+  for (let mm = 1; mm <= size / 2; mm += 1) {
     const isCm = mm % 10 === 0
     const is5mm = mm % 5 === 0
     const tick = isCm ? tickSize : (is5mm ? smallTickSize : 0.4)
@@ -45,9 +43,8 @@ function MeasuredGrid({ size = 100, divisions = 10 }: { size?: number; divisions
     }
   }
 
-  // Z axis ticks and labels (vertical, both positive and negative)
-  for (let mm = -size / 2; mm <= size / 2; mm += 1) {
-    if (mm === 0) continue
+  // Z axis ticks and labels (vertical, positive only)
+  for (let mm = 1; mm <= size / 2; mm += 1) {
     const isCm = mm % 10 === 0
     const is5mm = mm % 5 === 0
     const tick = isCm ? tickSize : (is5mm ? smallTickSize : 0.4)
@@ -67,10 +64,10 @@ function MeasuredGrid({ size = 100, divisions = 10 }: { size?: number; divisions
       {/* Grid on XY plane (rotated from default XZ) */}
       <gridHelper args={[size, divisions, '#555', '#333']} rotation={[Math.PI / 2, 0, 0]} />
 
-      {/* Main axis lines */}
-      <Line points={[[-size/2, 0, 0.01], [size/2, 0, 0.01]]} color="#ff4444" lineWidth={2} />
-      <Line points={[[0, -size/2, 0.01], [0, size/2, 0.01]]} color="#44ff44" lineWidth={2} />
-      <Line points={[[0, 0, -size/2], [0, 0, size/2]]} color="#4444ff" lineWidth={2} />
+      {/* Main axis lines (positive direction only) */}
+      <Line points={[[0, 0, 0.01], [size/2, 0, 0.01]]} color="#ff4444" lineWidth={2} />
+      <Line points={[[0, 0, 0.01], [0, size/2, 0.01]]} color="#44ff44" lineWidth={2} />
+      <Line points={[[0, 0, 0], [0, 0, size/2]]} color="#4444ff" lineWidth={2} />
 
       {/* Tick marks */}
       {ticks.map((tick, i) => (
