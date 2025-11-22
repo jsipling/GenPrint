@@ -9,7 +9,7 @@ describe('bracketGenerator', () => {
   })
 
   it('should have correct parameters defined', () => {
-    expect(bracketGenerator.parameters).toHaveLength(5)
+    expect(bracketGenerator.parameters).toHaveLength(9)
 
     const width = bracketGenerator.parameters.find(p => p.name === 'width')
     expect(width).toBeDefined()
@@ -30,6 +30,26 @@ describe('bracketGenerator', () => {
     expect(holeD).toBeDefined()
     expect(holeD?.type).toBe('number')
     expect(holeD?.default).toBe(5)
+
+    const holeCountArm1 = bracketGenerator.parameters.find(p => p.name === 'hole_count_arm_1')
+    expect(holeCountArm1).toBeDefined()
+    expect(holeCountArm1?.type).toBe('number')
+    expect(holeCountArm1?.default).toBe(1)
+
+    const holeCountArm2 = bracketGenerator.parameters.find(p => p.name === 'hole_count_arm_2')
+    expect(holeCountArm2).toBeDefined()
+    expect(holeCountArm2?.type).toBe('number')
+    expect(holeCountArm2?.default).toBe(1)
+
+    const addRib = bracketGenerator.parameters.find(p => p.name === 'add_rib')
+    expect(addRib).toBeDefined()
+    expect(addRib?.type).toBe('boolean')
+    expect(addRib?.default).toBe(true)
+
+    const ribThickness = bracketGenerator.parameters.find(p => p.name === 'rib_thickness')
+    expect(ribThickness).toBeDefined()
+    expect(ribThickness?.type).toBe('number')
+    expect(ribThickness?.default).toBe(4)
   })
 
   it('should generate valid SCAD code with default parameters', () => {
@@ -38,13 +58,21 @@ describe('bracketGenerator', () => {
       arm_length: 40,
       thickness: 4,
       hole_diameter: 5,
-      fillet_radius: 5
+      fillet_radius: 5,
+      hole_count_arm_1: 1,
+      hole_count_arm_2: 1,
+      add_rib: true,
+      rib_thickness: 4
     })
 
     expect(scad).toContain('width = 30')
     expect(scad).toContain('arm_length = 40')
     expect(scad).toContain('thickness = 4')
     expect(scad).toContain('hole_d = 5')
+    expect(scad).toContain('hole_count_arm_1 = 1')
+    expect(scad).toContain('hole_count_arm_2 = 1')
+    expect(scad).toContain('add_rib = true')
+    expect(scad).toContain('rib_thickness = 4')
   })
 
   it('should create L-shape with two arms', () => {
@@ -53,7 +81,11 @@ describe('bracketGenerator', () => {
       arm_length: 40,
       thickness: 4,
       hole_diameter: 5,
-      fillet_radius: 5
+      fillet_radius: 5,
+      hole_count_arm_1: 1,
+      hole_count_arm_2: 1,
+      add_rib: true,
+      rib_thickness: 4
     })
 
     expect(scad).toContain('cube')
@@ -66,7 +98,11 @@ describe('bracketGenerator', () => {
       arm_length: 40,
       thickness: 4,
       hole_diameter: 5,
-      fillet_radius: 5
+      fillet_radius: 5,
+      hole_count_arm_1: 1,
+      hole_count_arm_2: 1,
+      add_rib: true,
+      rib_thickness: 4
     })
 
     expect(scad).toContain('cylinder')
@@ -79,7 +115,11 @@ describe('bracketGenerator', () => {
       arm_length: 40,
       thickness: 4,
       hole_diameter: 5,
-      fillet_radius: 5
+      fillet_radius: 5,
+      hole_count_arm_1: 1,
+      hole_count_arm_2: 1,
+      add_rib: true,
+      rib_thickness: 4
     })
 
     expect(scad).toContain('$fn')

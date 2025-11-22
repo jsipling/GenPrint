@@ -3,7 +3,7 @@ import type { Generator, ParameterValues } from './types'
 export const gearGenerator: Generator = {
   id: 'spur-gear',
   name: 'Spur Gear',
-  description: 'A robust, 3D printable spur gear.',
+  description: 'A customizable spur gear with center hole',
   parameters: [
     {
       type: 'number',
@@ -14,7 +14,7 @@ export const gearGenerator: Generator = {
     {
       type: 'number',
       name: 'module_size',
-      label: 'Module (Size)',
+      label: 'Module Size',
       min: 0.5, max: 5, default: 2, step: 0.5, unit: 'mm'
     },
     {
@@ -28,58 +28,64 @@ export const gearGenerator: Generator = {
       name: 'hole_diameter',
       label: 'Hole Diameter',
       min: 0, max: 20, default: 5, step: 0.5, unit: 'mm'
+    },
+    {
+      type: 'number',
+      name: 'pressure_angle',
+      label: 'Pressure Angle',
+      min: 14.5, max: 25, default: 20, step: 0.5, unit: '°'
     }
   ],
   scadTemplate: (params: ParameterValues) => {
     const teeth = Number(params['teeth'])
-    const mod = Number(params['module_size'])
-    const h = Number(params['thickness'])
-    const hole = Number(params['hole_diameter'])
+    const moduleSize = Number(params['module_size'])
+    const thickness = Number(params['thickness'])
+    const holeDiameter = Number(params['hole_diameter'])
+    const pressureAngle = Number(params['pressure_angle'])
 
-    return `
-// Inputs
+    return `// Parameters
 teeth = ${teeth};
-mm_per_tooth = ${mod} * PI;
-thickness = ${h};
-hole_d = ${hole};
+module_size = ${moduleSize};
+thickness = ${thickness};
+hole_diameter = ${holeDiameter};
+pressure_angle = ${pressureAngle};
+$fn = 60;
 
-$fn = 60; // Resolution
+// Calculated values
+pitch_radius = (teeth * module_size) / 2;
+addendum = module_size;
+dedendum = module_size * 1.25;
+base_radius = pitch_radius * cos(pressure_angle);
 
-// Geometric Calculations
-pitch_r = (teeth * mm_per_tooth) / (2 * PI);
-outer_r = pitch_r + ${mod};
-root_r  = pitch_r - (${mod} * 1.25);
+// Involute function
+function involute(base_r, angle) = [
+    base_r * (cos(angle) + angle * PI / 180 * sin(angle)),
+    base_r * (sin(angle) - angle * PI / 180 * cos(angle))
+];
 
-// 3D Generation
+// Generate gear
 difference() {
-    union() {
-        // 1. Central Core (slightly larger to ensure overlap)
-        cylinder(r = root_r + 0.1, h = thickness);
-
-        // 2. Teeth
-        for (i = [0:teeth-1]) {
-            rotate([0, 0, i * (360/teeth)])
-                linear_extrude(height = thickness)
-                polygon(points = tooth_points());
+    linear_extrude(height=thickness) {
+        difference() {
+            circle(r=pitch_radius + addendum);
+            for (i = [0:teeth-1]) {
+                rotate([0, 0, i * 360/teeth])
+                    polygon(points=[
+                        [0, 0],
+                        involute(base_radius, 0),
+                        involute(base_radius, 20),
+                        involute(base_radius, 40)
+                    ]);
+            }
         }
     }
 
-    // 3. Center Hole
-    if (hole_d > 0) {
+    // Center hole
+    if (hole_diameter > 0) {
         translate([0, 0, -1])
-        cylinder(h = thickness + 2, d = hole_d);
+            cylinder(h=thickness+2, d=hole_diameter);
     }
 }
-
-// Trapezoidal approximation (Simple & 3D Printable)
-// Much more robust than manual involute math for generic printing
-function tooth_points() = [
-    [-${mod} * 0.6, root_r],           // Bottom Left
-    [-${mod} * 0.3, outer_r],          // Top Left
-    [ ${mod} * 0.3, outer_r],          // Top Right
-    [ ${mod} * 0.6, root_r],           // Bottom Right
-    [ 0, root_r - ${mod}]              // Anchor (Buried in core)
-];
 `
   }
 }

@@ -1,188 +1,158 @@
 import type { Generator, ParameterValues } from './types'
 
-// Optimized Vector Font: Generates 2D shapes first (much faster rendering)
-const STROKE_FONT_MODULE = `
-module stroke_char_2d(char, size, thickness) {
-    w = size / 6;         // coordinate scaler
-    sw = size * 0.12;     // stroke width
-
-    module path(pts) {
-        for (i = [0 : len(pts) - 2]) {
-            hull() {
-                translate([pts[i][0]*w, pts[i][1]*w]) circle(d=sw);
-                translate([pts[i+1][0]*w, pts[i+1][1]*w]) circle(d=sw);
-            }
-        }
-    }
-
-    // Dot helper
-    module dot(pt) {
-        translate([pt[0]*w, pt[1]*w]) circle(d=sw);
-    }
-
-    if (char == "A") { path([[0,0], [2,6], [4,0]]); path([[0.8,2], [3.2,2]]); }
-    else if (char == "B") { path([[0,0],[0,6],[3,6],[4,5],[3,3],[0,3]]); path([[3,3],[4,2],[4,1],[3,0],[0,0]]); }
-    else if (char == "C") { path([[4,5],[3,6],[1,6],[0,5],[0,1],[1,0],[3,0],[4,1]]); }
-    else if (char == "D") { path([[0,0],[0,6],[2,6],[4,4],[4,2],[2,0],[0,0]]); }
-    else if (char == "E") { path([[4,6],[0,6],[0,0],[4,0]]); path([[0,3],[3,3]]); }
-    else if (char == "F") { path([[4,6],[0,6],[0,0]]); path([[0,3],[3,3]]); }
-    else if (char == "G") { path([[4,5],[3,6],[1,6],[0,5],[0,1],[1,0],[3,0],[4,1],[4,3],[2,3]]); }
-    else if (char == "H") { path([[0,0],[0,6]]); path([[4,0],[4,6]]); path([[0,3],[4,3]]); }
-    else if (char == "I") { path([[1,0],[3,0]]); path([[1,6],[3,6]]); path([[2,0],[2,6]]); }
-    else if (char == "J") { path([[1,6],[3,6]]); path([[2,6],[2,1],[1,0],[0,1]]); }
-    else if (char == "K") { path([[0,0],[0,6]]); path([[4,6],[0,3],[4,0]]); }
-    else if (char == "L") { path([[0,6],[0,0],[4,0]]); }
-    else if (char == "M") { path([[0,0],[0,6],[2,3],[4,6],[4,0]]); }
-    else if (char == "N") { path([[0,0],[0,6],[4,0],[4,6]]); }
-    else if (char == "O") { path([[1,0],[3,0],[4,1],[4,5],[3,6],[1,6],[0,5],[0,1],[1,0]]); }
-    else if (char == "P") { path([[0,0],[0,6],[3,6],[4,5],[4,4],[3,3],[0,3]]); }
-    else if (char == "Q") { path([[1,0],[3,0],[4,1],[4,5],[3,6],[1,6],[0,5],[0,1],[1,0]]); path([[2.5,1.5],[4,0]]); }
-    else if (char == "R") { path([[0,0],[0,6],[3,6],[4,5],[4,4],[3,3],[0,3]]); path([[2,3],[4,0]]); }
-    else if (char == "S") { path([[4,5],[3,6],[1,6],[0,5],[0,4],[1,3],[3,3],[4,2],[4,1],[3,0],[1,0],[0,1]]); }
-    else if (char == "T") { path([[0,6],[4,6]]); path([[2,6],[2,0]]); }
-    else if (char == "U") { path([[0,6],[0,1],[1,0],[3,0],[4,1],[4,6]]); }
-    else if (char == "V") { path([[0,6],[2,0],[4,6]]); }
-    else if (char == "W") { path([[0,6],[1,0],[2,3],[3,0],[4,6]]); }
-    else if (char == "X") { path([[0,0],[4,6]]); path([[0,6],[4,0]]); }
-    else if (char == "Y") { path([[0,6],[2,3],[4,6]]); path([[2,3],[2,0]]); }
-    else if (char == "Z") { path([[0,6],[4,6],[0,0],[4,0]]); }
-    else if (char == "0") { path([[1,0],[3,0],[4,1],[4,5],[3,6],[1,6],[0,5],[0,1],[1,0]]); path([[0.5,1],[3.5,5]]); }
-    else if (char == "1") { path([[1,5],[2,6],[2,0]]); path([[1,0],[3,0]]); }
-    else if (char == "2") { path([[0,5],[1,6],[3,6],[4,5],[4,4],[0,0],[4,0]]); }
-    else if (char == "3") { path([[0,5],[1,6],[3,6],[4,5],[4,4],[3,3]]); path([[1.5,3],[3,3],[4,2],[4,1],[3,0],[1,0],[0,1]]); }
-    else if (char == "4") { path([[3,0],[3,6],[0,2],[4,2]]); }
-    else if (char == "5") { path([[4,6],[0,6],[0,3.5],[3,3.5],[4,2.5],[4,1],[3,0],[1,0],[0,1]]); }
-    else if (char == "6") { path([[3,6],[1,6],[0,5],[0,1],[1,0],[3,0],[4,1],[4,2.5],[3,3.5],[0,3.5]]); }
-    else if (char == "7") { path([[0,6],[4,6],[1.5,0]]); }
-    else if (char == "8") { path([[1,3],[0,4],[0,5],[1,6],[3,6],[4,5],[4,4],[3,3],[1,3],[0,2],[0,1],[1,0],[3,0],[4,1],[4,2],[3,3]]); }
-    else if (char == "9") { path([[1,0],[3,0],[4,1],[4,5],[3,6],[1,6],[0,5],[0,3.5],[1,2.5],[4,2.5]]); }
-    else if (char == "!") { path([[2,2.5],[2,6]]); dot([2, 0.5]); }
-    else if (char == "-") { path([[0.5,3],[3.5,3]]); }
-    else if (char == ".") { dot([2, 0.5]); }
-    else if (char == "#") { path([[1,0],[1.5,6]]); path([[3,0],[2.5,6]]); path([[0,2],[4,2]]); path([[0,4],[4,4]]); }
-    else { path([[0,0],[4,0],[4,6],[0,6],[0,0]]); } // Box for unknown
-}
-`
-
 export const signGenerator: Generator = {
   id: 'custom-sign',
   name: 'Sign',
-  description: 'A nameplate with raised vector text and optional mounting holes.',
+  description: 'A customizable sign with raised text',
   parameters: [
     {
       type: 'string',
       name: 'text',
-      label: 'Text Content',
+      label: 'Text',
       default: 'HELLO',
       maxLength: 20
     },
     {
       type: 'number',
-      name: 'size',
+      name: 'text_size',
       label: 'Text Size',
-      min: 10, max: 50, default: 20, step: 1, unit: 'mm'
+      min: 8, max: 30, default: 12, step: 1, unit: 'mm'
     },
     {
       type: 'number',
-      name: 'text_height',
-      label: 'Text Relief Height',
-      min: 0.6, max: 5, default: 1.0, step: 0.2, unit: 'mm'
-    },
-    {
-      type: 'number',
-      name: 'base_thick',
-      label: 'Base Thickness',
+      name: 'text_depth',
+      label: 'Text Depth',
       min: 1, max: 5, default: 2, step: 0.5, unit: 'mm'
     },
     {
       type: 'number',
-      name: 'margin',
-      label: 'Margin / Padding',
+      name: 'padding',
+      label: 'Padding',
       min: 2, max: 20, default: 5, step: 1, unit: 'mm'
     },
     {
       type: 'number',
-      name: 'radius',
-      label: 'Corner Radius',
-      min: 1, max: 20, default: 3, step: 1, unit: 'mm'
+      name: 'base_depth',
+      label: 'Base Depth',
+      min: 1, max: 10, default: 3, step: 0.5, unit: 'mm'
     },
     {
-      type: 'boolean',
-      name: 'holes',
-      label: 'Add Mounting Holes',
-      default: false
+      type: 'number',
+      name: 'corner_radius',
+      label: 'Corner Radius',
+      min: 0, max: 10, default: 2, step: 1, unit: 'mm'
     }
   ],
   scadTemplate: (params: ParameterValues) => {
-    const rawText = String(params['text']).toUpperCase().replace(/[^A-Z0-9 !.\-#]/g, '')
-    const text = rawText.length > 0 ? rawText : 'EMPTY'
+    // Sanitize text: uppercase, only allow A-Z, 0-9, space, and some punctuation
+    const rawText = String(params['text']).toUpperCase().replace(/[^A-Z0-9 !.\-]/g, '').trim()
+    const text = rawText.length > 0 ? rawText : 'TEXT'
 
-    const size = Number(params['size'])
-    const textH = Number(params['text_height'])
-    const baseH = Number(params['base_thick'])
-    const margin = Number(params['margin'])
-    const rad = Number(params['radius'])
-    const hasHoles = params['holes']
+    const textSize = Number(params['text_size'])
+    const textDepth = Number(params['text_depth'])
+    const padding = Number(params['padding'])
+    const baseDepth = Number(params['base_depth'])
+    const cornerRadius = Number(params['corner_radius'])
 
-    // Calculate exact layout in JS to keep SCAD simple
-    const charSpacing = size * 0.75;
-    const textWidth = text.length * charSpacing;
-    const totalW = textWidth + (margin * 2);
-    const totalH = size + (margin * 2);
-
-    return `
-${STROKE_FONT_MODULE}
-
-// --- Parameters ---
-text_str = "${text}";
-font_size = ${size};
-text_relief = ${textH};
-base_h = ${baseH};
-width = ${totalW};
-height = ${totalH};
-rad = ${rad};
-hole_d = 4; // 4mm screw holes
-
+    return `// Parameters
+sign_text = "${text}";
+text_size = ${textSize};
+text_depth = ${textDepth};
+padding = ${padding};
+base_depth = ${baseDepth};
+corner_radius = ${cornerRadius};
 $fn = 60;
 
-// --- Main Geometry ---
-
-difference() {
-    // 1. Base Plate (Hull method for perfect dimensions)
-    hull() {
-        translate([-width/2 + rad, -height/2 + rad, 0]) cylinder(r=rad, h=base_h);
-        translate([ width/2 - rad, -height/2 + rad, 0]) cylinder(r=rad, h=base_h);
-        translate([ width/2 - rad,  height/2 - rad, 0]) cylinder(r=rad, h=base_h);
-        translate([-width/2 + rad,  height/2 - rad, 0]) cylinder(r=rad, h=base_h);
-    }
-
-    // 2. Mounting Holes (Optional)
-    if (${hasHoles}) {
-        // Calculate hole position based on margin
-        offset_x = width/2 - max(rad, 6);
-        offset_y = height/2 - max(rad, 6);
-
-        translate([ offset_x,  offset_y, -1]) cylinder(h=base_h+2, d=hole_d);
-        translate([-offset_x,  offset_y, -1]) cylinder(h=base_h+2, d=hole_d);
-        // Only 4 holes if the sign is tall enough, otherwise just 2
-        if (height > 40) {
-            translate([ offset_x, -offset_y, -1]) cylinder(h=base_h+2, d=hole_d);
-            translate([-offset_x, -offset_y, -1]) cylinder(h=base_h+2, d=hole_d);
+// Stroke-based font module
+module draw_path(points, stroke_width) {
+    for (i = [0:len(points)-2]) {
+        hull() {
+            translate(points[i]) cylinder(h=text_depth, d=stroke_width);
+            translate(points[i+1]) cylinder(h=text_depth, d=stroke_width);
         }
     }
 }
 
-// 3. Text Generation
-// We position this *exactly* on top of the base.
-// Slicers will see this as a separate mesh, making color changes easy.
-translate([-(len(text_str) * font_size * 0.75) / 2, -font_size/2, base_h]) {
-    linear_extrude(height = text_relief) {
-        for (i = [0 : len(text_str) - 1]) {
-            translate([i * font_size * 0.75, 0, 0])
-                stroke_char_2d(text_str[i], font_size, 1);
-        }
+module stroke_char(char, size) {
+    sw = size * 0.15;
+    s = size / 6;
+
+    if (char == "A") { draw_path([[0,0,0],[s*2,s*6,0],[s*4,0,0]], sw); draw_path([[s*0.8,s*2,0],[s*3.2,s*2,0]], sw); }
+    else if (char == "B") { draw_path([[0,0,0],[0,s*6,0],[s*3,s*6,0],[s*4,s*5,0],[s*3,s*3,0],[0,s*3,0]], sw); draw_path([[s*3,s*3,0],[s*4,s*2,0],[s*4,s*1,0],[s*3,0,0],[0,0,0]], sw); }
+    else if (char == "C") { draw_path([[s*4,s*5,0],[s*3,s*6,0],[s*1,s*6,0],[0,s*5,0],[0,s*1,0],[s*1,0,0],[s*3,0,0],[s*4,s*1,0]], sw); }
+    else if (char == "D") { draw_path([[0,0,0],[0,s*6,0],[s*2,s*6,0],[s*4,s*4,0],[s*4,s*2,0],[s*2,0,0],[0,0,0]], sw); }
+    else if (char == "E") { draw_path([[s*4,s*6,0],[0,s*6,0],[0,0,0],[s*4,0,0]], sw); draw_path([[0,s*3,0],[s*3,s*3,0]], sw); }
+    else if (char == "F") { draw_path([[s*4,s*6,0],[0,s*6,0],[0,0,0]], sw); draw_path([[0,s*3,0],[s*3,s*3,0]], sw); }
+    else if (char == "G") { draw_path([[s*4,s*5,0],[s*3,s*6,0],[s*1,s*6,0],[0,s*5,0],[0,s*1,0],[s*1,0,0],[s*3,0,0],[s*4,s*1,0],[s*4,s*3,0],[s*2,s*3,0]], sw); }
+    else if (char == "H") { draw_path([[0,0,0],[0,s*6,0]], sw); draw_path([[s*4,0,0],[s*4,s*6,0]], sw); draw_path([[0,s*3,0],[s*4,s*3,0]], sw); }
+    else if (char == "I") { draw_path([[s*1,0,0],[s*3,0,0]], sw); draw_path([[s*1,s*6,0],[s*3,s*6,0]], sw); draw_path([[s*2,0,0],[s*2,s*6,0]], sw); }
+    else if (char == "J") { draw_path([[s*1,s*6,0],[s*3,s*6,0]], sw); draw_path([[s*2,s*6,0],[s*2,s*1,0],[s*1,0,0],[0,s*1,0]], sw); }
+    else if (char == "K") { draw_path([[0,0,0],[0,s*6,0]], sw); draw_path([[s*4,s*6,0],[0,s*3,0],[s*4,0,0]], sw); }
+    else if (char == "L") { draw_path([[0,s*6,0],[0,0,0],[s*4,0,0]], sw); }
+    else if (char == "M") { draw_path([[0,0,0],[0,s*6,0],[s*2,s*3,0],[s*4,s*6,0],[s*4,0,0]], sw); }
+    else if (char == "N") { draw_path([[0,0,0],[0,s*6,0],[s*4,0,0],[s*4,s*6,0]], sw); }
+    else if (char == "O") { draw_path([[s*1,0,0],[s*3,0,0],[s*4,s*1,0],[s*4,s*5,0],[s*3,s*6,0],[s*1,s*6,0],[0,s*5,0],[0,s*1,0],[s*1,0,0]], sw); }
+    else if (char == "P") { draw_path([[0,0,0],[0,s*6,0],[s*3,s*6,0],[s*4,s*5,0],[s*4,s*4,0],[s*3,s*3,0],[0,s*3,0]], sw); }
+    else if (char == "Q") { draw_path([[s*1,0,0],[s*3,0,0],[s*4,s*1,0],[s*4,s*5,0],[s*3,s*6,0],[s*1,s*6,0],[0,s*5,0],[0,s*1,0],[s*1,0,0]], sw); draw_path([[s*2.5,s*1.5,0],[s*4,0,0]], sw); }
+    else if (char == "R") { draw_path([[0,0,0],[0,s*6,0],[s*3,s*6,0],[s*4,s*5,0],[s*4,s*4,0],[s*3,s*3,0],[0,s*3,0]], sw); draw_path([[s*2,s*3,0],[s*4,0,0]], sw); }
+    else if (char == "S") { draw_path([[s*4,s*5,0],[s*3,s*6,0],[s*1,s*6,0],[0,s*5,0],[0,s*4,0],[s*1,s*3,0],[s*3,s*3,0],[s*4,s*2,0],[s*4,s*1,0],[s*3,0,0],[s*1,0,0],[0,s*1,0]], sw); }
+    else if (char == "T") { draw_path([[0,s*6,0],[s*4,s*6,0]], sw); draw_path([[s*2,s*6,0],[s*2,0,0]], sw); }
+    else if (char == "U") { draw_path([[0,s*6,0],[0,s*1,0],[s*1,0,0],[s*3,0,0],[s*4,s*1,0],[s*4,s*6,0]], sw); }
+    else if (char == "V") { draw_path([[0,s*6,0],[s*2,0,0],[s*4,s*6,0]], sw); }
+    else if (char == "W") { draw_path([[0,s*6,0],[s*1,0,0],[s*2,s*3,0],[s*3,0,0],[s*4,s*6,0]], sw); }
+    else if (char == "X") { draw_path([[0,0,0],[s*4,s*6,0]], sw); draw_path([[0,s*6,0],[s*4,0,0]], sw); }
+    else if (char == "Y") { draw_path([[0,s*6,0],[s*2,s*3,0],[s*4,s*6,0]], sw); draw_path([[s*2,s*3,0],[s*2,0,0]], sw); }
+    else if (char == "Z") { draw_path([[0,s*6,0],[s*4,s*6,0],[0,0,0],[s*4,0,0]], sw); }
+    else if (char == "0") { draw_path([[s*1,0,0],[s*3,0,0],[s*4,s*1,0],[s*4,s*5,0],[s*3,s*6,0],[s*1,s*6,0],[0,s*5,0],[0,s*1,0],[s*1,0,0]], sw); }
+    else if (char == "1") { draw_path([[s*1,s*5,0],[s*2,s*6,0],[s*2,0,0]], sw); draw_path([[s*1,0,0],[s*3,0,0]], sw); }
+    else if (char == "2") { draw_path([[0,s*5,0],[s*1,s*6,0],[s*3,s*6,0],[s*4,s*5,0],[s*4,s*4,0],[0,0,0],[s*4,0,0]], sw); }
+    else if (char == "3") { draw_path([[0,s*5,0],[s*1,s*6,0],[s*3,s*6,0],[s*4,s*5,0],[s*4,s*4,0],[s*3,s*3,0]], sw); draw_path([[s*1.5,s*3,0],[s*3,s*3,0],[s*4,s*2,0],[s*4,s*1,0],[s*3,0,0],[s*1,0,0],[0,s*1,0]], sw); }
+    else if (char == "4") { draw_path([[s*3,0,0],[s*3,s*6,0],[0,s*2,0],[s*4,s*2,0]], sw); }
+    else if (char == "5") { draw_path([[s*4,s*6,0],[0,s*6,0],[0,s*3.5,0],[s*3,s*3.5,0],[s*4,s*2.5,0],[s*4,s*1,0],[s*3,0,0],[s*1,0,0],[0,s*1,0]], sw); }
+    else if (char == "6") { draw_path([[s*3,s*6,0],[s*1,s*6,0],[0,s*5,0],[0,s*1,0],[s*1,0,0],[s*3,0,0],[s*4,s*1,0],[s*4,s*2.5,0],[s*3,s*3.5,0],[0,s*3.5,0]], sw); }
+    else if (char == "7") { draw_path([[0,s*6,0],[s*4,s*6,0],[s*1.5,0,0]], sw); }
+    else if (char == "8") { draw_path([[s*1,s*3,0],[0,s*4,0],[0,s*5,0],[s*1,s*6,0],[s*3,s*6,0],[s*4,s*5,0],[s*4,s*4,0],[s*3,s*3,0],[s*1,s*3,0],[0,s*2,0],[0,s*1,0],[s*1,0,0],[s*3,0,0],[s*4,s*1,0],[s*4,s*2,0],[s*3,s*3,0]], sw); }
+    else if (char == "9") { draw_path([[s*1,0,0],[s*3,0,0],[s*4,s*1,0],[s*4,s*5,0],[s*3,s*6,0],[s*1,s*6,0],[0,s*5,0],[0,s*3.5,0],[s*1,s*2.5,0],[s*4,s*2.5,0]], sw); }
+    else if (char == " ") { }
+    else if (char == "!") { draw_path([[s*2,s*2.5,0],[s*2,s*6,0]], sw); translate([s*2,s*0.5,0]) cylinder(h=text_depth, d=sw); }
+    else if (char == ".") { translate([s*2,s*0.5,0]) cylinder(h=text_depth, d=sw); }
+    else if (char == "-") { draw_path([[s*0.5,s*3,0],[s*3.5,s*3,0]], sw); }
+    else { draw_path([[0,0,0],[s*4,0,0],[s*4,s*6,0],[0,s*6,0],[0,0,0]], sw); }
+}
+
+module stroke_text(str, size, spacing) {
+    for (i = [0:len(str)-1]) {
+        translate([i * spacing, 0, 0])
+            stroke_char(str[i], size);
     }
 }
+
+// Rounded rectangle module
+module rounded_rect(w, h, r) {
+    if (r > 0) {
+        hull() {
+            translate([r, r, 0]) cylinder(r=r, h=base_depth);
+            translate([w-r, r, 0]) cylinder(r=r, h=base_depth);
+            translate([w-r, h-r, 0]) cylinder(r=r, h=base_depth);
+            translate([r, h-r, 0]) cylinder(r=r, h=base_depth);
+        }
+    } else {
+        cube([w, h, base_depth]);
+    }
+}
+
+// Calculate dimensions
+char_spacing = text_size * 0.7;
+text_width = len(sign_text) * char_spacing;
+base_width = text_width + padding * 2;
+base_height = text_size + padding * 2;
+
+// Base plate
+rounded_rect(base_width, base_height, corner_radius);
+
+// Text
+translate([padding, padding, base_depth])
+    stroke_text(sign_text, text_size, char_spacing);
 `
   }
 }
