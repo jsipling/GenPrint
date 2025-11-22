@@ -8,6 +8,32 @@ import { generators, flattenParameters, type ParameterValues, type GeneratorPart
 
 const DEBOUNCE_MS = 1000
 
+// Parse URL params on load
+function getUrlState(): { generatorId?: string; params?: ParameterValues } {
+  const urlParams = new URLSearchParams(window.location.search)
+  const generatorId = urlParams.get('g') || undefined
+  const paramsStr = urlParams.get('p')
+
+  if (paramsStr) {
+    try {
+      const params = JSON.parse(atob(paramsStr))
+      return { generatorId, params }
+    } catch {
+      return { generatorId }
+    }
+  }
+  return { generatorId }
+}
+
+// Update URL without reloading
+function updateUrl(generatorId: string, params: ParameterValues) {
+  const urlParams = new URLSearchParams()
+  urlParams.set('g', generatorId)
+  urlParams.set('p', btoa(JSON.stringify(params)))
+  const newUrl = `${window.location.pathname}?${urlParams.toString()}`
+  window.history.replaceState({}, '', newUrl)
+}
+
 function getDefaultParams(generator: typeof generators[0]): ParameterValues {
   return flattenParameters(generator.parameters).reduce((acc, param) => {
     acc[param.name] = param.default
@@ -22,11 +48,30 @@ export default function App() {
     throw new Error('No generators registered. At least one generator is required.')
   }
 
-  const [selectedGenerator, setSelectedGenerator] = useState(initialGenerator)
-  const [params, setParams] = useState<ParameterValues>(() =>
-    getDefaultParams(selectedGenerator)
-  )
+  // Initialize from URL or defaults
+  const [selectedGenerator, setSelectedGenerator] = useState(() => {
+    const urlState = getUrlState()
+    if (urlState.generatorId) {
+      const gen = generators.find(g => g.id === urlState.generatorId)
+      if (gen) return gen
+    }
+    return initialGenerator
+  })
+  const [params, setParams] = useState<ParameterValues>(() => {
+    const urlState = getUrlState()
+    const gen = urlState.generatorId
+      ? generators.find(g => g.id === urlState.generatorId) || initialGenerator
+      : initialGenerator
+    const defaults = getDefaultParams(gen)
+    // Merge URL params with defaults (URL params override)
+    return urlState.params ? { ...defaults, ...urlState.params } : defaults
+  })
   const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  // Update URL when state changes
+  useEffect(() => {
+    updateUrl(selectedGenerator.id, params)
+  }, [selectedGenerator.id, params])
 
   const handleGeneratorChange = (generatorId: string) => {
     const gen = generators.find(g => g.id === generatorId)
