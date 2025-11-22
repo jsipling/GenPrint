@@ -68,6 +68,11 @@ export const gearGenerator: Generator = {
           name: 'hub_diameter',
           label: 'Hub Diameter',
           min: 5, max: 100, default: 15, step: 1, unit: 'mm',
+          dynamicMin: (params) => {
+            const boreDiameter = Number(params['bore_diameter']) || 5
+            // Hub must be at least bore + 4mm wall
+            return boreDiameter + 4
+          },
           dynamicMax: (params) => {
             const teeth = Number(params['teeth']) || 20
             const mod = Number(params['module']) || 2

@@ -9,13 +9,23 @@ export const washerGenerator: Generator = {
       type: 'number',
       name: 'outer_diameter',
       label: 'Outer Diameter',
-      min: 4, max: 100, default: 12, step: 0.5, unit: 'mm'
+      min: 4, max: 100, default: 12, step: 0.5, unit: 'mm',
+      dynamicMin: (params) => {
+        const innerD = Number(params['inner_diameter']) || 6
+        // Outer must be at least inner + 2mm wall
+        return innerD + 2
+      }
     },
     {
       type: 'number',
       name: 'inner_diameter',
       label: 'Inner Diameter',
-      min: 1, max: 90, default: 6, step: 0.5, unit: 'mm'
+      min: 1, max: 90, default: 6, step: 0.5, unit: 'mm',
+      dynamicMax: (params) => {
+        const outerD = Number(params['outer_diameter']) || 12
+        // Leave at least 2mm wall thickness
+        return outerD - 2
+      }
     },
     {
       type: 'number',

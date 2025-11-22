@@ -33,7 +33,14 @@ export const boxGenerator: Generator = {
       type: 'number',
       name: 'corner_radius',
       label: 'Corner Radius',
-      min: 0, max: 10, default: 3, step: 1, unit: 'mm'
+      min: 0, max: 10, default: 3, step: 1, unit: 'mm',
+      dynamicMax: (params) => {
+        const width = Number(params['width']) || 50
+        const depth = Number(params['depth']) || 50
+        const wall = Number(params['wall_thickness']) || 2
+        // Corner radius limited by smaller dimension minus wall
+        return Math.floor(Math.min(width, depth) / 2 - wall)
+      }
     },
     {
       type: 'boolean',

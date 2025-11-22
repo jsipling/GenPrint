@@ -185,10 +185,11 @@ function ParameterInput({ param, params, onParamChange, onParamCommit, onSliderD
   }
 
   // TypeScript now knows param is NumberParameterDef
-  // Calculate effective max (dynamic or static, clamped to static max)
+  // Calculate effective min/max (dynamic or static, clamped to static bounds)
+  const dynamicMinValue = param.dynamicMin ? param.dynamicMin(params) : param.min
   const dynamicMaxValue = param.dynamicMax ? param.dynamicMax(params) : param.max
+  const effectiveMin = Math.max(dynamicMinValue, param.min)
   const effectiveMax = Math.min(dynamicMaxValue, param.max)
-  const effectiveMin = param.min
 
   // Clamp value to effective range
   const rawValue = Number(value)

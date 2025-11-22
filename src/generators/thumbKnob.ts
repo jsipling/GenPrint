@@ -20,7 +20,19 @@ export const thumbKnobGenerator: Generator = {
       max: 50,
       default: 15,
       step: 1,
-      unit: 'mm'
+      unit: 'mm',
+      dynamicMin: (params) => {
+        // Hex flat-to-flat dimensions by screw size
+        const hexFlats: Record<string, number> = {
+          'M3': 5.5, 'M4': 7.0, 'M5': 8.0, 'M6': 10.0, 'M8': 13.0
+        }
+        const size = String(params['screw_size']) || 'M3'
+        const tol = Number(params['tolerance']) || 0.15
+        const hexFlat = hexFlats[size] || 5.5
+        // Hex diameter (corner-to-corner) + wall + ridge depth
+        const hexD = (hexFlat + tol * 2) / 0.866025
+        return Math.ceil(hexD + 9)
+      }
     },
     {
       type: 'number',
