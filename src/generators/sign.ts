@@ -207,7 +207,9 @@ export const signGenerator: Generator = {
     }
   ],
   scadTemplate: (params) => {
-    const text = String(params['text']).toUpperCase().replace(/[^A-Z0-9 !.\-#]/g, '')
+    const sanitized = String(params['text']).toUpperCase().replace(/[^A-Z0-9 !.\-#]/g, '').trim()
+    // Default to placeholder if text is empty after sanitization
+    const text = sanitized.length > 0 ? sanitized : 'TEXT'
     const textSize = params['text_size']
     const textDepth = params['text_depth']
     const padding = params['padding']

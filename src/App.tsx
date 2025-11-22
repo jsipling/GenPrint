@@ -61,6 +61,9 @@ export default function App() {
   }, [])
 
   // Initial compile when WASM is ready
+  // Note: params and doCompile intentionally omitted from deps - we want to compile with
+  // whatever params exist when status becomes 'ready', not re-trigger on every param change.
+  // Subsequent param changes are handled by the debounced effect below.
   useEffect(() => {
     if (status === 'ready' && !hasCompiledOnceRef.current) {
       hasCompiledOnceRef.current = true

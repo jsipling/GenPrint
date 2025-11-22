@@ -67,4 +67,43 @@ describe('signGenerator', () => {
     expect(scad).toContain('cylinder')
     expect(scad).toContain('hull')
   })
+
+  it('should default to TEXT when input is empty after sanitization', () => {
+    const scad = signGenerator.scadTemplate({
+      text: '',
+      text_size: 12,
+      text_depth: 2,
+      padding: 5,
+      base_depth: 3,
+      corner_radius: 2
+    })
+
+    expect(scad).toContain('sign_text = "TEXT"')
+  })
+
+  it('should default to TEXT when input contains only invalid characters', () => {
+    const scad = signGenerator.scadTemplate({
+      text: '日本語',
+      text_size: 12,
+      text_depth: 2,
+      padding: 5,
+      base_depth: 3,
+      corner_radius: 2
+    })
+
+    expect(scad).toContain('sign_text = "TEXT"')
+  })
+
+  it('should trim whitespace and handle whitespace-only input', () => {
+    const scad = signGenerator.scadTemplate({
+      text: '   ',
+      text_size: 12,
+      text_depth: 2,
+      padding: 5,
+      base_depth: 3,
+      corner_radius: 2
+    })
+
+    expect(scad).toContain('sign_text = "TEXT"')
+  })
 })

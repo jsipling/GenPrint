@@ -19,6 +19,15 @@ export interface StringParameterDef {
 
 export type ParameterDef = NumberParameterDef | StringParameterDef
 
+// Type guards for discriminated union
+export function isNumberParam(param: ParameterDef): param is NumberParameterDef {
+  return param.type === 'number'
+}
+
+export function isStringParam(param: ParameterDef): param is StringParameterDef {
+  return param.type === 'string'
+}
+
 export interface Generator {
   id: string
   name: string

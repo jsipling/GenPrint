@@ -8,3 +8,4 @@ export const generators: Generator[] = [
 ]
 
 export type { Generator, ParameterDef, ParameterValues, NumberParameterDef, StringParameterDef } from './types'
+export { isNumberParam, isStringParam } from './types'

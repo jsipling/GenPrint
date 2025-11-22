@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import type { Generator, ParameterValues, NumberParameterDef, StringParameterDef } from '../generators'
+import type { Generator, ParameterValues } from '../generators'
+import { isStringParam } from '../generators'
 import type { CompileStatus } from '../hooks/useOpenSCAD'
 
 interface SidebarProps {
@@ -114,8 +115,7 @@ export function Sidebar({
           {selectedGenerator.parameters.map((param) => {
             const value = params[param.name] ?? param.default
 
-            if (param.type === 'string') {
-              const stringParam = param as StringParameterDef
+            if (isStringParam(param)) {
               return (
                 <div key={param.name}>
                   <label htmlFor={param.name} className="block text-sm mb-1">
@@ -125,7 +125,7 @@ export function Sidebar({
                     type="text"
                     id={param.name}
                     value={String(value)}
-                    maxLength={stringParam.maxLength}
+                    maxLength={param.maxLength}
                     onChange={(e) => onParamChange(param.name, e.target.value)}
                     className="w-full px-3 py-2 bg-gray-700 rounded border border-gray-600 focus:border-blue-500 focus:outline-none text-white"
                   />
@@ -133,9 +133,9 @@ export function Sidebar({
               )
             }
 
-            const numParam = param as NumberParameterDef
+            // TypeScript now knows param is NumberParameterDef
             const numValue = Number(value)
-            const valueText = `${numValue}${numParam.unit ? ` ${numParam.unit}` : ''}`
+            const valueText = `${numValue}${param.unit ? ` ${param.unit}` : ''}`
             return (
               <div key={param.name}>
                 <div className="flex justify-between text-sm mb-1">
@@ -147,20 +147,20 @@ export function Sidebar({
                 <input
                   type="range"
                   id={param.name}
-                  min={numParam.min}
-                  max={numParam.max}
-                  step={numParam.step ?? 1}
+                  min={param.min}
+                  max={param.max}
+                  step={param.step ?? 1}
                   value={numValue}
                   onChange={(e) => onParamChange(param.name, parseFloat(e.target.value))}
                   className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                  aria-valuemin={numParam.min}
-                  aria-valuemax={numParam.max}
+                  aria-valuemin={param.min}
+                  aria-valuemax={param.max}
                   aria-valuenow={numValue}
                   aria-valuetext={valueText}
                 />
                 <div className="flex justify-between text-xs text-gray-500 mt-1" aria-hidden="true">
-                  <span>{numParam.min}</span>
-                  <span>{numParam.max}</span>
+                  <span>{param.min}</span>
+                  <span>{param.max}</span>
                 </div>
               </div>
             )

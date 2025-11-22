@@ -21,59 +21,73 @@ function DynamicControls() {
   return <OrbitControls ref={controlsRef} makeDefault zoomSpeed={1.5} />
 }
 
+// Constants for tick mark sizes
+const TICK_SIZE = 1.5 // Length of 10mm tick marks
+const SMALL_TICK_SIZE = 0.8 // Length of 5mm tick marks
+const MAX_TICKS_PER_AXIS = 100 // Cap tick count to prevent performance issues with large models
+
 // Grid with measurement labels (Z-up coordinate system)
 function MeasuredGrid({ size = 100, divisions = 10 }: { size?: number; divisions?: number }) {
-  const tickSize = 1.5 // Length of 10mm tick marks
-  const smallTickSize = 0.8 // Length of 5mm tick marks
-
   // Memoize tick and label calculations to avoid recreating on every render
   const { ticks, labels } = useMemo(() => {
     const tickList: { points: [[number, number, number], [number, number, number]]; color: string }[] = []
     const labelList: { pos: [number, number, number]; text: string }[] = []
 
+    const halfSize = size / 2
+
+    // Calculate tick interval to cap total ticks per axis
+    // For a 2000mm model (size=4000, halfSize=2000), we want ~100 ticks max
+    // Default 5mm interval gives 400 ticks for 2000mm, so scale up interval for large models
+    const baseTickInterval = 5
+    const tickInterval = halfSize > MAX_TICKS_PER_AXIS * baseTickInterval
+      ? Math.ceil(halfSize / MAX_TICKS_PER_AXIS / 5) * 5 // Round up to nearest 5mm
+      : baseTickInterval
+
     // Calculate label interval based on size - show fewer labels for larger grids
     const labelInterval = size > 200 ? 50 : (size > 100 ? 20 : 10)
+    // Scale label interval with tick interval for very large models
+    const effectiveLabelInterval = Math.max(labelInterval, tickInterval * 2)
 
-    // X axis ticks and labels (positive only, 5mm intervals for performance)
-    for (let mm = 5; mm <= size / 2; mm += 5) {
+    // X axis ticks and labels (positive only)
+    for (let mm = tickInterval; mm <= halfSize; mm += tickInterval) {
       const isCm = mm % 10 === 0
-      const tick = isCm ? tickSize : smallTickSize
+      const tick = isCm ? TICK_SIZE : SMALL_TICK_SIZE
 
       tickList.push({ points: [[mm, -tick, 0.01], [mm, tick, 0.01]], color: '#ff4444' })
 
       // Label at intervals
-      if (mm % labelInterval === 0) {
-        labelList.push({ pos: [mm, -tickSize - 2, 0], text: `${mm}` })
+      if (mm % effectiveLabelInterval === 0) {
+        labelList.push({ pos: [mm, -TICK_SIZE - 2, 0], text: `${mm}` })
       }
     }
 
-    // Y axis ticks and labels (positive only, 5mm intervals)
-    for (let mm = 5; mm <= size / 2; mm += 5) {
+    // Y axis ticks and labels (positive only)
+    for (let mm = tickInterval; mm <= halfSize; mm += tickInterval) {
       const isCm = mm % 10 === 0
-      const tick = isCm ? tickSize : smallTickSize
+      const tick = isCm ? TICK_SIZE : SMALL_TICK_SIZE
 
       tickList.push({ points: [[-tick, mm, 0.01], [tick, mm, 0.01]], color: '#44ff44' })
 
-      if (mm % labelInterval === 0) {
-        labelList.push({ pos: [-tickSize - 2, mm, 0], text: `${mm}` })
+      if (mm % effectiveLabelInterval === 0) {
+        labelList.push({ pos: [-TICK_SIZE - 2, mm, 0], text: `${mm}` })
       }
     }
 
-    // Z axis ticks and labels (vertical, positive only, 5mm intervals)
-    for (let mm = 5; mm <= size / 2; mm += 5) {
+    // Z axis ticks and labels (vertical, positive only)
+    for (let mm = tickInterval; mm <= halfSize; mm += tickInterval) {
       const isCm = mm % 10 === 0
-      const tick = isCm ? tickSize : smallTickSize
+      const tick = isCm ? TICK_SIZE : SMALL_TICK_SIZE
 
       tickList.push({ points: [[-tick, 0, mm], [tick, 0, mm]], color: '#4444ff' })
       tickList.push({ points: [[0, -tick, mm], [0, tick, mm]], color: '#4444ff' })
 
-      if (mm % labelInterval === 0) {
-        labelList.push({ pos: [-tickSize - 2, -tickSize - 2, mm], text: `${mm}` })
+      if (mm % effectiveLabelInterval === 0) {
+        labelList.push({ pos: [-TICK_SIZE - 2, -TICK_SIZE - 2, mm], text: `${mm}` })
       }
     }
 
     return { ticks: tickList, labels: labelList }
-  }, [size, tickSize, smallTickSize])
+  }, [size])
 
   // Memoize label style to avoid object recreation
   const labelStyle = useMemo(() => ({
@@ -136,14 +150,10 @@ function Model({ geometry }: ModelProps) {
   useEffect(() => {
     if (!meshRef.current) return
 
-    // Clone geometry to avoid mutating the original
-    const geo = geometry.clone()
-    geo.computeBoundingBox()
-    const box = geo.boundingBox
+    // computeBoundingBox() only computes and caches the box, it doesn't mutate vertex data
+    geometry.computeBoundingBox()
+    const box = geometry.boundingBox
     if (!box) return
-
-    const center = new THREE.Vector3()
-    box.getCenter(center)
 
     // Place model corner at origin (min X, Y, Z all at 0)
     if (meshRef.current) {

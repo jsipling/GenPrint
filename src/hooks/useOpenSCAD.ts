@@ -12,23 +12,22 @@ export interface UseOpenSCADReturn {
   compile: (scadCode: string) => Promise<Blob | null>
 }
 
-// Track if the module is ready (loaded at least once)
-let moduleReady = false
-let initPromise: Promise<void> | null = null
+// Track if WASM module has been loaded (for status reporting only)
+let wasmLoaded = false
+let loadPromise: Promise<void> | null = null
 
-async function ensureModuleReady(): Promise<void> {
-  if (moduleReady) return
+async function ensureWasmLoaded(): Promise<void> {
+  if (wasmLoaded) return
 
-  if (initPromise) return initPromise
+  if (loadPromise) return loadPromise
 
-  initPromise = (async () => {
-    // Load once to ensure WASM is cached by browser
-    const wrapper = await createOpenSCAD()
-    wrapper.getInstance() // Just to verify it works
-    moduleReady = true
-  })()
+  // Just verify WASM can be loaded - don't keep the instance
+  // (OpenSCAD WASM doesn't support multiple callMain invocations on same instance)
+  loadPromise = createOpenSCAD().then(() => {
+    wasmLoaded = true
+  })
 
-  return initPromise
+  return loadPromise
 }
 
 interface InstanceWithOutput {
@@ -36,6 +35,7 @@ interface InstanceWithOutput {
   getOutput: () => string
 }
 
+// Create fresh instance for each compile (required - OpenSCAD can't be called multiple times)
 async function createFreshInstance(): Promise<InstanceWithOutput> {
   const outputLines: string[] = []
   const wrapper = await createOpenSCAD({
@@ -59,7 +59,7 @@ export function useOpenSCAD(): UseOpenSCADReturn {
     let mounted = true
 
     setStatus('loading')
-    ensureModuleReady()
+    ensureWasmLoaded()
       .then(() => {
         if (mounted) {
           setStatus('ready')
@@ -80,7 +80,7 @@ export function useOpenSCAD(): UseOpenSCADReturn {
   }, [])
 
   const compile = useCallback(async (scadCode: string): Promise<Blob | null> => {
-    if (!moduleReady) {
+    if (!wasmLoaded) {
       setError('OpenSCAD not loaded')
       return null
     }
@@ -95,12 +95,12 @@ export function useOpenSCAD(): UseOpenSCADReturn {
     let instanceWithOutput: InstanceWithOutput | null = null
 
     try {
-      // Create a fresh instance for each compilation
-      if (import.meta.env.DEV) console.log('Creating fresh OpenSCAD instance...')
+      // Create fresh instance for each compile
+      // (OpenSCAD WASM doesn't support multiple callMain on same instance)
       instanceWithOutput = await createFreshInstance()
       const { instance, getOutput } = instanceWithOutput
 
-      // Check if a newer compile was requested while we were creating the instance
+      // Check if a newer compile was requested while creating instance
       if (currentCompileId !== compileIdRef.current) {
         if (import.meta.env.DEV) console.log('Compile superseded, skipping')
         return null
@@ -132,7 +132,7 @@ export function useOpenSCAD(): UseOpenSCADReturn {
         return null
       }
 
-      // Read the output file as binary (OpenSCAD can emit binary or ASCII STL)
+      // Read the output file as binary
       let stlData: Uint8Array
       try {
         stlData = instance.FS.readFile(outputFile) as Uint8Array
@@ -156,7 +156,6 @@ export function useOpenSCAD(): UseOpenSCADReturn {
       if (currentCompileId === compileIdRef.current) {
         if (import.meta.env.DEV) console.error('Compilation error:', err)
         const message = err instanceof Error ? err.message : 'Compilation failed'
-        // Include compiler output in error if available
         const output = instanceWithOutput?.getOutput()
         if (output) {
           setCompilerOutput(output)

@@ -13,9 +13,8 @@ export default defineConfig({
       output: {
         manualChunks: {
           // Split Three.js and related libraries into separate chunk
-          'three-vendor': ['three', 'three-stdlib', '@react-three/fiber', '@react-three/drei'],
-          // Split React into separate chunk
-          'react-vendor': ['react', 'react-dom']
+          'three-vendor': ['three', 'three-stdlib', '@react-three/fiber', '@react-three/drei']
+          // Note: React 19 handles its own chunking; manual splitting produces empty chunks
         }
       }
     }
