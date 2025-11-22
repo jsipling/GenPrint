@@ -2,7 +2,7 @@ import type { Generator, ParameterValues } from './types'
 
 export const thumbKnobGenerator: Generator = {
   id: 'thumb-knob',
-  name: 'Thumb Knob (Hex Fit)',
+  name: 'Thumb Knob',
   description: 'A grip handle for standard hex bolts/nuts (e.g., M3). Turns a screw into a thumb-screw.',
   parameters: [
     {

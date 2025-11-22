@@ -4,7 +4,7 @@ import { thumbKnobGenerator } from './thumbKnob'
 describe('thumbKnobGenerator', () => {
   it('should have correct metadata', () => {
     expect(thumbKnobGenerator.id).toBe('thumb-knob')
-    expect(thumbKnobGenerator.name).toBe('Thumb Knob (Hex Fit)')
+    expect(thumbKnobGenerator.name).toBe('Thumb Knob')
     expect(thumbKnobGenerator.description).toBe('A grip handle for standard hex bolts/nuts (e.g., M3). Turns a screw into a thumb-screw.')
   })
 
