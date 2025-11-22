@@ -6,22 +6,59 @@ import { STLLoader } from 'three-stdlib'
 
 // Grid with measurement labels (Z-up coordinate system)
 function MeasuredGrid({ size = 100, divisions = 10 }: { size?: number; divisions?: number }) {
-  const step = size / divisions
+  const tickSize = 1.5 // Length of tick marks
+  const smallTickSize = 0.8 // Length of small (5mm) tick marks
 
-  // Generate label positions along X, Y, and Z axes
-  const labels: { pos: [number, number, number]; text: string }[] = []
+  // Generate tick marks and labels along axes
+  const ticks: { points: [[number, number, number], [number, number, number]]; color: string }[] = []
+  const labels: { pos: [number, number, number]; text: string; size: string }[] = []
 
-  for (let i = -divisions / 2; i <= divisions / 2; i++) {
-    const value = i * step
-    if (i !== 0) {
-      // X axis labels
-      labels.push({ pos: [value, -size / 2 - 3, 0], text: `${value}` })
-      // Y axis labels
-      labels.push({ pos: [-size / 2 - 3, value, 0], text: `${value}` })
+  // X axis ticks and labels
+  for (let mm = -size / 2; mm <= size / 2; mm += 1) {
+    if (mm === 0) continue
+    const isCm = mm % 10 === 0
+    const is5mm = mm % 5 === 0
+    const tick = isCm ? tickSize : (is5mm ? smallTickSize : 0.4)
+
+    // Tick on X axis
+    ticks.push({ points: [[mm, -tick, 0.01], [mm, tick, 0.01]], color: '#ff4444' })
+
+    // Label every 10mm (1cm)
+    if (isCm) {
+      labels.push({ pos: [mm, -tickSize - 2, 0], text: `${mm}`, size: '9px' })
     }
-    // Z axis labels (only positive, from 0 upward)
-    if (i > 0) {
-      labels.push({ pos: [-3, -3, value], text: `${value}` })
+  }
+
+  // Y axis ticks and labels
+  for (let mm = -size / 2; mm <= size / 2; mm += 1) {
+    if (mm === 0) continue
+    const isCm = mm % 10 === 0
+    const is5mm = mm % 5 === 0
+    const tick = isCm ? tickSize : (is5mm ? smallTickSize : 0.4)
+
+    // Tick on Y axis
+    ticks.push({ points: [[-tick, mm, 0.01], [tick, mm, 0.01]], color: '#44ff44' })
+
+    // Label every 10mm (1cm)
+    if (isCm) {
+      labels.push({ pos: [-tickSize - 2, mm, 0], text: `${mm}`, size: '9px' })
+    }
+  }
+
+  // Z axis ticks and labels (vertical, both positive and negative)
+  for (let mm = -size / 2; mm <= size / 2; mm += 1) {
+    if (mm === 0) continue
+    const isCm = mm % 10 === 0
+    const is5mm = mm % 5 === 0
+    const tick = isCm ? tickSize : (is5mm ? smallTickSize : 0.4)
+
+    // Tick on Z axis
+    ticks.push({ points: [[-tick, 0, mm], [tick, 0, mm]], color: '#4444ff' })
+    ticks.push({ points: [[0, -tick, mm], [0, tick, mm]], color: '#4444ff' })
+
+    // Label every 10mm (1cm)
+    if (isCm) {
+      labels.push({ pos: [-tickSize - 2, -tickSize - 2, mm], text: `${mm}`, size: '9px' })
     }
   }
 
@@ -30,19 +67,23 @@ function MeasuredGrid({ size = 100, divisions = 10 }: { size?: number; divisions
       {/* Grid on XY plane (rotated from default XZ) */}
       <gridHelper args={[size, divisions, '#555', '#333']} rotation={[Math.PI / 2, 0, 0]} />
 
-      {/* Axis lines on XY plane */}
+      {/* Main axis lines */}
       <Line points={[[-size/2, 0, 0.01], [size/2, 0, 0.01]]} color="#ff4444" lineWidth={2} />
       <Line points={[[0, -size/2, 0.01], [0, size/2, 0.01]]} color="#44ff44" lineWidth={2} />
-      {/* Z axis line (vertical) */}
-      <Line points={[[0, 0, 0], [0, 0, size/2]]} color="#4444ff" lineWidth={2} />
+      <Line points={[[0, 0, -size/2], [0, 0, size/2]]} color="#4444ff" lineWidth={2} />
+
+      {/* Tick marks */}
+      {ticks.map((tick, i) => (
+        <Line key={`tick-${i}`} points={tick.points} color={tick.color} lineWidth={1} />
+      ))}
 
       {/* Measurement labels */}
       {labels.map((label, i) => (
         <Html
-          key={i}
+          key={`label-${i}`}
           position={label.pos}
           style={{
-            fontSize: '10px',
+            fontSize: label.size,
             color: '#888',
             whiteSpace: 'nowrap',
             userSelect: 'none',
