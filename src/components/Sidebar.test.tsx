@@ -22,6 +22,7 @@ const defaultProps = {
   params: { size: 50 },
   onParamChange: vi.fn(),
   onDownload: vi.fn(),
+  onReset: vi.fn(),
   canDownload: true
 }
 

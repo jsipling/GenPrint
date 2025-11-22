@@ -11,6 +11,7 @@ interface SidebarProps {
   onSliderDragStart?: () => void
   onSliderDragEnd?: () => void
   onDownload: () => void
+  onReset: () => void
   canDownload: boolean
 }
 
@@ -226,11 +227,12 @@ export function Sidebar({
   onSliderDragStart,
   onSliderDragEnd,
   onDownload,
+  onReset,
   canDownload
 }: SidebarProps) {
   return (
     <aside className="w-72 bg-gray-800 text-white flex flex-col h-full">
-      <div className="p-4 pb-0">
+      <div className="p-4 border-b border-gray-700 bg-gray-900">
         <header className="mb-6">
           <h1 className="text-xl font-bold text-blue-400">GenPrint</h1>
           <p className="text-sm text-gray-400 mt-1">Parametric 3D Model Generator</p>
@@ -252,8 +254,18 @@ export function Sidebar({
 
         <section>
           <h2 className="text-lg font-semibold mb-1">{selectedGenerator.name}</h2>
-          <p className="text-sm text-gray-400 mb-4">{selectedGenerator.description}</p>
+          <p className="text-sm text-gray-400">{selectedGenerator.description}</p>
         </section>
+
+        <div className="flex justify-between items-center mt-4 pt-4 border-t border-gray-700">
+          <h3 className="text-sm font-medium text-gray-300">Parameters</h3>
+          <button
+            onClick={onReset}
+            className="text-xs text-gray-400 hover:text-white transition-colors"
+          >
+            Reset to defaults
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 pb-4">
@@ -281,7 +293,7 @@ export function Sidebar({
         </div>
       </div>
 
-      <div className="p-4 border-t border-gray-700">
+      <div className="p-4 border-t border-gray-700 bg-gray-900">
         <button
           onClick={onDownload}
           disabled={!canDownload}

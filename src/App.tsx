@@ -129,6 +129,15 @@ export default function App() {
     })
   }, [doCompile])
 
+  // Reset parameters to defaults
+  const handleReset = useCallback(() => {
+    const defaultParams = getDefaultParams(selectedGenerator)
+    setParams(defaultParams)
+    if (hasCompiledOnceRef.current) {
+      doCompile(defaultParams)
+    }
+  }, [selectedGenerator, doCompile])
+
   const [showDownloadDialog, setShowDownloadDialog] = useState(false)
 
   // Check if model has downloadable parts (parts defined and relevant feature enabled)
@@ -197,6 +206,7 @@ export default function App() {
         onSliderDragStart={handleSliderDragStart}
         onSliderDragEnd={handleSliderDragEnd}
         onDownload={handleDownload}
+        onReset={handleReset}
         canDownload={stlBlob !== null && status === 'ready'}
       />
       <main className="flex-1 flex flex-col">
