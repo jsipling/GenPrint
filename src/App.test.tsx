@@ -78,7 +78,7 @@ describe('App', () => {
     expect(selectedGen.textContent).toBe('Cylindrical Spacer')
 
     const genCount = screen.getByTestId('generator-count')
-    expect(genCount.textContent).toBe('2')
+    expect(genCount.textContent).toBe('4')
   })
 
   it('initializes with default parameters for selected generator', async () => {
