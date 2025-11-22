@@ -39,25 +39,27 @@ export const boxGenerator: Generator = {
       type: 'boolean',
       name: 'include_lid',
       label: 'Include Lid',
-      default: true
-    },
-    {
-      type: 'number',
-      name: 'lid_height',
-      label: 'Lid Height',
-      min: 4, max: 40, default: 8, step: 0.5, unit: 'mm'
-    },
-    {
-      type: 'number',
-      name: 'lid_clearance',
-      label: 'Lid Clearance',
-      min: 0, max: 1, default: 0.2, step: 0.05, unit: 'mm'
-    },
-    {
-      type: 'number',
-      name: 'lid_lip_height',
-      label: 'Lid Lip Depth',
-      min: 2, max: 30, default: 5, step: 0.5, unit: 'mm'
+      default: true,
+      children: [
+        {
+          type: 'number',
+          name: 'lid_height',
+          label: 'Lid Height',
+          min: 4, max: 40, default: 8, step: 0.5, unit: 'mm'
+        },
+        {
+          type: 'number',
+          name: 'lid_clearance',
+          label: 'Lid Clearance',
+          min: 0, max: 1, default: 0.2, step: 0.05, unit: 'mm'
+        },
+        {
+          type: 'number',
+          name: 'lid_lip_height',
+          label: 'Lid Lip Depth',
+          min: 2, max: 30, default: 5, step: 0.5, unit: 'mm'
+        }
+      ]
     },
     {
       type: 'number',

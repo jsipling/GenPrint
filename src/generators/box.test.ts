@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { boxGenerator } from './box'
+import { flattenParameters, isBooleanParam } from './types'
 
 describe('boxGenerator', () => {
   it('should have correct metadata', () => {
@@ -9,52 +10,71 @@ describe('boxGenerator', () => {
   })
 
   it('should have correct parameters defined', () => {
-    expect(boxGenerator.parameters).toHaveLength(14)
+    // Top-level parameters (lid params are nested under include_lid)
+    expect(boxGenerator.parameters).toHaveLength(11)
+    // Flattened total including nested children
+    const allParams = flattenParameters(boxGenerator.parameters)
+    expect(allParams).toHaveLength(14)
 
-    const width = boxGenerator.parameters.find(p => p.name === 'width')
+    const width = allParams.find(p => p.name === 'width')
     expect(width).toBeDefined()
     expect(width?.type).toBe('number')
     expect(width?.default).toBe(50)
 
-    const depth = boxGenerator.parameters.find(p => p.name === 'depth')
+    const depth = allParams.find(p => p.name === 'depth')
     expect(depth).toBeDefined()
     expect(depth?.type).toBe('number')
     expect(depth?.default).toBe(50)
 
-    const height = boxGenerator.parameters.find(p => p.name === 'height')
+    const height = allParams.find(p => p.name === 'height')
     expect(height).toBeDefined()
     expect(height?.type).toBe('number')
     expect(height?.default).toBe(30)
 
-    const wallThickness = boxGenerator.parameters.find(p => p.name === 'wall_thickness')
+    const wallThickness = allParams.find(p => p.name === 'wall_thickness')
     expect(wallThickness).toBeDefined()
     expect(wallThickness?.type).toBe('number')
     expect(wallThickness?.default).toBe(2)
 
-    const cornerRadius = boxGenerator.parameters.find(p => p.name === 'corner_radius')
+    const cornerRadius = allParams.find(p => p.name === 'corner_radius')
     expect(cornerRadius).toBeDefined()
     expect(cornerRadius?.type).toBe('number')
     expect(cornerRadius?.default).toBe(3)
 
-    const includeLid = boxGenerator.parameters.find(p => p.name === 'include_lid')
+    const includeLid = allParams.find(p => p.name === 'include_lid')
     expect(includeLid).toBeDefined()
     expect(includeLid?.type).toBe('boolean')
     expect(includeLid?.default).toBe(true)
 
-    const lidHeight = boxGenerator.parameters.find(p => p.name === 'lid_height')
+    const lidHeight = allParams.find(p => p.name === 'lid_height')
     expect(lidHeight).toBeDefined()
     expect(lidHeight?.type).toBe('number')
     expect(lidHeight?.default).toBe(8)
 
-    const lidClearance = boxGenerator.parameters.find(p => p.name === 'lid_clearance')
+    const lidClearance = allParams.find(p => p.name === 'lid_clearance')
     expect(lidClearance).toBeDefined()
     expect(lidClearance?.type).toBe('number')
     expect(lidClearance?.default).toBe(0.2)
 
-    const lidLipHeight = boxGenerator.parameters.find(p => p.name === 'lid_lip_height')
+    const lidLipHeight = allParams.find(p => p.name === 'lid_lip_height')
     expect(lidLipHeight).toBeDefined()
     expect(lidLipHeight?.type).toBe('number')
     expect(lidLipHeight?.default).toBe(5)
+  })
+
+  it('should have lid parameters nested under include_lid', () => {
+    const includeLid = boxGenerator.parameters.find(p => p.name === 'include_lid')
+    expect(includeLid).toBeDefined()
+    expect(isBooleanParam(includeLid!)).toBe(true)
+
+    if (isBooleanParam(includeLid!)) {
+      expect(includeLid.children).toBeDefined()
+      expect(includeLid.children).toHaveLength(3)
+      const children = includeLid.children!
+      expect(children[0]!.name).toBe('lid_height')
+      expect(children[1]!.name).toBe('lid_clearance')
+      expect(children[2]!.name).toBe('lid_lip_height')
+    }
   })
 
   it('should generate valid SCAD code with default parameters', () => {

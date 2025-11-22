@@ -118,33 +118,86 @@ function ParameterInput({ param, params, onParamChange, depth = 0 }: ParameterIn
   if (isBooleanParam(param)) {
     const checked = Boolean(value)
     const hasChildren = param.children && param.children.length > 0
-    return (
-      <div className={depth > 0 ? 'ml-6 pl-3 border-l border-gray-600' : ''}>
-        <div className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            id={param.name}
-            checked={checked}
-            onChange={(e) => onParamChange(param.name, e.target.checked)}
-            className="w-4 h-4 bg-gray-700 rounded border border-gray-600 focus:ring-blue-500 accent-blue-500"
-          />
-          <label htmlFor={param.name} className="text-sm">
-            {param.label}
-          </label>
-        </div>
-        {hasChildren && checked && (
-          <div className="mt-3 space-y-3">
-            {param.children!.map((child) => (
-              <ParameterInput
-                key={child.name}
-                param={child}
-                params={params}
-                onParamChange={onParamChange}
-                depth={depth + 1}
-              />
-            ))}
+
+    // Nested child params get left border styling
+    if (depth > 0) {
+      return (
+        <div className="ml-6 pl-3 border-l border-gray-600">
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id={param.name}
+              checked={checked}
+              onChange={(e) => onParamChange(param.name, e.target.checked)}
+              className="w-4 h-4 bg-gray-700 rounded border border-gray-600 focus:ring-blue-500 accent-blue-500"
+            />
+            <label htmlFor={param.name} className="text-sm">
+              {param.label}
+            </label>
           </div>
-        )}
+          {hasChildren && checked && (
+            <div className="mt-3 space-y-3">
+              {param.children!.map((child) => (
+                <ParameterInput
+                  key={child.name}
+                  param={child}
+                  params={params}
+                  onParamChange={onParamChange}
+                  depth={depth + 1}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    // Top-level booleans with children get a container to group the feature
+    if (hasChildren) {
+      return (
+        <div className="p-3 bg-gray-700/50 rounded border border-gray-600">
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id={param.name}
+              checked={checked}
+              onChange={(e) => onParamChange(param.name, e.target.checked)}
+              className="w-4 h-4 bg-gray-700 rounded border border-gray-600 focus:ring-blue-500 accent-blue-500"
+            />
+            <label htmlFor={param.name} className="text-sm font-medium">
+              {param.label}
+            </label>
+          </div>
+          {checked && (
+            <div className="mt-3 space-y-3 pl-3 border-l border-gray-500">
+              {param.children!.map((child) => (
+                <ParameterInput
+                  key={child.name}
+                  param={child}
+                  params={params}
+                  onParamChange={onParamChange}
+                  depth={depth + 1}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    // Top-level booleans without children render normally
+    return (
+      <div className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          id={param.name}
+          checked={checked}
+          onChange={(e) => onParamChange(param.name, e.target.checked)}
+          className="w-4 h-4 bg-gray-700 rounded border border-gray-600 focus:ring-blue-500 accent-blue-500"
+        />
+        <label htmlFor={param.name} className="text-sm">
+          {param.label}
+        </label>
       </div>
     )
   }
@@ -227,14 +280,23 @@ export function Sidebar({
         <p className="text-sm text-gray-400 mb-4">{selectedGenerator.description}</p>
 
         <div className="space-y-4">
-          {selectedGenerator.parameters.map((param) => (
-            <ParameterInput
-              key={param.name}
-              param={param}
-              params={params}
-              onParamChange={onParamChange}
-            />
-          ))}
+          {/* Sort parameters: main options first, feature toggles (booleans with children) last */}
+          {[...selectedGenerator.parameters]
+            .sort((a, b) => {
+              const aHasChildren = isBooleanParam(a) && a.children && a.children.length > 0
+              const bHasChildren = isBooleanParam(b) && b.children && b.children.length > 0
+              if (aHasChildren && !bHasChildren) return 1
+              if (!aHasChildren && bHasChildren) return -1
+              return 0
+            })
+            .map((param) => (
+              <ParameterInput
+                key={param.name}
+                param={param}
+                params={params}
+                onParamChange={onParamChange}
+              />
+            ))}
         </div>
       </section>
 

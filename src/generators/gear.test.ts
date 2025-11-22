@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { gearGenerator } from './gear'
+import { flattenParameters, isBooleanParam } from './types'
 
 describe('gearGenerator', () => {
   it('should have correct metadata', () => {
@@ -9,52 +10,70 @@ describe('gearGenerator', () => {
   })
 
   it('should have correct parameters defined', () => {
-    expect(gearGenerator.parameters).toHaveLength(10)
+    // Top-level parameters (hub_diameter and hub_height are nested under include_hub)
+    expect(gearGenerator.parameters).toHaveLength(8)
+    // Flattened total including nested children
+    const allParams = flattenParameters(gearGenerator.parameters)
+    expect(allParams).toHaveLength(10)
 
-    const teeth = gearGenerator.parameters.find(p => p.name === 'teeth')
+    const teeth = allParams.find(p => p.name === 'teeth')
     expect(teeth).toBeDefined()
     expect(teeth?.type).toBe('number')
     expect(teeth?.default).toBe(20)
 
-    const mod = gearGenerator.parameters.find(p => p.name === 'module')
+    const mod = allParams.find(p => p.name === 'module')
     expect(mod).toBeDefined()
     expect(mod?.type).toBe('number')
     expect(mod?.default).toBe(2)
 
-    const height = gearGenerator.parameters.find(p => p.name === 'height')
+    const height = allParams.find(p => p.name === 'height')
     expect(height).toBeDefined()
     expect(height?.type).toBe('number')
     expect(height?.default).toBe(5)
 
-    const boreDiameter = gearGenerator.parameters.find(p => p.name === 'bore_diameter')
+    const boreDiameter = allParams.find(p => p.name === 'bore_diameter')
     expect(boreDiameter).toBeDefined()
     expect(boreDiameter?.type).toBe('number')
     expect(boreDiameter?.default).toBe(5)
 
-    const includeHub = gearGenerator.parameters.find(p => p.name === 'include_hub')
+    const includeHub = allParams.find(p => p.name === 'include_hub')
     expect(includeHub).toBeDefined()
     expect(includeHub?.type).toBe('boolean')
     expect(includeHub?.default).toBe(true)
 
-    const hubDiameter = gearGenerator.parameters.find(p => p.name === 'hub_diameter')
+    const hubDiameter = allParams.find(p => p.name === 'hub_diameter')
     expect(hubDiameter).toBeDefined()
     expect(hubDiameter?.type).toBe('number')
     expect(hubDiameter?.default).toBe(15)
 
-    const hubHeight = gearGenerator.parameters.find(p => p.name === 'hub_height')
+    const hubHeight = allParams.find(p => p.name === 'hub_height')
     expect(hubHeight).toBeDefined()
     expect(hubHeight?.type).toBe('number')
     expect(hubHeight?.default).toBe(5)
 
-    const pressureAngle = gearGenerator.parameters.find(p => p.name === 'pressure_angle')
+    const pressureAngle = allParams.find(p => p.name === 'pressure_angle')
     expect(pressureAngle).toBeDefined()
     expect(pressureAngle?.type).toBe('number')
     expect(pressureAngle?.default).toBe(20)
 
-    const tolerance = gearGenerator.parameters.find(p => p.name === 'tolerance')
+    const tolerance = allParams.find(p => p.name === 'tolerance')
     expect(tolerance).toBeDefined()
     expect(tolerance?.type).toBe('number')
     expect(tolerance?.default).toBe(0)
+  })
+
+  it('should have hub parameters nested under include_hub', () => {
+    const includeHub = gearGenerator.parameters.find(p => p.name === 'include_hub')
+    expect(includeHub).toBeDefined()
+    expect(isBooleanParam(includeHub!)).toBe(true)
+
+    if (isBooleanParam(includeHub!)) {
+      expect(includeHub.children).toBeDefined()
+      expect(includeHub.children).toHaveLength(2)
+      const children = includeHub.children!
+      expect(children[0]!.name).toBe('hub_diameter')
+      expect(children[1]!.name).toBe('hub_height')
+    }
   })
 
   it('should generate valid SCAD code with default parameters', () => {
@@ -264,12 +283,15 @@ describe('gearGenerator', () => {
   })
 
   it('should have tip_sharpness parameter', () => {
-    const tipSharpness = gearGenerator.parameters.find(p => p.name === 'tip_sharpness')
+    const allParams = flattenParameters(gearGenerator.parameters)
+    const tipSharpness = allParams.find(p => p.name === 'tip_sharpness')
     expect(tipSharpness).toBeDefined()
     expect(tipSharpness?.type).toBe('number')
     expect(tipSharpness?.default).toBe(0)
-    expect(tipSharpness?.min).toBe(0)
-    expect(tipSharpness?.max).toBe(1)
+    if (tipSharpness?.type === 'number') {
+      expect(tipSharpness.min).toBe(0)
+      expect(tipSharpness.max).toBe(1)
+    }
   })
 
   it('should include tip_sharpness in SCAD output', () => {

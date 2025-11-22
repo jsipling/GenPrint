@@ -20,4 +20,4 @@ export const generators: Generator[] = [
 ]
 
 export type { Generator, ParameterDef, ParameterValues, NumberParameterDef, StringParameterDef, SelectParameterDef, BooleanParameterDef } from './types'
-export { isNumberParam, isStringParam, isSelectParam, isBooleanParam } from './types'
+export { isNumberParam, isStringParam, isSelectParam, isBooleanParam, flattenParameters } from './types'

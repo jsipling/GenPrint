@@ -16,8 +16,8 @@ describe('flattenParameters', () => {
     const result = flattenParameters(params)
 
     expect(result).toHaveLength(2)
-    expect(result[0].name).toBe('width')
-    expect(result[1].name).toBe('enabled')
+    expect(result[0]!.name).toBe('width')
+    expect(result[1]!.name).toBe('enabled')
   })
 
   it('should flatten children of boolean parameters', () => {
@@ -82,7 +82,7 @@ describe('flattenParameters', () => {
     const result = flattenParameters(params)
 
     expect(result).toHaveLength(1)
-    expect(result[0].name).toBe('flag')
+    expect(result[0]!.name).toBe('flag')
   })
 
   it('should handle empty params array', () => {
@@ -105,7 +105,7 @@ describe('BooleanParameterDef with children', () => {
 
     expect(isBooleanParam(boolParam)).toBe(true)
     expect(boolParam.children).toHaveLength(1)
-    expect(boolParam.children![0].name).toBe('hub_diameter')
+    expect(boolParam.children![0]!.name).toBe('hub_diameter')
   })
 
   it('should work without children (backwards compatible)', () => {

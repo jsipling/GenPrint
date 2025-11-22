@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { bracketGenerator } from './bracket'
+import { flattenParameters, isBooleanParam } from './types'
 
 describe('bracketGenerator', () => {
   it('should have correct metadata', () => {
@@ -9,47 +10,63 @@ describe('bracketGenerator', () => {
   })
 
   it('should have correct parameters defined', () => {
-    expect(bracketGenerator.parameters).toHaveLength(9)
+    // Top-level parameters (rib_thickness is nested under add_rib)
+    expect(bracketGenerator.parameters).toHaveLength(8)
+    // Flattened total including nested children
+    const allParams = flattenParameters(bracketGenerator.parameters)
+    expect(allParams).toHaveLength(9)
 
-    const width = bracketGenerator.parameters.find(p => p.name === 'width')
+    const width = allParams.find(p => p.name === 'width')
     expect(width).toBeDefined()
     expect(width?.type).toBe('number')
     expect(width?.default).toBe(30)
 
-    const armLength = bracketGenerator.parameters.find(p => p.name === 'arm_length')
+    const armLength = allParams.find(p => p.name === 'arm_length')
     expect(armLength).toBeDefined()
     expect(armLength?.type).toBe('number')
     expect(armLength?.default).toBe(40)
 
-    const thickness = bracketGenerator.parameters.find(p => p.name === 'thickness')
+    const thickness = allParams.find(p => p.name === 'thickness')
     expect(thickness).toBeDefined()
     expect(thickness?.type).toBe('number')
     expect(thickness?.default).toBe(4)
 
-    const holeD = bracketGenerator.parameters.find(p => p.name === 'hole_diameter')
+    const holeD = allParams.find(p => p.name === 'hole_diameter')
     expect(holeD).toBeDefined()
     expect(holeD?.type).toBe('number')
     expect(holeD?.default).toBe(5)
 
-    const holeCountArm1 = bracketGenerator.parameters.find(p => p.name === 'hole_count_arm_1')
+    const holeCountArm1 = allParams.find(p => p.name === 'hole_count_arm_1')
     expect(holeCountArm1).toBeDefined()
     expect(holeCountArm1?.type).toBe('number')
     expect(holeCountArm1?.default).toBe(1)
 
-    const holeCountArm2 = bracketGenerator.parameters.find(p => p.name === 'hole_count_arm_2')
+    const holeCountArm2 = allParams.find(p => p.name === 'hole_count_arm_2')
     expect(holeCountArm2).toBeDefined()
     expect(holeCountArm2?.type).toBe('number')
     expect(holeCountArm2?.default).toBe(1)
 
-    const addRib = bracketGenerator.parameters.find(p => p.name === 'add_rib')
+    const addRib = allParams.find(p => p.name === 'add_rib')
     expect(addRib).toBeDefined()
     expect(addRib?.type).toBe('boolean')
     expect(addRib?.default).toBe(true)
 
-    const ribThickness = bracketGenerator.parameters.find(p => p.name === 'rib_thickness')
+    const ribThickness = allParams.find(p => p.name === 'rib_thickness')
     expect(ribThickness).toBeDefined()
     expect(ribThickness?.type).toBe('number')
     expect(ribThickness?.default).toBe(4)
+  })
+
+  it('should have rib_thickness nested under add_rib', () => {
+    const addRib = bracketGenerator.parameters.find(p => p.name === 'add_rib')
+    expect(addRib).toBeDefined()
+    expect(isBooleanParam(addRib!)).toBe(true)
+
+    if (isBooleanParam(addRib!)) {
+      expect(addRib.children).toBeDefined()
+      expect(addRib.children).toHaveLength(1)
+      expect(addRib.children![0]!.name).toBe('rib_thickness')
+    }
   })
 
   it('should generate valid SCAD code with default parameters', () => {

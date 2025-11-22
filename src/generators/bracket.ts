@@ -51,14 +51,16 @@ export const bracketGenerator: Generator = {
       type: 'boolean',
       name: 'add_rib',
       label: 'Add Rib',
-      default: true
-    },
-    {
-      type: 'number',
-      name: 'rib_thickness',
-      label: 'Rib Thickness',
-      min: 1, max: 10, default: 4, step: 0.5, unit: 'mm'
-    },
+      default: true,
+      children: [
+        {
+          type: 'number',
+          name: 'rib_thickness',
+          label: 'Rib Thickness',
+          min: 1, max: 10, default: 4, step: 0.5, unit: 'mm'
+        }
+      ]
+    }
   ],
   scadTemplate: (params: ParameterValues) => {
     const width = Number(params['width'])

@@ -2,12 +2,12 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { Viewer } from './components/Viewer'
 import { Sidebar } from './components/Sidebar'
 import { useOpenSCAD } from './hooks/useOpenSCAD'
-import { generators, type ParameterValues } from './generators'
+import { generators, flattenParameters, type ParameterValues } from './generators'
 
 const DEBOUNCE_MS = 300
 
 function getDefaultParams(generator: typeof generators[0]): ParameterValues {
-  return generator.parameters.reduce((acc, param) => {
+  return flattenParameters(generator.parameters).reduce((acc, param) => {
     acc[param.name] = param.default
     return acc
   }, {} as ParameterValues)

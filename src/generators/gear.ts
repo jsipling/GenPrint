@@ -32,25 +32,6 @@ export const gearGenerator: Generator = {
       description: 'Center hole diameter (0 for solid)'
     },
     {
-      type: 'boolean',
-      name: 'include_hub',
-      label: 'Include Hub',
-      default: true
-    },
-    {
-      type: 'number',
-      name: 'hub_diameter',
-      label: 'Hub Diameter',
-      min: 5, max: 100, default: 15, step: 1, unit: 'mm'
-    },
-    {
-      type: 'number',
-      name: 'hub_height',
-      label: 'Hub Height',
-      min: 0, max: 50, default: 5, step: 1, unit: 'mm',
-      description: 'Extension height above the gear face'
-    },
-    {
       type: 'number',
       name: 'pressure_angle',
       label: 'Pressure Angle',
@@ -70,6 +51,27 @@ export const gearGenerator: Generator = {
       label: 'Tip Sharpness',
       min: 0, max: 1, default: 0, step: 0.1, unit: '',
       description: '0 = flat tip (standard), 1 = pointed tip'
+    },
+    {
+      type: 'boolean',
+      name: 'include_hub',
+      label: 'Include Hub',
+      default: true,
+      children: [
+        {
+          type: 'number',
+          name: 'hub_diameter',
+          label: 'Hub Diameter',
+          min: 5, max: 100, default: 15, step: 1, unit: 'mm'
+        },
+        {
+          type: 'number',
+          name: 'hub_height',
+          label: 'Hub Height',
+          min: 0, max: 50, default: 5, step: 1, unit: 'mm',
+          description: 'Extension height above the gear face'
+        }
+      ]
     }
   ],
   scadTemplate: (params: ParameterValues) => {
