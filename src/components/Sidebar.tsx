@@ -8,6 +8,9 @@ interface SidebarProps {
   onGeneratorChange: (id: string) => void
   params: ParameterValues
   onParamChange: (name: string, value: number | string | boolean) => void
+  onParamCommit?: (name: string, value: number | string | boolean) => void
+  onSliderDragStart?: () => void
+  onSliderDragEnd?: () => void
   status: CompileStatus
   error: string | null
   onDownload: () => void
@@ -41,10 +44,13 @@ interface ParameterInputProps {
   param: ParameterDef
   params: ParameterValues
   onParamChange: (name: string, value: number | string | boolean) => void
+  onParamCommit?: (name: string, value: number | string | boolean) => void
+  onSliderDragStart?: () => void
+  onSliderDragEnd?: () => void
   depth?: number
 }
 
-function ParameterInput({ param, params, onParamChange, depth = 0 }: ParameterInputProps) {
+function ParameterInput({ param, params, onParamChange, onParamCommit, onSliderDragStart, onSliderDragEnd, depth = 0 }: ParameterInputProps) {
   const value = params[param.name] ?? param.default
 
   if (isStringParam(param)) {
@@ -113,6 +119,9 @@ function ParameterInput({ param, params, onParamChange, depth = 0 }: ParameterIn
                   param={child}
                   params={params}
                   onParamChange={onParamChange}
+                  onParamCommit={onParamCommit}
+                  onSliderDragStart={onSliderDragStart}
+                  onSliderDragEnd={onSliderDragEnd}
                   depth={depth + 1}
                 />
               ))}
@@ -146,6 +155,9 @@ function ParameterInput({ param, params, onParamChange, depth = 0 }: ParameterIn
                   param={child}
                   params={params}
                   onParamChange={onParamChange}
+                  onParamCommit={onParamCommit}
+                  onSliderDragStart={onSliderDragStart}
+                  onSliderDragEnd={onSliderDragEnd}
                   depth={depth + 1}
                 />
               ))}
@@ -205,6 +217,16 @@ function ParameterInput({ param, params, onParamChange, depth = 0 }: ParameterIn
         step={param.step ?? 1}
         value={numValue}
         onChange={(e) => onParamChange(param.name, parseFloat(e.target.value))}
+        onPointerDown={() => onSliderDragStart?.()}
+        onPointerUp={(e) => {
+          onSliderDragEnd?.()
+          onParamCommit?.(param.name, parseFloat((e.target as HTMLInputElement).value))
+        }}
+        onKeyUp={(e) => {
+          if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+            onParamCommit?.(param.name, parseFloat((e.target as HTMLInputElement).value))
+          }
+        }}
         className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
         aria-valuemin={effectiveMin}
         aria-valuemax={effectiveMax}
@@ -225,6 +247,9 @@ export function Sidebar({
   onGeneratorChange,
   params,
   onParamChange,
+  onParamCommit,
+  onSliderDragStart,
+  onSliderDragEnd,
   status,
   error,
   onDownload,
@@ -275,6 +300,9 @@ export function Sidebar({
                 param={param}
                 params={params}
                 onParamChange={onParamChange}
+                onParamCommit={onParamCommit}
+                onSliderDragStart={onSliderDragStart}
+                onSliderDragEnd={onSliderDragEnd}
               />
             ))}
         </div>

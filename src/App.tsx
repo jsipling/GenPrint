@@ -5,7 +5,7 @@ import { CompilerOutput } from './components/CompilerOutput'
 import { useOpenSCAD } from './hooks/useOpenSCAD'
 import { generators, flattenParameters, type ParameterValues } from './generators'
 
-const DEBOUNCE_MS = 300
+const DEBOUNCE_MS = 1000
 
 function getDefaultParams(generator: typeof generators[0]): ParameterValues {
   return flattenParameters(generator.parameters).reduce((acc, param) => {
@@ -39,6 +39,7 @@ export default function App() {
   const hasCompiledOnceRef = useRef(false)
   const isCompilingRef = useRef(false)
   const pendingParamsRef = useRef<ParameterValues | null>(null)
+  const isDraggingRef = useRef(false)
 
   // Use ref to always have latest compile function and generator without triggering effects
   const compileRef = useRef(compile)
@@ -67,10 +68,21 @@ export default function App() {
     })
   }, [])
 
+  // Debounced compile - called explicitly, not via effect
+  const scheduleCompile = useCallback((newParams: ParameterValues) => {
+    if (!hasCompiledOnceRef.current) return
+    if (isDraggingRef.current) return
+
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current)
+    }
+
+    debounceRef.current = setTimeout(() => {
+      doCompile(newParams)
+    }, DEBOUNCE_MS)
+  }, [doCompile])
+
   // Initial compile when WASM is ready
-  // Note: params and doCompile intentionally omitted from deps - we want to compile with
-  // whatever params exist when status becomes 'ready', not re-trigger on every param change.
-  // Subsequent param changes are handled by the debounced effect below.
   useEffect(() => {
     if (status === 'ready' && !hasCompiledOnceRef.current) {
       hasCompiledOnceRef.current = true
@@ -78,28 +90,37 @@ export default function App() {
     }
   }, [status]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Debounced compile on param change (only after initial compile)
-  useEffect(() => {
-    if (!hasCompiledOnceRef.current) return
+  // For non-slider inputs: update params and schedule debounced compile
+  const handleParamChange = useCallback((name: string, value: number | string | boolean) => {
+    setParams((prev) => {
+      const newParams = { ...prev, [name]: value }
+      scheduleCompile(newParams)
+      return newParams
+    })
+  }, [scheduleCompile])
 
+  // Slider drag start: just set flag (onChange will update UI but not compile)
+  const handleSliderDragStart = useCallback(() => {
+    isDraggingRef.current = true
     if (debounceRef.current) {
       clearTimeout(debounceRef.current)
+      debounceRef.current = null
     }
+  }, [])
 
-    debounceRef.current = setTimeout(() => {
-      doCompile(params)
-    }, DEBOUNCE_MS)
+  // Slider drag end: clear flag
+  const handleSliderDragEnd = useCallback(() => {
+    isDraggingRef.current = false
+  }, [])
 
-    return () => {
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current)
-      }
-    }
-  }, [params, doCompile])
-
-  const handleParamChange = (name: string, value: number | string | boolean) => {
-    setParams((prev) => ({ ...prev, [name]: value }))
-  }
+  // Slider release: compile immediately with final value
+  const handleParamCommit = useCallback((name: string, value: number | string | boolean) => {
+    setParams((prev) => {
+      const newParams = { ...prev, [name]: value }
+      doCompile(newParams)
+      return newParams
+    })
+  }, [doCompile])
 
   const handleDownload = () => {
     if (!stlBlob) return
@@ -122,6 +143,9 @@ export default function App() {
         onGeneratorChange={handleGeneratorChange}
         params={params}
         onParamChange={handleParamChange}
+        onParamCommit={handleParamCommit}
+        onSliderDragStart={handleSliderDragStart}
+        onSliderDragEnd={handleSliderDragEnd}
         status={status}
         error={error}
         onDownload={handleDownload}
