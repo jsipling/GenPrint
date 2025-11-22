@@ -101,12 +101,17 @@ function Model({ geometry }: ModelProps) {
     const size = new THREE.Vector3()
     box.getSize(size)
     const maxDim = Math.max(size.x, size.y, size.z)
-    const fov = (camera as THREE.PerspectiveCamera).fov * (Math.PI / 180)
+    const perspCamera = camera as THREE.PerspectiveCamera
+    const fov = perspCamera.fov * (Math.PI / 180)
     const distance = maxDim / (2 * Math.tan(fov / 2)) * 1.5
 
     camera.position.set(distance, -distance, distance * 0.8)
     camera.up.set(0, 0, 1)
     camera.lookAt(0, 0, 0)
+
+    // Update clipping planes based on model size to prevent large models from being clipped
+    perspCamera.near = Math.max(0.1, maxDim * 0.001)
+    perspCamera.far = Math.max(2000, maxDim * 10)
     camera.updateProjectionMatrix()
   }, [geometry, camera])
 
