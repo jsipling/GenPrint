@@ -63,7 +63,9 @@ onmessage = async (event: MessageEvent<WorkerMessage>) => {
         }
       }
 
-      const output = outputLines.join('\n')
+      const output = outputLines
+        .filter(line => !line.includes('Could not initialize localization'))
+        .join('\n')
 
       let stlData: Uint8Array
       try {
