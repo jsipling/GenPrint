@@ -4,7 +4,7 @@ import { Sidebar } from './components/Sidebar'
 import { CompilerOutput } from './components/CompilerOutput'
 import { DownloadDialog } from './components/DownloadDialog'
 import { useOpenSCAD } from './hooks/useOpenSCAD'
-import { generators, flattenParameters, type ParameterValues, type GeneratorPart, type QualityLevel } from './generators'
+import { generators, flattenParameters, type ParameterValues, type GeneratorPart } from './generators'
 
 const DEBOUNCE_MS = 1000
 
@@ -67,7 +67,6 @@ export default function App() {
     return urlState.params ? { ...defaults, ...urlState.params } : defaults
   })
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [quality, setQuality] = useState<QualityLevel>('normal')
 
   // Update URL when state changes
   useEffect(() => {
@@ -101,10 +100,6 @@ export default function App() {
   const generatorRef = useRef(selectedGenerator)
   generatorRef.current = selectedGenerator
 
-  // Use ref to always have latest quality without triggering effects
-  const qualityRef = useRef(quality)
-  qualityRef.current = quality
-
   // Track if we need a final-quality compile after draft preview
   const pendingFinalCompileRef = useRef<ParameterValues | null>(null)
 
@@ -116,11 +111,9 @@ export default function App() {
       return
     }
 
-    const targetQuality = qualityRef.current
-    // Progressive rendering: compile draft first for quick preview, then final quality
-    // Skip if already draft quality or if this is the final pass
-    const useProgressiveRendering = !isFinalPass && targetQuality !== 'draft'
-    const compileQuality = useProgressiveRendering ? 'draft' : targetQuality
+    // Progressive rendering: compile draft first for quick preview, then high quality
+    const useProgressiveRendering = !isFinalPass
+    const compileQuality = useProgressiveRendering ? 'draft' : 'high'
 
     isCompilingRef.current = true
     pendingParamsRef.current = null
@@ -142,14 +135,14 @@ export default function App() {
         return
       }
 
-      // If this was a draft preview, queue the final quality compile
+      // If this was a draft preview, queue the high quality compile
       if (useProgressiveRendering) {
         pendingFinalCompileRef.current = currentParams
         // Small delay to let the preview render
         setTimeout(() => {
           if (pendingFinalCompileRef.current === currentParams) {
             pendingFinalCompileRef.current = null
-            doCompile(currentParams, true) // Final pass at selected quality
+            doCompile(currentParams, true) // Final pass at high quality
           }
         }, 50)
       }
@@ -218,15 +211,6 @@ export default function App() {
       doCompile(defaultParams)
     }
   }, [selectedGenerator, doCompile])
-
-  // Quality change triggers immediate recompile
-  const handleQualityChange = useCallback((newQuality: QualityLevel) => {
-    setQuality(newQuality)
-    qualityRef.current = newQuality
-    if (hasCompiledOnceRef.current) {
-      doCompile(params)
-    }
-  }, [doCompile, params])
 
   const [showDownloadDialog, setShowDownloadDialog] = useState(false)
 
@@ -323,8 +307,6 @@ export default function App() {
           onDownload={handleDownload}
           onReset={handleReset}
           canDownload={stlBlob !== null && status === 'ready'}
-          quality={quality}
-          onQualityChange={handleQualityChange}
         />
       </div>
 
