@@ -34,6 +34,9 @@ function ParameterInput({ param, params, onParamChange, onParamCommit, onSliderD
         <label htmlFor={param.name} className="block text-sm mb-1">
           {param.label}
         </label>
+        {param.description && (
+          <p className="text-xs text-gray-400 mb-1">{param.description}</p>
+        )}
         <input
           type="text"
           id={param.name}
@@ -52,6 +55,9 @@ function ParameterInput({ param, params, onParamChange, onParamCommit, onSliderD
         <label htmlFor={param.name} className="block text-sm mb-1">
           {param.label}
         </label>
+        {param.description && (
+          <p className="text-xs text-gray-400 mb-1">{param.description}</p>
+        )}
         <select
           id={param.name}
           value={String(value)}
@@ -185,6 +191,9 @@ function ParameterInput({ param, params, onParamChange, onParamCommit, onSliderD
           {valueText}
         </span>
       </div>
+      {param.description && (
+        <p className="text-xs text-gray-400 mb-1">{param.description}</p>
+      )}
       <input
         type="range"
         id={param.name}

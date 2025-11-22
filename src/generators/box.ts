@@ -269,13 +269,15 @@ export const boxGenerator: Generator = {
           type: 'number',
           name: 'lid_clearance',
           label: 'Lid Clearance',
-          min: 0, max: 1, default: 0.2, step: 0.05, unit: 'mm'
+          min: 0, max: 1, default: 0.2, step: 0.05, unit: 'mm',
+          description: 'Gap between lid lip and box walls for easy fit'
         },
         {
           type: 'number',
           name: 'lid_lip_height',
           label: 'Lid Lip Depth',
-          min: 2, max: 30, default: 5, step: 0.5, unit: 'mm'
+          min: 2, max: 30, default: 5, step: 0.5, unit: 'mm',
+          description: 'How far the lid lip extends into the box'
         }
       ]
     },

@@ -20,6 +20,7 @@ export interface StringParameterDef {
   label: string
   default: string
   maxLength?: number
+  description?: string
 }
 
 export interface SelectParameterDef {
@@ -28,6 +29,7 @@ export interface SelectParameterDef {
   label: string
   options: string[]
   default: string
+  description?: string
 }
 
 export interface BooleanParameterDef {
@@ -36,6 +38,7 @@ export interface BooleanParameterDef {
   label: string
   default: boolean
   children?: ParameterDef[]
+  description?: string
 }
 
 export type ParameterDef = NumberParameterDef | StringParameterDef | SelectParameterDef | BooleanParameterDef
