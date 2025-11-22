@@ -6,17 +6,19 @@ import { STLLoader } from 'three-stdlib'
 
 // Grid with measurement labels (Z-up coordinate system)
 function MeasuredGrid({ size = 100, divisions = 10 }: { size?: number; divisions?: number }) {
-  const tickSize = 1.5 // Length of tick marks
-  const smallTickSize = 0.8 // Length of small (5mm) tick marks
+  const tickSize = 1.5 // Length of 10mm tick marks
+  const smallTickSize = 0.8 // Length of 5mm tick marks
+  const tinyTickSize = 0.4 // Length of 1mm tick marks
 
   // Generate tick marks and labels along axes
   const ticks: { points: [[number, number, number], [number, number, number]]; color: string }[] = []
   const labels: { pos: [number, number, number]; text: string; size: string }[] = []
 
-  // X axis ticks and labels (positive only, 5mm intervals for performance)
-  for (let mm = 5; mm <= size / 2; mm += 5) {
+  // X axis ticks and labels (positive only, 1mm intervals)
+  for (let mm = 1; mm <= size / 2; mm += 1) {
     const isCm = mm % 10 === 0
-    const tick = isCm ? tickSize : smallTickSize
+    const is5mm = mm % 5 === 0
+    const tick = isCm ? tickSize : (is5mm ? smallTickSize : tinyTickSize)
 
     // Tick on X axis
     ticks.push({ points: [[mm, -tick, 0.01], [mm, tick, 0.01]], color: '#ff4444' })
@@ -27,10 +29,11 @@ function MeasuredGrid({ size = 100, divisions = 10 }: { size?: number; divisions
     }
   }
 
-  // Y axis ticks and labels (positive only, 5mm intervals for performance)
-  for (let mm = 5; mm <= size / 2; mm += 5) {
+  // Y axis ticks and labels (positive only, 1mm intervals)
+  for (let mm = 1; mm <= size / 2; mm += 1) {
     const isCm = mm % 10 === 0
-    const tick = isCm ? tickSize : smallTickSize
+    const is5mm = mm % 5 === 0
+    const tick = isCm ? tickSize : (is5mm ? smallTickSize : tinyTickSize)
 
     // Tick on Y axis
     ticks.push({ points: [[-tick, mm, 0.01], [tick, mm, 0.01]], color: '#44ff44' })
@@ -41,10 +44,11 @@ function MeasuredGrid({ size = 100, divisions = 10 }: { size?: number; divisions
     }
   }
 
-  // Z axis ticks and labels (vertical, positive only, 5mm intervals for performance)
-  for (let mm = 5; mm <= size / 2; mm += 5) {
+  // Z axis ticks and labels (vertical, positive only, 1mm intervals)
+  for (let mm = 1; mm <= size / 2; mm += 1) {
     const isCm = mm % 10 === 0
-    const tick = isCm ? tickSize : smallTickSize
+    const is5mm = mm % 5 === 0
+    const tick = isCm ? tickSize : (is5mm ? smallTickSize : tinyTickSize)
 
     // Tick on Z axis
     ticks.push({ points: [[-tick, 0, mm], [tick, 0, mm]], color: '#4444ff' })
