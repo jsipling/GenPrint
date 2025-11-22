@@ -105,25 +105,53 @@ export default function App() {
   const qualityRef = useRef(quality)
   qualityRef.current = quality
 
-  const doCompile = useCallback((currentParams: ParameterValues) => {
+  // Track if we need a final-quality compile after draft preview
+  const pendingFinalCompileRef = useRef<ParameterValues | null>(null)
+
+  const doCompile = useCallback((currentParams: ParameterValues, isFinalPass = false) => {
     if (isCompilingRef.current) {
       // Queue the latest params to compile after current finishes
       pendingParamsRef.current = currentParams
+      pendingFinalCompileRef.current = null // Cancel any pending final compile
       return
     }
 
+    const targetQuality = qualityRef.current
+    // Progressive rendering: compile draft first for quick preview, then final quality
+    // Skip if already draft quality or if this is the final pass
+    const useProgressiveRendering = !isFinalPass && targetQuality !== 'draft'
+    const compileQuality = useProgressiveRendering ? 'draft' : targetQuality
+
     isCompilingRef.current = true
     pendingParamsRef.current = null
+
     // Pass quality via special _quality param
-    const paramsWithQuality = { ...currentParams, _quality: qualityRef.current }
+    const paramsWithQuality = { ...currentParams, _quality: compileQuality }
     const scadCode = generatorRef.current.scadTemplate(paramsWithQuality)
-    compileRef.current(scadCode).finally(() => {
+
+    // Final pass compiles silently in background
+    compileRef.current(scadCode, { silent: isFinalPass }).finally(() => {
       isCompilingRef.current = false
-      // If params changed while compiling, compile again with latest
+
+      // If params changed while compiling, start over with new params
       if (pendingParamsRef.current) {
         const pending = pendingParamsRef.current
         pendingParamsRef.current = null
+        pendingFinalCompileRef.current = null
         doCompile(pending)
+        return
+      }
+
+      // If this was a draft preview, queue the final quality compile
+      if (useProgressiveRendering) {
+        pendingFinalCompileRef.current = currentParams
+        // Small delay to let the preview render
+        setTimeout(() => {
+          if (pendingFinalCompileRef.current === currentParams) {
+            pendingFinalCompileRef.current = null
+            doCompile(currentParams, true) // Final pass at selected quality
+          }
+        }, 50)
       }
     })
   }, [])

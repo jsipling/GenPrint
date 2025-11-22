@@ -121,11 +121,14 @@ function MeasuredGrid({ size = 100, divisions = 10 }: { size?: number; divisions
 
 interface ModelProps {
   geometry: THREE.BufferGeometry
+  /** If true, skip camera reset when model size is similar (for progressive rendering) */
+  preserveCamera?: boolean
 }
 
-function Model({ geometry }: ModelProps) {
+function Model({ geometry, preserveCamera = false }: ModelProps) {
   const meshRef = useRef<THREE.Mesh>(null)
   const { camera } = useThree()
+  const lastBoundsRef = useRef<{ min: THREE.Vector3; max: THREE.Vector3 } | null>(null)
 
   useEffect(() => {
     if (!meshRef.current) return
@@ -138,6 +141,20 @@ function Model({ geometry }: ModelProps) {
     // Place model corner at origin (min X, Y, Z all at 0)
     if (meshRef.current) {
       meshRef.current.position.set(-box.min.x, -box.min.y, -box.min.z)
+    }
+
+    // Check if this is a similar model (progressive update) vs new model
+    const isSimilarModel = preserveCamera && lastBoundsRef.current && (
+      box.min.distanceTo(lastBoundsRef.current.min) < 1 &&
+      box.max.distanceTo(lastBoundsRef.current.max) < 1
+    )
+
+    // Save current bounds for next comparison
+    lastBoundsRef.current = { min: box.min.clone(), max: box.max.clone() }
+
+    // Skip camera reset for progressive updates of same model
+    if (isSimilarModel) {
+      return
     }
 
     const size = new THREE.Vector3()
@@ -155,7 +172,7 @@ function Model({ geometry }: ModelProps) {
     perspCamera.near = Math.max(0.1, maxDim * 0.001)
     perspCamera.far = Math.max(2000, maxDim * 10)
     camera.updateProjectionMatrix()
-  }, [geometry, camera])
+  }, [geometry, camera, preserveCamera])
 
   return (
     <mesh ref={meshRef} geometry={geometry}>
@@ -256,7 +273,7 @@ export function Viewer({ stlBlob, isCompiling }: ViewerProps) {
           <ambientLight intensity={0.4} />
           <directionalLight position={[10, 10, 5]} intensity={1} />
           <directionalLight position={[-10, -10, -5]} intensity={0.3} />
-          {geometry && <Model geometry={geometry} />}
+          {geometry && <Model geometry={geometry} preserveCamera />}
           <DynamicControls />
           <MeasuredGrid size={gridSize} divisions={gridDivisions} />
         </Canvas>

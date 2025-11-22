@@ -23,12 +23,17 @@ interface CacheEntry {
 const MAX_CACHE_SIZE = 20
 const stlCache = new Map<string, CacheEntry>()
 
+export interface CompileOptions {
+  /** If true, don't show compiling status - runs silently in background */
+  silent?: boolean
+}
+
 export interface UseOpenSCADReturn {
   status: CompileStatus
   error: string | null
   compilerOutput: string | null
   stlBlob: Blob | null
-  compile: (scadCode: string) => Promise<Blob | null>
+  compile: (scadCode: string, options?: CompileOptions) => Promise<Blob | null>
 }
 
 interface CompileResponse {
@@ -200,7 +205,8 @@ export function useOpenSCAD(): UseOpenSCADReturn {
     }
   }, [])
 
-  const compile = useCallback(async (scadCode: string): Promise<Blob | null> => {
+  const compile = useCallback(async (scadCode: string, options?: CompileOptions): Promise<Blob | null> => {
+    const silent = options?.silent ?? false
     const manager = managerRef.current
     const compileId = manager.getNextCompileId()
     currentCompileIdRef.current = compileId
@@ -215,13 +221,15 @@ export function useOpenSCAD(): UseOpenSCADReturn {
       setCompilerOutput(cached.output)
       const blob = new Blob([cached.stlData], { type: 'model/stl' })
       setStlBlob(blob)
-      setStatus('ready')
+      if (!silent) setStatus('ready')
       return blob
     }
 
-    setStatus('compiling')
-    setError(null)
-    setCompilerOutput(null)
+    if (!silent) {
+      setStatus('compiling')
+      setError(null)
+      setCompilerOutput(null)
+    }
 
     try {
       const w = await manager.getWorker()
@@ -266,7 +274,7 @@ export function useOpenSCAD(): UseOpenSCADReturn {
       }
 
       if (!stlData) {
-        setStatus('error')
+        if (!silent) setStatus('error')
         return null
       }
 
@@ -293,14 +301,16 @@ export function useOpenSCAD(): UseOpenSCADReturn {
 
       const blob = new Blob([stlData], { type: 'model/stl' })
       setStlBlob(blob)
-      setStatus('ready')
+      if (!silent) setStatus('ready')
       return blob
 
     } catch (err) {
       if (currentCompileIdRef.current === compileId) {
         if (import.meta.env.DEV) console.error('Compilation error:', err)
-        setError(err instanceof Error ? err.message : 'Compilation failed')
-        setStatus('error')
+        if (!silent) {
+          setError(err instanceof Error ? err.message : 'Compilation failed')
+          setStatus('error')
+        }
       }
       return null
     }
