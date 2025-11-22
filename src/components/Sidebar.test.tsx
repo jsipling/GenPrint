@@ -83,21 +83,21 @@ describe('Sidebar', () => {
           min: 8,
           max: 100,
           default: 20,
-          dynamicMax: (params) => Math.floor(Number(params['module']) * 50)
+          dynamicMax: (params) => Math.floor(Number(params['module']) * 15)
         }
       ],
       scadTemplate: () => 'cube(10);'
     }
 
-    // With module=0.5, dynamicMax should be 25
+    // With module=2, dynamicMax should be 30
     render(<Sidebar
       {...defaultProps}
       selectedGenerator={generatorWithDynamicMax}
       generators={[generatorWithDynamicMax]}
-      params={{ module: 0.5, teeth: 20 }}
+      params={{ module: 2, teeth: 20 }}
     />)
 
     const teethSlider = screen.getByLabelText('Teeth') as HTMLInputElement
-    expect(teethSlider.max).toBe('25')
+    expect(teethSlider.max).toBe('30')
   })
 })

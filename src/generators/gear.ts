@@ -12,7 +12,8 @@ export const gearGenerator: Generator = {
       min: 8, max: 100, default: 20, step: 1, unit: '',
       dynamicMax: (params) => {
         const mod = Number(params['module']) || 2
-        return Math.floor(mod * 50)
+        // Limit to mod * 15 to ensure robust tooth geometry
+        return Math.floor(mod * 15)
       }
     },
     {
@@ -90,9 +91,9 @@ export const gearGenerator: Generator = {
     const tolerance = Number(params['tolerance'])
     const tipSharpness = Number(params['tip_sharpness'])
 
-    // Limit teeth based on module to ensure visible tooth geometry
-    // At high tooth counts with small modules, teeth become too small to render/print
-    const maxTeethForModule = Math.floor(mod * 50)
+    // Limit teeth based on module to ensure robust tooth geometry
+    // At high tooth counts with small modules, teeth become too thin to render/print
+    const maxTeethForModule = Math.floor(mod * 15)
     const teeth = Math.min(teethInput, Math.max(8, maxTeethForModule))
 
     // Calculations for safety and geometry
