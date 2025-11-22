@@ -23,7 +23,9 @@ const defaultProps = {
   onParamChange: vi.fn(),
   onDownload: vi.fn(),
   onReset: vi.fn(),
-  canDownload: true
+  canDownload: true,
+  quality: 'normal' as const,
+  onQualityChange: vi.fn()
 }
 
 describe('Sidebar', () => {

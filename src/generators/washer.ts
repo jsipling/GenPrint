@@ -1,5 +1,5 @@
 import type { Generator, ParameterValues, QualityLevel } from './types'
-import { getQualityFn, QUALITY_FN } from './types'
+import { QUALITY_FN } from './types'
 
 export const washerGenerator: Generator = {
   id: 'washer',

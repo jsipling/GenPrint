@@ -157,55 +157,68 @@ lip_h = lip_style == "normal" ? gf_lip_height :
 
 // === MODULES ===
 
-// Rounded rectangle at origin
+// Rounded rectangle at origin (optimized: uses offset instead of hull)
 module rounded_rect(w, d, h, r) {
     r_safe = min(r, w/2 - 0.01, d/2 - 0.01);
     if (r_safe > 0) {
-        hull() {
-            translate([r_safe, r_safe, 0]) cylinder(r=r_safe, h=h);
-            translate([w-r_safe, r_safe, 0]) cylinder(r=r_safe, h=h);
-            translate([w-r_safe, d-r_safe, 0]) cylinder(r=r_safe, h=h);
-            translate([r_safe, d-r_safe, 0]) cylinder(r=r_safe, h=h);
-        }
+        linear_extrude(height=h)
+            translate([r_safe, r_safe, 0])
+                offset(r=r_safe)
+                    square([w - 2*r_safe, d - 2*r_safe]);
     } else {
         cube([w, d, h]);
     }
 }
 
-// Single base unit profile (the stepped base that sits in baseplate)
-module base_unit() {
-    // Lower taper (0.8mm, 45 deg inward)
-    hull() {
-        translate([0, 0, 0])
-            rounded_rect(gf_pitch - gf_clearance, gf_pitch - gf_clearance, 0.01, gf_corner_radius + 0.8);
-        translate([0.8, 0.8, gf_base_lower_taper])
-            rounded_rect(gf_pitch - gf_clearance - 1.6, gf_pitch - gf_clearance - 1.6, 0.01, gf_corner_radius);
+// 2D rounded square for base profile (optimized: avoids hull)
+module base_profile_2d(size, r) {
+    r_safe = min(r, size/2 - 0.01);
+    if (r_safe > 0) {
+        translate([r_safe, r_safe])
+            offset(r=r_safe)
+                square([size - 2*r_safe, size - 2*r_safe]);
+    } else {
+        square([size, size]);
     }
+}
+
+// Single base unit profile (the stepped base that sits in baseplate)
+// Optimized: uses linear_extrude with scale instead of hull()
+module base_unit() {
+    base_size_outer = gf_pitch - gf_clearance;
+    base_size_inner = gf_pitch - gf_clearance - 1.6;
+    scale_factor = base_size_inner / base_size_outer;
+
+    // Lower taper (0.8mm, 45 deg inward) - using linear_extrude with scale
+    linear_extrude(height=gf_base_lower_taper, scale=scale_factor)
+        base_profile_2d(base_size_outer, gf_corner_radius + 0.8);
+
     // Riser (1.8mm vertical)
     translate([0.8, 0.8, gf_base_lower_taper])
-        rounded_rect(gf_pitch - gf_clearance - 1.6, gf_pitch - gf_clearance - 1.6, gf_base_riser, gf_corner_radius);
-    // Upper taper (2.15mm, 45 deg outward)
-    hull() {
-        translate([0.8, 0.8, gf_base_lower_taper + gf_base_riser])
-            rounded_rect(gf_pitch - gf_clearance - 1.6, gf_pitch - gf_clearance - 1.6, 0.01, gf_corner_radius);
-        translate([0, 0, gf_base_lower_taper + gf_base_riser + gf_base_upper_taper])
-            rounded_rect(gf_pitch - gf_clearance, gf_pitch - gf_clearance, 0.01, gf_corner_radius + 0.8);
-    }
+        linear_extrude(height=gf_base_riser)
+            base_profile_2d(base_size_inner, gf_corner_radius);
+
+    // Upper taper (2.15mm, 45 deg outward) - using linear_extrude with scale
+    translate([0.8, 0.8, gf_base_lower_taper + gf_base_riser])
+        linear_extrude(height=gf_base_upper_taper, scale=1/scale_factor)
+            base_profile_2d(base_size_inner, gf_corner_radius);
+
     // Top flat to reach base_height
     translate([0, 0, gf_base_lower_taper + gf_base_riser + gf_base_upper_taper])
-        rounded_rect(gf_pitch - gf_clearance, gf_pitch - gf_clearance, 0.25, gf_corner_radius + 0.8);
+        linear_extrude(height=0.25)
+            base_profile_2d(base_size_outer, gf_corner_radius + 0.8);
 }
 
-// Magnet hole
+// Magnet hole (low $fn - internal cutout doesn't need high resolution)
 module magnet_hole() {
     translate([0, 0, -0.01])
-        cylinder(d=gf_magnet_d, h=gf_magnet_h + 0.01);
+        cylinder(d=gf_magnet_d, h=gf_magnet_h + 0.01, $fn=24);
 }
 
-// Screw hole
+// Screw hole (low $fn - internal cutout doesn't need high resolution)
 module screw_hole() {
     translate([0, 0, -0.01])
-        cylinder(d=gf_screw_d, h=gf_screw_h + 0.01);
+        cylinder(d=gf_screw_d, h=gf_screw_h + 0.01, $fn=16);
 }
 
 // Attachment holes for one grid cell corner
@@ -259,43 +272,6 @@ module bin_base() {
     }
 }
 
-// Stacking lip profile
-module lip_profile() {
-    if (lip_style == "normal") {
-        // Full lip: lower taper, riser, upper taper
-        hull() {
-            translate([wall_thickness, 0, 0])
-                square([0.01, gf_lip_lower_taper]);
-            translate([wall_thickness + gf_lip_lower_taper, 0, gf_lip_lower_taper])
-                square([0.01, 0.01]);
-        }
-        translate([wall_thickness + gf_lip_lower_taper, 0, gf_lip_lower_taper])
-            square([0.01, gf_lip_riser]);
-        hull() {
-            translate([wall_thickness + gf_lip_lower_taper, 0, gf_lip_lower_taper + gf_lip_riser])
-                square([0.01, 0.01]);
-            translate([wall_thickness, 0, gf_lip_lower_taper + gf_lip_riser + gf_lip_upper_taper])
-                square([0.01, 0.01]);
-        }
-    } else if (lip_style == "reduced") {
-        // Reduced lip: lower taper + riser only
-        hull() {
-            translate([wall_thickness, 0, 0])
-                square([0.01, gf_lip_lower_taper]);
-            translate([wall_thickness + gf_lip_lower_taper, 0, gf_lip_lower_taper])
-                square([0.01, gf_lip_riser]);
-        }
-    } else if (lip_style == "minimum") {
-        // Minimum lip: just the lower taper
-        hull() {
-            translate([wall_thickness, 0, 0])
-                square([0.01, gf_lip_lower_taper]);
-            translate([wall_thickness + gf_lip_lower_taper, 0, gf_lip_lower_taper])
-                square([0.01, 0.01]);
-        }
-    }
-}
-
 // Main bin body (walls above base)
 module bin_body() {
     body_start = gf_base_height;
@@ -313,38 +289,47 @@ module bin_body() {
     }
 }
 
-// Stacking lip at top of bin
+// 2D lip profile for linear_extrude (optimized: avoids hull)
+module lip_profile_2d(w, d, r) {
+    r_safe = max(0, min(r, w/2 - 0.01, d/2 - 0.01));
+    if (r_safe > 0) {
+        translate([r_safe, r_safe])
+            offset(r=r_safe)
+                square([w - 2*r_safe, d - 2*r_safe]);
+    } else {
+        square([w, d]);
+    }
+}
+
+// Stacking lip at top of bin (optimized: uses linear_extrude with scale)
 module bin_lip() {
     if (lip_style != "none") {
         lip_start = bin_height;
+        lip_w_outer = bin_width;
+        lip_d_outer = bin_depth;
+        lip_w_inner = bin_width - 2*gf_lip_lower_taper;
+        lip_d_inner = bin_depth - 2*gf_lip_lower_taper;
+        scale_inward = lip_w_inner / lip_w_outer;
 
         translate([0, 0, lip_start]) {
             difference() {
                 union() {
-                    // Lower taper (0.7mm) - angled outward
-                    hull() {
-                        rounded_rect(bin_width, bin_depth, 0.01, gf_corner_radius);
-                        translate([gf_lip_lower_taper, gf_lip_lower_taper, gf_lip_lower_taper])
-                            rounded_rect(bin_width - 2*gf_lip_lower_taper, bin_depth - 2*gf_lip_lower_taper, 0.01,
-                                        max(0, gf_corner_radius - gf_lip_lower_taper));
-                    }
+                    // Lower taper (0.7mm) - angled inward using linear_extrude with scale
+                    linear_extrude(height=gf_lip_lower_taper, scale=scale_inward)
+                        lip_profile_2d(lip_w_outer, lip_d_outer, gf_corner_radius);
 
                     if (lip_style == "normal" || lip_style == "reduced") {
                         // Vertical riser (1.8mm)
                         translate([gf_lip_lower_taper, gf_lip_lower_taper, gf_lip_lower_taper])
-                            rounded_rect(bin_width - 2*gf_lip_lower_taper, bin_depth - 2*gf_lip_lower_taper,
-                                        gf_lip_riser, max(0, gf_corner_radius - gf_lip_lower_taper));
+                            linear_extrude(height=gf_lip_riser)
+                                lip_profile_2d(lip_w_inner, lip_d_inner, max(0, gf_corner_radius - gf_lip_lower_taper));
                     }
 
                     if (lip_style == "normal") {
-                        // Upper taper (1.9mm) - angled inward back to original width
-                        hull() {
-                            translate([gf_lip_lower_taper, gf_lip_lower_taper, gf_lip_lower_taper + gf_lip_riser])
-                                rounded_rect(bin_width - 2*gf_lip_lower_taper, bin_depth - 2*gf_lip_lower_taper,
-                                            0.01, max(0, gf_corner_radius - gf_lip_lower_taper));
-                            translate([0, 0, gf_lip_lower_taper + gf_lip_riser + gf_lip_upper_taper])
-                                rounded_rect(bin_width, bin_depth, 0.01, gf_corner_radius);
-                        }
+                        // Upper taper (1.9mm) - angled outward using linear_extrude with scale
+                        translate([gf_lip_lower_taper, gf_lip_lower_taper, gf_lip_lower_taper + gf_lip_riser])
+                            linear_extrude(height=gf_lip_upper_taper, scale=1/scale_inward)
+                                lip_profile_2d(lip_w_inner, lip_d_inner, max(0, gf_corner_radius - gf_lip_lower_taper));
                     }
                 }
 
@@ -401,18 +386,13 @@ module finger_slide() {
 
 // Label slot - gflabel style (https://github.com/ndevenish/gflabel)
 // Oriented for front wall: width=X, depth=Y (into wall), height=Z
+// Optimized: uses linear_extrude with offset instead of hull()
 module label_slot_gflabel() {
-    // Rounded rectangular slot using cylinders along Y axis
-    hull() {
-        translate([gf_label_radius, 0, gf_label_radius])
-            rotate([-90, 0, 0]) cylinder(r=gf_label_radius, h=gf_label_depth);
-        translate([gf_label_width - gf_label_radius, 0, gf_label_radius])
-            rotate([-90, 0, 0]) cylinder(r=gf_label_radius, h=gf_label_depth);
-        translate([gf_label_width - gf_label_radius, 0, gf_label_height - gf_label_radius])
-            rotate([-90, 0, 0]) cylinder(r=gf_label_radius, h=gf_label_depth);
-        translate([gf_label_radius, 0, gf_label_height - gf_label_radius])
-            rotate([-90, 0, 0]) cylinder(r=gf_label_radius, h=gf_label_depth);
-    }
+    rotate([90, 0, 0])
+        linear_extrude(height=gf_label_depth)
+            translate([gf_label_radius, gf_label_radius])
+                offset(r=gf_label_radius, $fn=16)
+                    square([gf_label_width - 2*gf_label_radius, gf_label_height - 2*gf_label_radius]);
 }
 
 // Label slot - pred style (https://www.printables.com/model/592545)
