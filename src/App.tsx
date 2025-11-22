@@ -26,6 +26,7 @@ export default function App() {
   const [params, setParams] = useState<ParameterValues>(() =>
     getDefaultParams(selectedGenerator)
   )
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const handleGeneratorChange = (generatorId: string) => {
     const gen = generators.find(g => g.id === generatorId)
@@ -195,20 +196,47 @@ export default function App() {
   const downloadableParts = getDownloadableParts()
 
   return (
-    <div className="flex h-screen">
-      <Sidebar
-        generators={generators}
-        selectedGenerator={selectedGenerator}
-        onGeneratorChange={handleGeneratorChange}
-        params={params}
-        onParamChange={handleParamChange}
-        onParamCommit={handleParamCommit}
-        onSliderDragStart={handleSliderDragStart}
-        onSliderDragEnd={handleSliderDragEnd}
-        onDownload={handleDownload}
-        onReset={handleReset}
-        canDownload={stlBlob !== null && status === 'ready'}
-      />
+    <div className="flex h-screen relative">
+      {/* Mobile menu button */}
+      <button
+        onClick={() => setSidebarOpen(true)}
+        className="md:hidden fixed top-4 left-4 z-40 p-2 bg-gray-800 rounded-lg shadow-lg"
+        aria-label="Open menu"
+      >
+        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+
+      {/* Mobile backdrop */}
+      {sidebarOpen && (
+        <div
+          className="md:hidden fixed inset-0 bg-black/50 z-40"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar - hidden on mobile unless open */}
+      <div className={`
+        fixed md:relative inset-y-0 left-0 z-50
+        transform transition-transform duration-200 ease-in-out
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+      `}>
+        <Sidebar
+          generators={generators}
+          selectedGenerator={selectedGenerator}
+          onGeneratorChange={handleGeneratorChange}
+          params={params}
+          onParamChange={handleParamChange}
+          onParamCommit={handleParamCommit}
+          onSliderDragStart={handleSliderDragStart}
+          onSliderDragEnd={handleSliderDragEnd}
+          onDownload={handleDownload}
+          onReset={handleReset}
+          canDownload={stlBlob !== null && status === 'ready'}
+        />
+      </div>
+
       <main className="flex-1 flex flex-col">
         <div className="flex-1 min-h-0">
           <Viewer
