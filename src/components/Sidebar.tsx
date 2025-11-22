@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import type { Generator, ParameterValues, ParameterDef } from '../generators'
 import { isStringParam, isSelectParam, isBooleanParam } from '../generators'
 
@@ -176,11 +177,12 @@ function ParameterInput({ param, params, onParamChange, onParamCommit, onSliderD
   const rawValue = Number(value)
   const numValue = Math.max(effectiveMin, Math.min(rawValue, effectiveMax))
 
-  // If value was clamped, notify parent
-  if (numValue !== rawValue) {
-    // Use setTimeout to avoid state update during render
-    setTimeout(() => onParamChange(param.name, numValue), 0)
-  }
+  // If value was clamped, notify parent via effect (not during render)
+  useEffect(() => {
+    if (numValue !== rawValue) {
+      onParamChange(param.name, numValue)
+    }
+  }, [numValue, rawValue, param.name, onParamChange])
 
   const valueText = `${numValue}${param.unit ? ` ${param.unit}` : ''}`
   return (

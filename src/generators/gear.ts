@@ -13,7 +13,8 @@ export const gearGenerator: Generator = {
       dynamicMax: (params) => {
         const mod = Number(params['module']) || 2
         // Limit to mod * 15 to ensure robust tooth geometry
-        return Math.floor(mod * 15)
+        // Ensure we never return less than param.min (8)
+        return Math.max(8, Math.floor(mod * 15))
       }
     },
     {

@@ -70,6 +70,8 @@ describe('App', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockCompile.mockResolvedValue(new Blob(['test']))
+    // Reset URL state between tests to prevent pollution
+    window.history.replaceState({}, '', window.location.pathname)
   })
 
   afterEach(() => {

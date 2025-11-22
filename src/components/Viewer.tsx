@@ -1,10 +1,52 @@
-import { useRef, useEffect, useState, useMemo } from 'react'
+import { useRef, useEffect, useState, useMemo, Component, type ReactNode } from 'react'
 import { Canvas, useThree, useFrame } from '@react-three/fiber'
 import { OrbitControls, Html, Line } from '@react-three/drei'
 import * as THREE from 'three'
 import { STLLoader } from 'three-stdlib'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import { calculateTicksAndLabels, calculateGridParams } from './gridUtils'
+
+// Error boundary to catch WebGL/Canvas crashes
+interface ErrorBoundaryState {
+  hasError: boolean
+  error: Error | null
+}
+
+class CanvasErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryState> {
+  state: ErrorBoundaryState = { hasError: false, error: null }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error }
+  }
+
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    if (import.meta.env.DEV) {
+      console.error('Canvas error:', error, info.componentStack)
+    }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="w-full h-full flex items-center justify-center bg-gray-900 text-red-400">
+          <div className="text-center">
+            <p className="text-lg font-medium">3D Viewer Error</p>
+            <p className="text-sm mt-2 text-gray-400">
+              {this.state.error?.message || 'WebGL context lost or unavailable'}
+            </p>
+            <button
+              onClick={() => this.setState({ hasError: false, error: null })}
+              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 
 // Dynamic pan speed controls - scales with camera distance
 function DynamicControls() {
@@ -209,14 +251,16 @@ export function Viewer({ stlBlob, isCompiling }: ViewerProps) {
   return (
     <div className="relative w-full h-full bg-gray-900">
       {/* Always render Canvas to preserve WebGL context */}
-      <Canvas camera={{ position: [50, -50, 40], fov: 50, up: [0, 0, 1] }}>
-        <ambientLight intensity={0.4} />
-        <directionalLight position={[10, 10, 5]} intensity={1} />
-        <directionalLight position={[-10, -10, -5]} intensity={0.3} />
-        {geometry && <Model geometry={geometry} />}
-        <DynamicControls />
-        <MeasuredGrid size={gridSize} divisions={gridDivisions} />
-      </Canvas>
+      <CanvasErrorBoundary>
+        <Canvas camera={{ position: [50, -50, 40], fov: 50, up: [0, 0, 1] }}>
+          <ambientLight intensity={0.4} />
+          <directionalLight position={[10, 10, 5]} intensity={1} />
+          <directionalLight position={[-10, -10, -5]} intensity={0.3} />
+          {geometry && <Model geometry={geometry} />}
+          <DynamicControls />
+          <MeasuredGrid size={gridSize} divisions={gridDivisions} />
+        </Canvas>
+      </CanvasErrorBoundary>
 
       {/* Overlay states */}
       {loadError && (
