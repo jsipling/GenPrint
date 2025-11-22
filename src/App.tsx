@@ -30,7 +30,13 @@ export default function App() {
     const gen = generators.find(g => g.id === generatorId)
     if (gen) {
       setSelectedGenerator(gen)
-      setParams(getDefaultParams(gen))
+      const newParams = getDefaultParams(gen)
+      setParams(newParams)
+      // Update ref immediately so doCompile uses the new generator
+      generatorRef.current = gen
+      if (hasCompiledOnceRef.current) {
+        doCompile(newParams)
+      }
     }
   }
 
