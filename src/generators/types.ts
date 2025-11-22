@@ -8,6 +8,8 @@ export interface NumberParameterDef {
   step?: number
   unit?: string
   description?: string
+  /** Dynamic max based on other parameter values. Returns effective max, clamped to static max. */
+  dynamicMax?: (params: Record<string, number | string | boolean>) => number
 }
 
 export interface StringParameterDef {

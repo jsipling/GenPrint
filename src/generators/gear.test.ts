@@ -328,4 +328,61 @@ describe('gearGenerator', () => {
     // Should include tip point logic in polygon
     expect(scad).toContain('tip_point')
   })
+
+  it('should limit teeth count based on module for visible geometry', () => {
+    // With module 0.5, max teeth = 0.5 * 50 = 25
+    const scad = gearGenerator.scadTemplate({
+      teeth: 100,
+      module: 0.5,
+      height: 5,
+      bore_diameter: 0,
+      include_hub: false,
+      hub_diameter: 15,
+      hub_height: 0,
+      pressure_angle: 20,
+      tolerance: 0,
+      tip_sharpness: 0
+    })
+
+    // Should limit to 25 teeth, not 100
+    expect(scad).toContain('teeth = 25')
+  })
+
+  it('should allow high tooth counts with large modules', () => {
+    // With module 2, max teeth = 2 * 50 = 100
+    const scad = gearGenerator.scadTemplate({
+      teeth: 100,
+      module: 2,
+      height: 5,
+      bore_diameter: 0,
+      include_hub: false,
+      hub_diameter: 15,
+      hub_height: 0,
+      pressure_angle: 20,
+      tolerance: 0,
+      tip_sharpness: 0
+    })
+
+    // Should allow 100 teeth with module 2
+    expect(scad).toContain('teeth = 100')
+  })
+
+  it('should enforce minimum of 8 teeth', () => {
+    // With very small module, maxTeethForModule could be less than 8
+    const scad = gearGenerator.scadTemplate({
+      teeth: 100,
+      module: 0.1, // Would give max 5 teeth, but should floor to 8
+      height: 5,
+      bore_diameter: 0,
+      include_hub: false,
+      hub_diameter: 15,
+      hub_height: 0,
+      pressure_angle: 20,
+      tolerance: 0,
+      tip_sharpness: 0
+    })
+
+    // Should enforce minimum of 8 teeth
+    expect(scad).toContain('teeth = 8')
+  })
 })

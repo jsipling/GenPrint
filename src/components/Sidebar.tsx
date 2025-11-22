@@ -173,7 +173,21 @@ function ParameterInput({ param, params, onParamChange, depth = 0 }: ParameterIn
   }
 
   // TypeScript now knows param is NumberParameterDef
-  const numValue = Number(value)
+  // Calculate effective max (dynamic or static, clamped to static max)
+  const dynamicMaxValue = param.dynamicMax ? param.dynamicMax(params) : param.max
+  const effectiveMax = Math.min(dynamicMaxValue, param.max)
+  const effectiveMin = param.min
+
+  // Clamp value to effective range
+  const rawValue = Number(value)
+  const numValue = Math.max(effectiveMin, Math.min(rawValue, effectiveMax))
+
+  // If value was clamped, notify parent
+  if (numValue !== rawValue) {
+    // Use setTimeout to avoid state update during render
+    setTimeout(() => onParamChange(param.name, numValue), 0)
+  }
+
   const valueText = `${numValue}${param.unit ? ` ${param.unit}` : ''}`
   return (
     <div className={depth > 0 ? 'ml-6 pl-3 border-l border-gray-600' : ''}>
@@ -186,20 +200,20 @@ function ParameterInput({ param, params, onParamChange, depth = 0 }: ParameterIn
       <input
         type="range"
         id={param.name}
-        min={param.min}
-        max={param.max}
+        min={effectiveMin}
+        max={effectiveMax}
         step={param.step ?? 1}
         value={numValue}
         onChange={(e) => onParamChange(param.name, parseFloat(e.target.value))}
         className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-        aria-valuemin={param.min}
-        aria-valuemax={param.max}
+        aria-valuemin={effectiveMin}
+        aria-valuemax={effectiveMax}
         aria-valuenow={numValue}
         aria-valuetext={valueText}
       />
       <div className="flex justify-between text-xs text-gray-500 mt-1" aria-hidden="true">
-        <span>{param.min}</span>
-        <span>{param.max}</span>
+        <span>{effectiveMin}</span>
+        <span>{effectiveMax}</span>
       </div>
     </div>
   )

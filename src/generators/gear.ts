@@ -9,7 +9,11 @@ export const gearGenerator: Generator = {
       type: 'number',
       name: 'teeth',
       label: 'Number of Teeth',
-      min: 8, max: 100, default: 20, step: 1, unit: ''
+      min: 8, max: 100, default: 20, step: 1, unit: '',
+      dynamicMax: (params) => {
+        const mod = Number(params['module']) || 2
+        return Math.floor(mod * 50)
+      }
     },
     {
       type: 'number',
@@ -75,7 +79,7 @@ export const gearGenerator: Generator = {
     }
   ],
   scadTemplate: (params: ParameterValues) => {
-    const teeth = Math.floor(Number(params['teeth']))
+    const teethInput = Math.floor(Number(params['teeth']))
     const mod = Number(params['module'])
     const height = Number(params['height'])
     const boreDiameter = Number(params['bore_diameter'])
@@ -85,6 +89,11 @@ export const gearGenerator: Generator = {
     const pressureAngle = Number(params['pressure_angle'])
     const tolerance = Number(params['tolerance'])
     const tipSharpness = Number(params['tip_sharpness'])
+
+    // Limit teeth based on module to ensure visible tooth geometry
+    // At high tooth counts with small modules, teeth become too small to render/print
+    const maxTeethForModule = Math.floor(mod * 50)
+    const teeth = Math.min(teethInput, Math.max(8, maxTeethForModule))
 
     // Calculations for safety and geometry
     const pitchDiameter = teeth * mod
