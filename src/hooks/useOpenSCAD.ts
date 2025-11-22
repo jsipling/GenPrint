@@ -2,6 +2,27 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 
 export type CompileStatus = 'idle' | 'loading' | 'ready' | 'compiling' | 'error'
 
+/**
+ * Simple hash function for cache keys (djb2 algorithm).
+ * Fast and sufficient for cache keying purposes.
+ */
+function hashCode(str: string): string {
+  let hash = 5381
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) + hash) ^ str.charCodeAt(i)
+  }
+  return (hash >>> 0).toString(36)
+}
+
+interface CacheEntry {
+  stlData: Uint8Array
+  output: string
+  timestamp: number
+}
+
+const MAX_CACHE_SIZE = 20
+const stlCache = new Map<string, CacheEntry>()
+
 export interface UseOpenSCADReturn {
   status: CompileStatus
   error: string | null
@@ -69,6 +90,7 @@ class OpenSCADWorkerManager {
       OpenSCADWorkerManager.instance.terminate()
       OpenSCADWorkerManager.instance = null
     }
+    stlCache.clear()
   }
 
   private terminate(): void {
@@ -183,6 +205,20 @@ export function useOpenSCAD(): UseOpenSCADReturn {
     const compileId = manager.getNextCompileId()
     currentCompileIdRef.current = compileId
 
+    // Check cache first
+    const cacheKey = hashCode(scadCode)
+    const cached = stlCache.get(cacheKey)
+    if (cached) {
+      if (import.meta.env.DEV) console.log('Cache hit, returning cached STL')
+      // Update timestamp for LRU
+      cached.timestamp = Date.now()
+      setCompilerOutput(cached.output)
+      const blob = new Blob([cached.stlData], { type: 'model/stl' })
+      setStlBlob(blob)
+      setStatus('ready')
+      return blob
+    }
+
     setStatus('compiling')
     setError(null)
     setCompilerOutput(null)
@@ -196,13 +232,15 @@ export function useOpenSCAD(): UseOpenSCADReturn {
         return null
       }
 
-      if (import.meta.env.DEV) console.log('Sending compile request to worker...')
+      if (import.meta.env.DEV) console.log('Cache miss, compiling...')
 
+      let capturedOutput = ''
       const stlData = await new Promise<Uint8Array | null>((resolve, reject) => {
         manager.registerCompile(compileId, {
           resolve,
           reject,
           onOutput: (output) => {
+            capturedOutput = output
             if (currentCompileIdRef.current === compileId) {
               setCompilerOutput(output)
             }
@@ -233,6 +271,25 @@ export function useOpenSCAD(): UseOpenSCADReturn {
       }
 
       if (import.meta.env.DEV) console.log('STL generated, size:', stlData.length)
+
+      // Store in cache with LRU eviction
+      if (stlCache.size >= MAX_CACHE_SIZE) {
+        // Remove oldest entry
+        let oldestKey: string | null = null
+        let oldestTime = Infinity
+        for (const [key, entry] of stlCache) {
+          if (entry.timestamp < oldestTime) {
+            oldestTime = entry.timestamp
+            oldestKey = key
+          }
+        }
+        if (oldestKey) stlCache.delete(oldestKey)
+      }
+      stlCache.set(cacheKey, {
+        stlData: stlData.slice(), // Copy to avoid transfer issues
+        output: capturedOutput,
+        timestamp: Date.now()
+      })
 
       const blob = new Blob([stlData], { type: 'model/stl' })
       setStlBlob(blob)
