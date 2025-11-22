@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from 'react'
+import { useRef, useEffect, useState, useMemo } from 'react'
 import { Canvas, useThree, useFrame } from '@react-three/fiber'
 import { OrbitControls, Html, Line } from '@react-three/drei'
 import * as THREE from 'three'
@@ -25,57 +25,69 @@ function DynamicControls() {
 function MeasuredGrid({ size = 100, divisions = 10 }: { size?: number; divisions?: number }) {
   const tickSize = 1.5 // Length of 10mm tick marks
   const smallTickSize = 0.8 // Length of 5mm tick marks
-  const tinyTickSize = 0.4 // Length of 1mm tick marks
 
-  // Generate tick marks and labels along axes
-  const ticks: { points: [[number, number, number], [number, number, number]]; color: string }[] = []
-  const labels: { pos: [number, number, number]; text: string; size: string }[] = []
+  // Memoize tick and label calculations to avoid recreating on every render
+  const { ticks, labels } = useMemo(() => {
+    const tickList: { points: [[number, number, number], [number, number, number]]; color: string }[] = []
+    const labelList: { pos: [number, number, number]; text: string }[] = []
 
-  // X axis ticks and labels (positive only, 1mm intervals)
-  for (let mm = 1; mm <= size / 2; mm += 1) {
-    const isCm = mm % 10 === 0
-    const is5mm = mm % 5 === 0
-    const tick = isCm ? tickSize : (is5mm ? smallTickSize : tinyTickSize)
+    // Calculate label interval based on size - show fewer labels for larger grids
+    const labelInterval = size > 200 ? 50 : (size > 100 ? 20 : 10)
 
-    // Tick on X axis
-    ticks.push({ points: [[mm, -tick, 0.01], [mm, tick, 0.01]], color: '#ff4444' })
+    // X axis ticks and labels (positive only, 5mm intervals for performance)
+    for (let mm = 5; mm <= size / 2; mm += 5) {
+      const isCm = mm % 10 === 0
+      const tick = isCm ? tickSize : smallTickSize
 
-    // Label every 10mm (1cm)
-    if (isCm) {
-      labels.push({ pos: [mm, -tickSize - 2, 0], text: `${mm}`, size: '9px' })
+      tickList.push({ points: [[mm, -tick, 0.01], [mm, tick, 0.01]], color: '#ff4444' })
+
+      // Label at intervals
+      if (mm % labelInterval === 0) {
+        labelList.push({ pos: [mm, -tickSize - 2, 0], text: `${mm}` })
+      }
     }
-  }
 
-  // Y axis ticks and labels (positive only, 1mm intervals)
-  for (let mm = 1; mm <= size / 2; mm += 1) {
-    const isCm = mm % 10 === 0
-    const is5mm = mm % 5 === 0
-    const tick = isCm ? tickSize : (is5mm ? smallTickSize : tinyTickSize)
+    // Y axis ticks and labels (positive only, 5mm intervals)
+    for (let mm = 5; mm <= size / 2; mm += 5) {
+      const isCm = mm % 10 === 0
+      const tick = isCm ? tickSize : smallTickSize
 
-    // Tick on Y axis
-    ticks.push({ points: [[-tick, mm, 0.01], [tick, mm, 0.01]], color: '#44ff44' })
+      tickList.push({ points: [[-tick, mm, 0.01], [tick, mm, 0.01]], color: '#44ff44' })
 
-    // Label every 10mm (1cm)
-    if (isCm) {
-      labels.push({ pos: [-tickSize - 2, mm, 0], text: `${mm}`, size: '9px' })
+      if (mm % labelInterval === 0) {
+        labelList.push({ pos: [-tickSize - 2, mm, 0], text: `${mm}` })
+      }
     }
-  }
 
-  // Z axis ticks and labels (vertical, positive only, 1mm intervals)
-  for (let mm = 1; mm <= size / 2; mm += 1) {
-    const isCm = mm % 10 === 0
-    const is5mm = mm % 5 === 0
-    const tick = isCm ? tickSize : (is5mm ? smallTickSize : tinyTickSize)
+    // Z axis ticks and labels (vertical, positive only, 5mm intervals)
+    for (let mm = 5; mm <= size / 2; mm += 5) {
+      const isCm = mm % 10 === 0
+      const tick = isCm ? tickSize : smallTickSize
 
-    // Tick on Z axis
-    ticks.push({ points: [[-tick, 0, mm], [tick, 0, mm]], color: '#4444ff' })
-    ticks.push({ points: [[0, -tick, mm], [0, tick, mm]], color: '#4444ff' })
+      tickList.push({ points: [[-tick, 0, mm], [tick, 0, mm]], color: '#4444ff' })
+      tickList.push({ points: [[0, -tick, mm], [0, tick, mm]], color: '#4444ff' })
 
-    // Label every 10mm (1cm)
-    if (isCm) {
-      labels.push({ pos: [-tickSize - 2, -tickSize - 2, mm], text: `${mm}`, size: '9px' })
+      if (mm % labelInterval === 0) {
+        labelList.push({ pos: [-tickSize - 2, -tickSize - 2, mm], text: `${mm}` })
+      }
     }
-  }
+
+    return { ticks: tickList, labels: labelList }
+  }, [size, tickSize, smallTickSize])
+
+  // Memoize label style to avoid object recreation
+  const labelStyle = useMemo(() => ({
+    fontSize: '9px',
+    color: '#888',
+    whiteSpace: 'nowrap' as const,
+    userSelect: 'none' as const,
+    pointerEvents: 'none' as const
+  }), [])
+
+  const axisLabelStyle = useMemo(() => ({
+    fontSize: '12px',
+    fontWeight: 'bold' as const
+  }), [])
 
   return (
     <group>
@@ -92,32 +104,21 @@ function MeasuredGrid({ size = 100, divisions = 10 }: { size?: number; divisions
         <Line key={`tick-${i}`} points={tick.points} color={tick.color} lineWidth={1} />
       ))}
 
-      {/* Measurement labels */}
+      {/* Measurement labels - reduced count for performance */}
       {labels.map((label, i) => (
-        <Html
-          key={`label-${i}`}
-          position={label.pos}
-          style={{
-            fontSize: label.size,
-            color: '#888',
-            whiteSpace: 'nowrap',
-            userSelect: 'none',
-            pointerEvents: 'none'
-          }}
-          center
-        >
+        <Html key={`label-${i}`} position={label.pos} style={labelStyle} center>
           {label.text}
         </Html>
       ))}
 
       {/* Axis labels */}
-      <Html position={[size/2 + 5, 0, 0]} style={{ color: '#ff6666', fontSize: '12px', fontWeight: 'bold' }} center>
+      <Html position={[size/2 + 5, 0, 0]} style={{ ...axisLabelStyle, color: '#ff6666' }} center>
         X (mm)
       </Html>
-      <Html position={[0, size/2 + 5, 0]} style={{ color: '#66ff66', fontSize: '12px', fontWeight: 'bold' }} center>
+      <Html position={[0, size/2 + 5, 0]} style={{ ...axisLabelStyle, color: '#66ff66' }} center>
         Y (mm)
       </Html>
-      <Html position={[0, 0, size/2 + 5]} style={{ color: '#6666ff', fontSize: '12px', fontWeight: 'bold' }} center>
+      <Html position={[0, 0, size/2 + 5]} style={{ ...axisLabelStyle, color: '#6666ff' }} center>
         Z (mm)
       </Html>
     </group>
@@ -179,18 +180,27 @@ export function Viewer({ stlBlob, isCompiling }: ViewerProps) {
   const [geometry, setGeometry] = useState<THREE.BufferGeometry | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [modelMaxDim, setModelMaxDim] = useState<number>(0)
+  const blobIdRef = useRef(0)
 
   useEffect(() => {
     if (!stlBlob) {
-      setGeometry(null)
+      setGeometry((prev) => {
+        prev?.dispose()
+        return null
+      })
       setModelMaxDim(0)
       return
     }
 
+    // Track blob version to prevent stale reads
+    const currentBlobId = ++blobIdRef.current
     const loader = new STLLoader()
     const reader = new FileReader()
 
     reader.onload = () => {
+      // Bail if a newer blob arrived while reading
+      if (currentBlobId !== blobIdRef.current) return
+
       try {
         const arrayBuffer = reader.result as ArrayBuffer
         const geo = loader.parse(arrayBuffer)
@@ -207,20 +217,40 @@ export function Viewer({ stlBlob, isCompiling }: ViewerProps) {
           setModelMaxDim(Math.max(size.x, size.y, size.z))
         }
 
-        setGeometry(geo)
+        // Dispose old geometry and set new one
+        setGeometry((prev) => {
+          prev?.dispose()
+          return geo
+        })
         setLoadError(null)
       } catch (err) {
-        console.error('STL parse error:', err)
+        if (import.meta.env.DEV) console.error('STL parse error:', err)
         setLoadError(err instanceof Error ? err.message : 'Failed to parse STL')
       }
     }
 
     reader.onerror = () => {
+      if (currentBlobId !== blobIdRef.current) return
       setLoadError('Failed to read STL blob')
     }
 
     reader.readAsArrayBuffer(stlBlob)
+
+    // Cleanup: abort reader if blob changes before read completes
+    return () => {
+      reader.abort()
+    }
   }, [stlBlob])
+
+  // Dispose geometry on unmount
+  useEffect(() => {
+    return () => {
+      setGeometry((prev) => {
+        prev?.dispose()
+        return null
+      })
+    }
+  }, [])
 
   // Grid size: default 400mm, grows with model if larger
   const gridRange = Math.max(DEFAULT_GRID_SIZE, Math.ceil(modelMaxDim / 10) * 10)
@@ -247,19 +277,19 @@ export function Viewer({ stlBlob, isCompiling }: ViewerProps) {
       )}
 
       {isCompiling && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+        <div className="absolute inset-0 flex items-center justify-center bg-black/50" role="status" aria-live="polite">
           <div className="text-white flex items-center gap-2">
-            <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+            <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
-            Compiling...
+            <span>Compiling...</span>
           </div>
         </div>
       )}
 
       {!geometry && !isCompiling && !loadError && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none" role="status" aria-live="polite">
           <div className="text-gray-500">Waiting for model...</div>
         </div>
       )}

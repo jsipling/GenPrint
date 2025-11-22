@@ -7,5 +7,17 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['openscad-wasm']
   },
-  assetsInclude: ['**/*.wasm']
+  assetsInclude: ['**/*.wasm'],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Split Three.js and related libraries into separate chunk
+          'three-vendor': ['three', 'three-stdlib', '@react-three/fiber', '@react-three/drei'],
+          // Split React into separate chunk
+          'react-vendor': ['react', 'react-dom']
+        }
+      }
+    }
+  }
 })

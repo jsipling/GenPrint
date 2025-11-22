@@ -7,8 +7,4 @@ export const generators: Generator[] = [
   signGenerator
 ]
 
-export const getGenerator = (id: string): Generator | undefined => {
-  return generators.find(g => g.id === id)
-}
-
 export type { Generator, ParameterDef, ParameterValues, NumberParameterDef, StringParameterDef } from './types'

@@ -27,24 +27,38 @@ export default function App() {
     }
   }
 
-  const { status, error, stlBlob, compile } = useOpenSCAD()
+  const { status, error, compilerOutput, stlBlob, compile } = useOpenSCAD()
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const hasCompiledOnceRef = useRef(false)
   const isCompilingRef = useRef(false)
+  const pendingParamsRef = useRef<ParameterValues | null>(null)
 
-  // Use ref to always have latest compile function without triggering effects
+  // Use ref to always have latest compile function and generator without triggering effects
   const compileRef = useRef(compile)
   compileRef.current = compile
+  const generatorRef = useRef(selectedGenerator)
+  generatorRef.current = selectedGenerator
 
   const doCompile = useCallback((currentParams: ParameterValues) => {
-    if (isCompilingRef.current) return
+    if (isCompilingRef.current) {
+      // Queue the latest params to compile after current finishes
+      pendingParamsRef.current = currentParams
+      return
+    }
 
     isCompilingRef.current = true
-    const scadCode = selectedGenerator.scadTemplate(currentParams)
+    pendingParamsRef.current = null
+    const scadCode = generatorRef.current.scadTemplate(currentParams)
     compileRef.current(scadCode).finally(() => {
       isCompilingRef.current = false
+      // If params changed while compiling, compile again with latest
+      if (pendingParamsRef.current) {
+        const pending = pendingParamsRef.current
+        pendingParamsRef.current = null
+        doCompile(pending)
+      }
     })
-  }, [selectedGenerator])
+  }, [])
 
   // Initial compile when WASM is ready
   useEffect(() => {
@@ -100,6 +114,7 @@ export default function App() {
         onParamChange={handleParamChange}
         status={status}
         error={error}
+        compilerOutput={compilerOutput}
         onDownload={handleDownload}
         canDownload={stlBlob !== null && status === 'ready'}
       />

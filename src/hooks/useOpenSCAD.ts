@@ -7,6 +7,7 @@ export type CompileStatus = 'idle' | 'loading' | 'ready' | 'compiling' | 'error'
 export interface UseOpenSCADReturn {
   status: CompileStatus
   error: string | null
+  compilerOutput: string | null
   stlBlob: Blob | null
   compile: (scadCode: string) => Promise<Blob | null>
 }
@@ -30,14 +31,27 @@ async function ensureModuleReady(): Promise<void> {
   return initPromise
 }
 
-async function createFreshInstance(): Promise<OpenSCAD> {
-  const wrapper = await createOpenSCAD()
-  return wrapper.getInstance()
+interface InstanceWithOutput {
+  instance: OpenSCAD
+  getOutput: () => string
+}
+
+async function createFreshInstance(): Promise<InstanceWithOutput> {
+  const outputLines: string[] = []
+  const wrapper = await createOpenSCAD({
+    print: (text: string) => outputLines.push(text),
+    printErr: (text: string) => outputLines.push(text)
+  })
+  return {
+    instance: wrapper.getInstance(),
+    getOutput: () => outputLines.join('\n')
+  }
 }
 
 export function useOpenSCAD(): UseOpenSCADReturn {
   const [status, setStatus] = useState<CompileStatus>('idle')
   const [error, setError] = useState<string | null>(null)
+  const [compilerOutput, setCompilerOutput] = useState<string | null>(null)
   const [stlBlob, setStlBlob] = useState<Blob | null>(null)
   const compileIdRef = useRef(0)
 
@@ -49,12 +63,12 @@ export function useOpenSCAD(): UseOpenSCADReturn {
       .then(() => {
         if (mounted) {
           setStatus('ready')
-          console.log('OpenSCAD WASM module ready')
+          if (import.meta.env.DEV) console.log('OpenSCAD WASM module ready')
         }
       })
       .catch((err) => {
         if (mounted) {
-          console.error('Failed to load OpenSCAD:', err)
+          if (import.meta.env.DEV) console.error('Failed to load OpenSCAD:', err)
           setError(err instanceof Error ? err.message : 'Failed to load OpenSCAD')
           setStatus('error')
         }
@@ -76,15 +90,19 @@ export function useOpenSCAD(): UseOpenSCADReturn {
 
     setStatus('compiling')
     setError(null)
+    setCompilerOutput(null)
+
+    let instanceWithOutput: InstanceWithOutput | null = null
 
     try {
       // Create a fresh instance for each compilation
-      console.log('Creating fresh OpenSCAD instance...')
-      const instance = await createFreshInstance()
+      if (import.meta.env.DEV) console.log('Creating fresh OpenSCAD instance...')
+      instanceWithOutput = await createFreshInstance()
+      const { instance, getOutput } = instanceWithOutput
 
       // Check if a newer compile was requested while we were creating the instance
       if (currentCompileId !== compileIdRef.current) {
-        console.log('Compile superseded, skipping')
+        if (import.meta.env.DEV) console.log('Compile superseded, skipping')
         return null
       }
 
@@ -93,7 +111,7 @@ export function useOpenSCAD(): UseOpenSCADReturn {
 
       // Write the SCAD code to virtual filesystem
       instance.FS.writeFile(inputFile, scadCode)
-      console.log('SCAD code written, compiling...')
+      if (import.meta.env.DEV) console.log('SCAD code written, compiling...')
 
       // Run OpenSCAD - it throws on exit but still produces output
       try {
@@ -102,26 +120,32 @@ export function useOpenSCAD(): UseOpenSCADReturn {
         // Expected - OpenSCAD throws on exit
       }
 
+      // Capture compiler output
+      const output = getOutput()
+      if (output) {
+        setCompilerOutput(output)
+      }
+
       // Check again if superseded
       if (currentCompileId !== compileIdRef.current) {
-        console.log('Compile superseded after callMain, skipping')
+        if (import.meta.env.DEV) console.log('Compile superseded after callMain, skipping')
         return null
       }
 
-      // Read the output file
-      let stlData: string
+      // Read the output file as binary (OpenSCAD can emit binary or ASCII STL)
+      let stlData: Uint8Array
       try {
-        stlData = instance.FS.readFile(outputFile, { encoding: 'utf8' }) as string
+        stlData = instance.FS.readFile(outputFile) as Uint8Array
       } catch (readError) {
-        console.error('Failed to read STL output:', readError)
-        throw new Error('OpenSCAD did not produce output - check your SCAD code')
+        if (import.meta.env.DEV) console.error('Failed to read STL output:', readError)
+        throw new Error(`OpenSCAD did not produce output - check your SCAD code\n${output}`)
       }
 
       if (!stlData || stlData.length === 0) {
-        throw new Error('OpenSCAD produced empty output')
+        throw new Error(`OpenSCAD produced empty output\n${output}`)
       }
 
-      console.log('STL generated, size:', stlData.length)
+      if (import.meta.env.DEV) console.log('STL generated, size:', stlData.length)
 
       const blob = new Blob([stlData], { type: 'application/sla' })
       setStlBlob(blob)
@@ -130,8 +154,13 @@ export function useOpenSCAD(): UseOpenSCADReturn {
     } catch (err) {
       // Only set error if this is still the current compile
       if (currentCompileId === compileIdRef.current) {
-        console.error('Compilation error:', err)
+        if (import.meta.env.DEV) console.error('Compilation error:', err)
         const message = err instanceof Error ? err.message : 'Compilation failed'
+        // Include compiler output in error if available
+        const output = instanceWithOutput?.getOutput()
+        if (output) {
+          setCompilerOutput(output)
+        }
         setError(message)
         setStatus('error')
       }
@@ -139,5 +168,5 @@ export function useOpenSCAD(): UseOpenSCADReturn {
     }
   }, [])
 
-  return { status, error, stlBlob, compile }
+  return { status, error, compilerOutput, stlBlob, compile }
 }
