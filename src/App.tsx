@@ -14,7 +14,13 @@ function getDefaultParams(generator: typeof generators[0]): ParameterValues {
 }
 
 export default function App() {
-  const [selectedGenerator, setSelectedGenerator] = useState(generators[0]!)
+  // Runtime check to ensure generators array is not empty
+  const initialGenerator = generators[0]
+  if (!initialGenerator) {
+    throw new Error('No generators registered. At least one generator is required.')
+  }
+
+  const [selectedGenerator, setSelectedGenerator] = useState(initialGenerator)
   const [params, setParams] = useState<ParameterValues>(() =>
     getDefaultParams(selectedGenerator)
   )

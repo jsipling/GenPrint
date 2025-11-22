@@ -86,4 +86,38 @@ describe('spacerGenerator', () => {
     expect(scad).toContain('inner_hole = 50')
     expect(scad).toContain('height = 50')
   })
+
+  it('should clamp inner_hole to be less than outer_diameter', () => {
+    // Invalid case: inner_hole >= outer_diameter
+    const scad = spacerGenerator.scadTemplate({
+      outer_diameter: 20,
+      inner_hole: 25, // Invalid: larger than outer
+      height: 10
+    })
+
+    // inner_hole should be clamped to outer_diameter - 2mm minimum wall
+    expect(scad).toContain('outer_diameter = 20')
+    expect(scad).toContain('inner_hole = 18') // Clamped to outer - 2
+    expect(scad).toContain('height = 10')
+  })
+
+  it('should clamp inner_hole when equal to outer_diameter', () => {
+    const scad = spacerGenerator.scadTemplate({
+      outer_diameter: 30,
+      inner_hole: 30, // Invalid: equal to outer
+      height: 10
+    })
+
+    expect(scad).toContain('inner_hole = 28') // Clamped to outer - 2
+  })
+
+  it('should allow valid inner_hole that is smaller than outer_diameter', () => {
+    const scad = spacerGenerator.scadTemplate({
+      outer_diameter: 30,
+      inner_hole: 10, // Valid: much smaller than outer
+      height: 10
+    })
+
+    expect(scad).toContain('inner_hole = 10') // Unchanged
+  })
 })

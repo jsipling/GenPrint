@@ -52,10 +52,15 @@ onmessage = async (event: MessageEvent<WorkerMessage>) => {
       instance.FS.writeFile(INPUT_FILE, code)
 
       // Run OpenSCAD - throws on exit but produces output
+      // OpenSCAD WASM always throws when callMain completes (expected behavior)
       try {
         instance.callMain([INPUT_FILE, '-o', OUTPUT_FILE])
-      } catch {
-        // Expected - OpenSCAD throws on exit
+      } catch (exitError) {
+        // OpenSCAD exits with code 0 on success, non-zero on actual errors
+        // The exit itself throws, but we check the output file to determine success
+        if (import.meta.env?.DEV) {
+          console.debug('[Worker] OpenSCAD exit (expected):', exitError)
+        }
       }
 
       const output = outputLines.join('\n')

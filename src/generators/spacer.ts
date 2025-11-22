@@ -1,4 +1,7 @@
-import type { Generator } from './types'
+import type { Generator, ParameterValues } from './types'
+
+// Minimum wall thickness (1mm on each side = 2mm total)
+const MIN_WALL_THICKNESS = 2
 
 export const spacerGenerator: Generator = {
   id: 'cylindrical-spacer',
@@ -36,10 +39,17 @@ export const spacerGenerator: Generator = {
       unit: 'mm'
     }
   ],
-  scadTemplate: (params) => `
-outer_diameter = ${params['outer_diameter']};
-inner_hole = ${params['inner_hole']};
-height = ${params['height']};
+  scadTemplate: (params: ParameterValues) => {
+    const outerDiameter = Number(params['outer_diameter'])
+    const height = Number(params['height'])
+    // Clamp inner_hole to ensure minimum wall thickness
+    const maxInnerHole = outerDiameter - MIN_WALL_THICKNESS
+    const innerHole = Math.min(Number(params['inner_hole']), maxInnerHole)
+
+    return `
+outer_diameter = ${outerDiameter};
+inner_hole = ${innerHole};
+height = ${height};
 $fn = 60;
 
 difference() {
@@ -47,4 +57,5 @@ difference() {
     translate([0,0,-1]) cylinder(h=height+2, d=inner_hole);
 }
 `
+  }
 }

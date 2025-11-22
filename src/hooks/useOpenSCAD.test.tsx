@@ -51,9 +51,12 @@ vi.stubGlobal('Worker', class extends MockWorker {
 })
 
 describe('useOpenSCAD', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.resetModules()
     workerInstances.length = 0
+    // Reset the singleton manager between tests
+    const { OpenSCADWorkerManager } = await import('./useOpenSCAD')
+    OpenSCADWorkerManager.reset()
   })
 
   afterEach(() => {

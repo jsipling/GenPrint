@@ -1,66 +1,12 @@
 import { describe, it, expect } from 'vitest'
-
-// Constants matching those in Viewer.tsx
-const TICK_SIZE = 1.5
-const SMALL_TICK_SIZE = 0.8
-const MAX_TICKS_PER_AXIS = 100
-
-// Extract the tick calculation logic for testing
-function calculateTicksAndLabels(size: number) {
-  const tickList: { points: [[number, number, number], [number, number, number]]; color: string }[] = []
-  const labelList: { pos: [number, number, number]; text: string }[] = []
-
-  const halfSize = size / 2
-
-  // Calculate tick interval to cap total ticks per axis
-  const baseTickInterval = 5
-  const tickInterval = halfSize > MAX_TICKS_PER_AXIS * baseTickInterval
-    ? Math.ceil(halfSize / MAX_TICKS_PER_AXIS / 5) * 5
-    : baseTickInterval
-
-  // Calculate label interval based on size
-  const labelInterval = size > 200 ? 50 : (size > 100 ? 20 : 10)
-  const effectiveLabelInterval = Math.max(labelInterval, tickInterval * 2)
-
-  // X axis ticks and labels (positive only)
-  for (let mm = tickInterval; mm <= halfSize; mm += tickInterval) {
-    const isCm = mm % 10 === 0
-    const tick = isCm ? TICK_SIZE : SMALL_TICK_SIZE
-
-    tickList.push({ points: [[mm, -tick, 0.01], [mm, tick, 0.01]], color: '#ff4444' })
-
-    if (mm % effectiveLabelInterval === 0) {
-      labelList.push({ pos: [mm, -TICK_SIZE - 2, 0], text: `${mm}` })
-    }
-  }
-
-  // Y axis ticks and labels (positive only)
-  for (let mm = tickInterval; mm <= halfSize; mm += tickInterval) {
-    const isCm = mm % 10 === 0
-    const tick = isCm ? TICK_SIZE : SMALL_TICK_SIZE
-
-    tickList.push({ points: [[-tick, mm, 0.01], [tick, mm, 0.01]], color: '#44ff44' })
-
-    if (mm % effectiveLabelInterval === 0) {
-      labelList.push({ pos: [-TICK_SIZE - 2, mm, 0], text: `${mm}` })
-    }
-  }
-
-  // Z axis ticks and labels (vertical, positive only)
-  for (let mm = tickInterval; mm <= halfSize; mm += tickInterval) {
-    const isCm = mm % 10 === 0
-    const tick = isCm ? TICK_SIZE : SMALL_TICK_SIZE
-
-    tickList.push({ points: [[-tick, 0, mm], [tick, 0, mm]], color: '#4444ff' })
-    tickList.push({ points: [[0, -tick, mm], [0, tick, mm]], color: '#4444ff' })
-
-    if (mm % effectiveLabelInterval === 0) {
-      labelList.push({ pos: [-TICK_SIZE - 2, -TICK_SIZE - 2, mm], text: `${mm}` })
-    }
-  }
-
-  return { ticks: tickList, labels: labelList, tickInterval, effectiveLabelInterval }
-}
+import {
+  TICK_SIZE,
+  SMALL_TICK_SIZE,
+  MAX_TICKS_PER_AXIS,
+  DEFAULT_GRID_SIZE,
+  calculateTicksAndLabels,
+  calculateGridParams
+} from './gridUtils'
 
 describe('MeasuredGrid tick calculation', () => {
   it('should use 5mm tick interval for small grids', () => {
@@ -164,18 +110,9 @@ describe('MeasuredGrid tick calculation', () => {
 })
 
 describe('Grid size calculations', () => {
-  const DEFAULT_GRID_SIZE = 400
-
-  function calculateGridParams(modelMaxDim: number) {
-    const gridRange = Math.max(DEFAULT_GRID_SIZE, Math.ceil(modelMaxDim / 10) * 10)
-    const gridSize = gridRange * 2
-    const gridDivisions = gridSize / 10
-    return { gridRange, gridSize, gridDivisions }
-  }
-
   it('should use default size for small models', () => {
     const { gridSize } = calculateGridParams(50)
-    expect(gridSize).toBe(800) // DEFAULT_GRID_SIZE * 2
+    expect(gridSize).toBe(DEFAULT_GRID_SIZE * 2)
   })
 
   it('should scale grid for large models', () => {

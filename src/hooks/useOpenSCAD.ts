@@ -25,73 +25,126 @@ interface ReadyMessage {
 
 type WorkerResponse = CompileResponse | ReadyMessage
 
-// Shared worker instance
-let worker: Worker | null = null
-let workerReady = false
-let workerReadyPromise: Promise<void> | null = null
-let pendingCompiles = new Map<number, {
+interface PendingCompile {
   resolve: (data: Uint8Array | null) => void
   reject: (error: Error) => void
   onOutput: (output: string) => void
   onError: (error: string) => void
-}>()
+}
 
-function getWorker(): Promise<Worker> {
-  if (worker && workerReady) {
-    return Promise.resolve(worker)
+/**
+ * Singleton manager for the OpenSCAD Web Worker.
+ *
+ * Uses singleton pattern because:
+ * 1. WASM loading is expensive - we want to load it once
+ * 2. Worker instances should be reused across components
+ * 3. Multiple workers would waste memory
+ *
+ * For testing, call OpenSCADWorkerManager.reset() between tests.
+ */
+class OpenSCADWorkerManager {
+  private static instance: OpenSCADWorkerManager | null = null
+
+  private worker: Worker | null = null
+  private workerReady = false
+  private workerReadyPromise: Promise<void> | null = null
+  private pendingCompiles = new Map<number, PendingCompile>()
+  private compileIdCounter = 0
+
+  private constructor() {}
+
+  static getInstance(): OpenSCADWorkerManager {
+    if (!OpenSCADWorkerManager.instance) {
+      OpenSCADWorkerManager.instance = new OpenSCADWorkerManager()
+    }
+    return OpenSCADWorkerManager.instance
   }
 
-  if (workerReadyPromise) {
-    return workerReadyPromise.then(() => worker!)
+  /**
+   * Reset the singleton for testing purposes.
+   * Terminates any existing worker and clears all state.
+   */
+  static reset(): void {
+    if (OpenSCADWorkerManager.instance) {
+      OpenSCADWorkerManager.instance.terminate()
+      OpenSCADWorkerManager.instance = null
+    }
   }
 
-  workerReadyPromise = new Promise((resolve, reject) => {
-    // Vite handles worker imports with ?worker suffix
-    worker = new Worker(
-      new URL('../workers/openscad.worker.ts', import.meta.url),
-      { type: 'module' }
-    )
+  private terminate(): void {
+    if (this.worker) {
+      this.worker.terminate()
+      this.worker = null
+    }
+    this.workerReady = false
+    this.workerReadyPromise = null
+    this.pendingCompiles.clear()
+    this.compileIdCounter = 0
+  }
 
-    const handleMessage = (event: MessageEvent<WorkerResponse>) => {
-      const { data } = event
+  getWorker(): Promise<Worker> {
+    if (this.worker && this.workerReady) {
+      return Promise.resolve(this.worker)
+    }
 
-      if (data.type === 'ready') {
-        workerReady = true
-        resolve()
-        return
-      }
+    if (this.workerReadyPromise) {
+      return this.workerReadyPromise.then(() => this.worker!)
+    }
 
-      if (data.type === 'compile-result') {
-        const pending = pendingCompiles.get(data.id)
-        if (pending) {
-          pendingCompiles.delete(data.id)
+    this.workerReadyPromise = new Promise((resolve, reject) => {
+      // Vite handles worker imports with ?worker suffix
+      this.worker = new Worker(
+        new URL('../workers/openscad.worker.ts', import.meta.url),
+        { type: 'module' }
+      )
 
-          if (data.output) {
-            pending.onOutput(data.output)
-          }
+      const handleMessage = (event: MessageEvent<WorkerResponse>) => {
+        const { data } = event
 
-          if (data.success && data.stlData) {
-            pending.resolve(data.stlData)
-          } else {
-            pending.onError(data.error || 'Compilation failed')
-            pending.resolve(null)
+        if (data.type === 'ready') {
+          this.workerReady = true
+          resolve()
+          return
+        }
+
+        if (data.type === 'compile-result') {
+          const pending = this.pendingCompiles.get(data.id)
+          if (pending) {
+            this.pendingCompiles.delete(data.id)
+
+            if (data.output) {
+              pending.onOutput(data.output)
+            }
+
+            if (data.success && data.stlData) {
+              pending.resolve(data.stlData)
+            } else {
+              pending.onError(data.error || 'Compilation failed')
+              pending.resolve(null)
+            }
           }
         }
       }
-    }
 
-    worker.onmessage = handleMessage
+      this.worker.onmessage = handleMessage
 
-    worker.onerror = (err) => {
-      console.error('[useOpenSCAD] Worker error:', err)
-      reject(new Error('Worker failed to initialize'))
-    }
-  })
+      this.worker.onerror = (err) => {
+        console.error('[useOpenSCAD] Worker error:', err)
+        reject(new Error('Worker failed to initialize'))
+      }
+    })
 
-  return workerReadyPromise.then(() => worker!)
+    return this.workerReadyPromise.then(() => this.worker!)
+  }
+
+  getNextCompileId(): number {
+    return ++this.compileIdCounter
+  }
+
+  registerCompile(id: number, handlers: PendingCompile): void {
+    this.pendingCompiles.set(id, handlers)
+  }
 }
-
-let compileIdCounter = 0
 
 export function useOpenSCAD(): UseOpenSCADReturn {
   const [status, setStatus] = useState<CompileStatus>('idle')
@@ -99,12 +152,13 @@ export function useOpenSCAD(): UseOpenSCADReturn {
   const [compilerOutput, setCompilerOutput] = useState<string | null>(null)
   const [stlBlob, setStlBlob] = useState<Blob | null>(null)
   const currentCompileIdRef = useRef<number | null>(null)
+  const managerRef = useRef(OpenSCADWorkerManager.getInstance())
 
   useEffect(() => {
     let mounted = true
 
     setStatus('loading')
-    getWorker()
+    managerRef.current.getWorker()
       .then(() => {
         if (mounted) {
           setStatus('ready')
@@ -125,7 +179,8 @@ export function useOpenSCAD(): UseOpenSCADReturn {
   }, [])
 
   const compile = useCallback(async (scadCode: string): Promise<Blob | null> => {
-    const compileId = ++compileIdCounter
+    const manager = managerRef.current
+    const compileId = manager.getNextCompileId()
     currentCompileIdRef.current = compileId
 
     setStatus('compiling')
@@ -133,7 +188,7 @@ export function useOpenSCAD(): UseOpenSCADReturn {
     setCompilerOutput(null)
 
     try {
-      const w = await getWorker()
+      const w = await manager.getWorker()
 
       // Check if superseded while waiting for worker
       if (currentCompileIdRef.current !== compileId) {
@@ -144,7 +199,7 @@ export function useOpenSCAD(): UseOpenSCADReturn {
       if (import.meta.env.DEV) console.log('Sending compile request to worker...')
 
       const stlData = await new Promise<Uint8Array | null>((resolve, reject) => {
-        pendingCompiles.set(compileId, {
+        manager.registerCompile(compileId, {
           resolve,
           reject,
           onOutput: (output) => {
@@ -179,7 +234,7 @@ export function useOpenSCAD(): UseOpenSCADReturn {
 
       if (import.meta.env.DEV) console.log('STL generated, size:', stlData.length)
 
-      const blob = new Blob([stlData], { type: 'application/sla' })
+      const blob = new Blob([stlData], { type: 'model/stl' })
       setStlBlob(blob)
       setStatus('ready')
       return blob
@@ -196,3 +251,6 @@ export function useOpenSCAD(): UseOpenSCADReturn {
 
   return { status, error, compilerOutput, stlBlob, compile }
 }
+
+// Export for testing purposes
+export { OpenSCADWorkerManager }
