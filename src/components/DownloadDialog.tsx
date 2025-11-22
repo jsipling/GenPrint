@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import type { GeneratorPart } from '../generators'
 
 interface DownloadDialogProps {
@@ -17,6 +17,7 @@ export function DownloadDialog({
   onClose
 }: DownloadDialogProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const dialogRef = useRef<HTMLDivElement>(null)
 
   // Reset to all selected when dialog opens
   useEffect(() => {
@@ -24,6 +25,54 @@ export function DownloadDialog({
       setSelectedIds(new Set(parts.map(p => p.id)))
     }
   }, [isOpen, parts])
+
+  // Handle Escape key to close
+  useEffect(() => {
+    if (!isOpen) return
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose()
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [isOpen, onClose])
+
+  // Focus trap and initial focus
+  useEffect(() => {
+    if (!isOpen || !dialogRef.current) return
+
+    const dialog = dialogRef.current
+    const focusableElements = dialog.querySelectorAll<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    )
+    const firstElement = focusableElements[0]
+    const lastElement = focusableElements[focusableElements.length - 1]
+
+    // Focus first element
+    firstElement?.focus()
+
+    const handleTabKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return
+
+      if (e.shiftKey) {
+        if (document.activeElement === firstElement) {
+          e.preventDefault()
+          lastElement?.focus()
+        }
+      } else {
+        if (document.activeElement === lastElement) {
+          e.preventDefault()
+          firstElement?.focus()
+        }
+      }
+    }
+
+    dialog.addEventListener('keydown', handleTabKey)
+    return () => dialog.removeEventListener('keydown', handleTabKey)
+  }, [isOpen])
 
   if (!isOpen) return null
 
@@ -59,6 +108,7 @@ export function DownloadDialog({
       style={{ animation: 'fadeIn 150ms ease-out' }}
     >
       <div
+        ref={dialogRef}
         className="bg-gray-800 rounded-lg p-6 max-w-sm w-full mx-4 shadow-xl"
         onClick={(e) => e.stopPropagation()}
         style={{ animation: 'scaleIn 150ms ease-out' }}
