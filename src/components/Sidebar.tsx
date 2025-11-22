@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { Generator, ParameterValues } from '../generators'
-import { isStringParam } from '../generators'
+import { isStringParam, isSelectParam, isBooleanParam } from '../generators'
 import type { CompileStatus } from '../hooks/useOpenSCAD'
 
 interface SidebarProps {
@@ -8,7 +8,7 @@ interface SidebarProps {
   selectedGenerator: Generator
   onGeneratorChange: (id: string) => void
   params: ParameterValues
-  onParamChange: (name: string, value: number | string) => void
+  onParamChange: (name: string, value: number | string | boolean) => void
   status: CompileStatus
   error: string | null
   compilerOutput: string | null
@@ -129,6 +129,44 @@ export function Sidebar({
                     onChange={(e) => onParamChange(param.name, e.target.value)}
                     className="w-full px-3 py-2 bg-gray-700 rounded border border-gray-600 focus:border-blue-500 focus:outline-none text-white"
                   />
+                </div>
+              )
+            }
+
+            if (isSelectParam(param)) {
+              return (
+                <div key={param.name}>
+                  <label htmlFor={param.name} className="block text-sm mb-1">
+                    {param.label}
+                  </label>
+                  <select
+                    id={param.name}
+                    value={String(value)}
+                    onChange={(e) => onParamChange(param.name, e.target.value)}
+                    className="w-full px-3 py-2 bg-gray-700 rounded border border-gray-600 focus:border-blue-500 focus:outline-none text-white"
+                  >
+                    {param.options.map((option) => (
+                      <option key={option} value={option}>{option}</option>
+                    ))}
+                  </select>
+                </div>
+              )
+            }
+
+            if (isBooleanParam(param)) {
+              const checked = Boolean(value)
+              return (
+                <div key={param.name} className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id={param.name}
+                    checked={checked}
+                    onChange={(e) => onParamChange(param.name, e.target.checked)}
+                    className="w-4 h-4 bg-gray-700 rounded border border-gray-600 focus:ring-blue-500 accent-blue-500"
+                  />
+                  <label htmlFor={param.name} className="text-sm">
+                    {param.label}
+                  </label>
                 </div>
               )
             }

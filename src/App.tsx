@@ -96,7 +96,7 @@ export default function App() {
     }
   }, [params, doCompile])
 
-  const handleParamChange = (name: string, value: number | string) => {
+  const handleParamChange = (name: string, value: number | string | boolean) => {
     setParams((prev) => ({ ...prev, [name]: value }))
   }
 

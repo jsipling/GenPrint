@@ -7,6 +7,7 @@ export interface NumberParameterDef {
   default: number
   step?: number
   unit?: string
+  description?: string
 }
 
 export interface StringParameterDef {
@@ -17,7 +18,22 @@ export interface StringParameterDef {
   maxLength?: number
 }
 
-export type ParameterDef = NumberParameterDef | StringParameterDef
+export interface SelectParameterDef {
+  type: 'select'
+  name: string
+  label: string
+  options: string[]
+  default: string
+}
+
+export interface BooleanParameterDef {
+  type: 'boolean'
+  name: string
+  label: string
+  default: boolean
+}
+
+export type ParameterDef = NumberParameterDef | StringParameterDef | SelectParameterDef | BooleanParameterDef
 
 // Type guards for discriminated union
 export function isNumberParam(param: ParameterDef): param is NumberParameterDef {
@@ -28,12 +44,20 @@ export function isStringParam(param: ParameterDef): param is StringParameterDef 
   return param.type === 'string'
 }
 
+export function isSelectParam(param: ParameterDef): param is SelectParameterDef {
+  return param.type === 'select'
+}
+
+export function isBooleanParam(param: ParameterDef): param is BooleanParameterDef {
+  return param.type === 'boolean'
+}
+
 export interface Generator {
   id: string
   name: string
   description: string
   parameters: ParameterDef[]
-  scadTemplate: (params: Record<string, number | string>) => string
+  scadTemplate: (params: Record<string, number | string | boolean>) => string
 }
 
-export type ParameterValues = Record<string, number | string>
+export type ParameterValues = Record<string, number | string | boolean>
