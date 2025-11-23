@@ -48,23 +48,24 @@ export default function App() {
     throw new Error('No generators registered. At least one generator is required.')
   }
 
+  // Parse URL once at init (avoid double parsing)
+  const initialUrlState = getUrlState()
+
   // Initialize from URL or defaults
   const [selectedGenerator, setSelectedGenerator] = useState(() => {
-    const urlState = getUrlState()
-    if (urlState.generatorId) {
-      const gen = generators.find(g => g.id === urlState.generatorId)
+    if (initialUrlState.generatorId) {
+      const gen = generators.find(g => g.id === initialUrlState.generatorId)
       if (gen) return gen
     }
     return initialGenerator
   })
   const [params, setParams] = useState<ParameterValues>(() => {
-    const urlState = getUrlState()
-    const gen = urlState.generatorId
-      ? generators.find(g => g.id === urlState.generatorId) || initialGenerator
+    const gen = initialUrlState.generatorId
+      ? generators.find(g => g.id === initialUrlState.generatorId) || initialGenerator
       : initialGenerator
     const defaults = getDefaultParams(gen)
     // Merge URL params with defaults (URL params override)
-    return urlState.params ? { ...defaults, ...urlState.params } : defaults
+    return initialUrlState.params ? { ...defaults, ...initialUrlState.params } : defaults
   })
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
