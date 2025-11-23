@@ -190,6 +190,7 @@ onmessage = async (event: MessageEvent<WorkerMessage>) => {
       manifold.delete()
 
       const timing = performance.now() - startTime
+      console.log(`[Manifold] Build time: ${timing.toFixed(1)}ms`)
 
       const response: BuildResponse = {
         type: 'build-result',
