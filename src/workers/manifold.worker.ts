@@ -38,6 +38,11 @@ interface ReadyMessage {
   type: 'ready'
 }
 
+interface InitErrorMessage {
+  type: 'init-error'
+  error: string
+}
+
 type WorkerMessage = BuildRequest
 
 // Generator registry - maps builder IDs to build functions
@@ -67,6 +72,11 @@ Module({
   })
   .catch((err) => {
     console.error('[ManifoldWorker] Failed to load manifold-3d:', err)
+    const msg: InitErrorMessage = {
+      type: 'init-error',
+      error: err instanceof Error ? err.message : 'Failed to load WASM module'
+    }
+    postMessage(msg)
   })
 
 /**

@@ -58,7 +58,12 @@ interface ReadyMessage {
   type: 'ready'
 }
 
-type WorkerResponse = BuildResponse | ReadyMessage
+interface InitErrorMessage {
+  type: 'init-error'
+  error: string
+}
+
+type WorkerResponse = BuildResponse | ReadyMessage | InitErrorMessage
 
 interface PendingBuild {
   resolve: (data: MeshData | null) => void
@@ -131,6 +136,11 @@ class ManifoldWorkerManager {
         if (data.type === 'ready') {
           this.workerReady = true
           resolve()
+          return
+        }
+
+        if (data.type === 'init-error') {
+          reject(new Error(data.error))
           return
         }
 
