@@ -107,9 +107,9 @@ export function buildBox(
   const fingerGrip = Boolean(params['finger_grip'])
   const stackable = Boolean(params['stackable'])
 
-  // Safe values
-  const safeWall = Math.max(0.6, Math.min(wallThickness, width / 2 - 0.5, depth / 2 - 0.5, height - 1))
-  const safeBottom = Math.max(0.6, Math.min(bottomThickness, height - 1))
+  // Safe values (1.2mm minimum for reliable FDM printing)
+  const safeWall = Math.max(1.2, Math.min(wallThickness, width / 2 - 0.5, depth / 2 - 0.5, height - 1))
+  const safeBottom = Math.max(1.2, Math.min(bottomThickness, height - 1))
   const maxCorner = Math.max(0, Math.min(width, depth) / 2 - safeWall)
   const safeCorner = Math.max(0, Math.min(cornerRadius, maxCorner))
   const safeLidClearance = Math.min(Math.max(lidClearance, 0), 1)

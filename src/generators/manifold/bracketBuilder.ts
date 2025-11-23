@@ -95,39 +95,43 @@ export function buildBracket(
     bracket = newBracket
   }
 
-  // Add holes in horizontal arm
+  // Add holes (batched for performance)
+  const allHoles: Manifold[] = []
+  const holeRadius = p.hole_diameter / 2
+
+  // Horizontal arm holes
   if (p.hole_count_arm_1 > 0) {
-    const holeRadius = p.hole_diameter / 2
     const holeOffsetStart = (p.arm_length - p.thickness) / (p.hole_count_arm_1 + 1) + p.thickness
     const holeSpacing = (p.arm_length - p.thickness) / (p.hole_count_arm_1 + 1)
 
     for (let i = 0; i < p.hole_count_arm_1; i++) {
-      const hole = M.Manifold.cylinder(p.thickness + 0.4, holeRadius, holeRadius, 0)
+      const hole = M.Manifold.cylinder(p.thickness + 0.4, holeRadius, holeRadius, 16)
         .translate(holeOffsetStart + i * holeSpacing, p.width / 2, -0.2)
-
-      const newBracket = bracket.subtract(hole)
-      bracket.delete()
-      hole.delete()
-      bracket = newBracket
+      allHoles.push(hole)
     }
   }
 
-  // Add holes in vertical arm
+  // Vertical arm holes
   if (p.hole_count_arm_2 > 0) {
-    const holeRadius = p.hole_diameter / 2
     const holeOffsetStart = (p.arm_length - p.thickness) / (p.hole_count_arm_2 + 1) + p.thickness
     const holeSpacing = (p.arm_length - p.thickness) / (p.hole_count_arm_2 + 1)
 
     for (let i = 0; i < p.hole_count_arm_2; i++) {
-      const hole = M.Manifold.cylinder(p.thickness + 0.4, holeRadius, holeRadius, 0)
+      const hole = M.Manifold.cylinder(p.thickness + 0.4, holeRadius, holeRadius, 16)
         .rotate(0, 90, 0)
         .translate(-0.2, p.width / 2, holeOffsetStart + i * holeSpacing)
-
-      const newBracket = bracket.subtract(hole)
-      bracket.delete()
-      hole.delete()
-      bracket = newBracket
+      allHoles.push(hole)
     }
+  }
+
+  // Single batched subtract
+  if (allHoles.length > 0) {
+    const combinedHoles = M.Manifold.union(allHoles)
+    allHoles.forEach(h => h.delete())
+    const newBracket = bracket.subtract(combinedHoles)
+    bracket.delete()
+    combinedHoles.delete()
+    bracket = newBracket
   }
 
   return bracket

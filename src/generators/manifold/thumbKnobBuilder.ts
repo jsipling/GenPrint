@@ -20,8 +20,8 @@ const HEX_SPECS: Record<string, [number, number, number]> = {
  */
 function knurledProfile(M: ManifoldToplevel, diameter: number): CrossSection {
   const radius = diameter / 2
-  const count = Math.round(diameter * 1.5)
-  const indentRadius = 0.75
+  const count = Math.min(Math.round(diameter * 1.5), 24) // Cap segments for performance
+  const indentRadius = 1.5 // Minimum for reliable FDM printing
 
   // Start with circle points
   const segments = Math.max(48, count * 2)

@@ -68,8 +68,8 @@ function generateToothProfile(
   // Root half angle (slightly wider at root)
   const rootHalfAngle = halfPitchAngle + 2
 
-  // Generate involute points
-  const steps = 15
+  // Generate involute points (20 steps for smooth tooth flanks)
+  const steps = 20
   const rightPts: [number, number][] = []
   const leftPts: [number, number][] = []
 
@@ -196,6 +196,12 @@ export function buildGear(
   // Limit teeth based on module
   const maxTeethForModule = Math.floor(mod * 15)
   const teeth = Math.min(teethInput, Math.max(8, maxTeethForModule))
+
+  // Validate tooth thickness for printability (minimum 1mm at pitch circle)
+  const toothThickness = (Math.PI * mod) / 2
+  if (toothThickness < 1.0) {
+    console.warn(`[Gear] Tooth thickness ${toothThickness.toFixed(2)}mm may be too thin for FDM printing`)
+  }
 
   const pitchDiameter = teeth * mod
   const rootDiameter = pitchDiameter - 2.5 * mod
