@@ -2,10 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { Viewer } from './components/Viewer'
 import { Sidebar } from './components/Sidebar'
 import { CompilerOutput } from './components/CompilerOutput'
-import { DownloadDialog } from './components/DownloadDialog'
-import { useOpenSCAD } from './hooks/useOpenSCAD'
 import { useManifold } from './hooks/useManifold'
-import { generators, flattenParameters, isScadGenerator, isManifoldGenerator, type ParameterValues, type GeneratorPart } from './generators'
+import { generators, flattenParameters, type ParameterValues } from './generators'
 import { meshToStl } from './lib/meshToStl'
 
 const DEBOUNCE_MS = 1000
@@ -89,27 +87,13 @@ export default function App() {
     }
   }
 
-  // OpenSCAD hook for SCAD generators
+  // Manifold hook for geometry generation
   const {
-    status: scadStatus,
-    error: scadError,
-    compilerOutput,
-    stlBlob,
-    compile: scadCompile
-  } = useOpenSCAD()
-
-  // Manifold hook for manifold generators
-  const {
-    status: manifoldStatus,
-    error: manifoldError,
+    status,
+    error,
     meshData,
     build: manifoldBuild
   } = useManifold()
-
-  // Unified status based on current generator type
-  const isManifold = isManifoldGenerator(selectedGenerator)
-  const status = isManifold ? manifoldStatus : scadStatus
-  const error = isManifold ? manifoldError : scadError
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const hasCompiledOnceRef = useRef(false)
@@ -117,9 +101,7 @@ export default function App() {
   const pendingParamsRef = useRef<ParameterValues | null>(null)
   const isDraggingRef = useRef(false)
 
-  // Use ref to always have latest compile function and generator without triggering effects
-  const scadCompileRef = useRef(scadCompile)
-  scadCompileRef.current = scadCompile
+  // Use ref to always have latest build function and generator without triggering effects
   const manifoldBuildRef = useRef(manifoldBuild)
   manifoldBuildRef.current = manifoldBuild
   const generatorRef = useRef(selectedGenerator)
@@ -138,73 +120,38 @@ export default function App() {
 
     const generator = generatorRef.current
 
-    // Route to appropriate compile method based on generator type
-    if (isManifoldGenerator(generator)) {
-      // Manifold generator - use direct geometry generation
-      isCompilingRef.current = true
-      pendingParamsRef.current = null
+    // Use Manifold geometry generation
+    isCompilingRef.current = true
+    pendingParamsRef.current = null
 
-      // Progressive: draft uses fewer segments, final uses full quality
-      const circularSegments = isFinalPass ? 64 : 24
+    // Progressive: draft uses fewer segments, final uses full quality
+    const circularSegments = isFinalPass ? 64 : 24
 
-      manifoldBuildRef.current(generator.builderId, currentParams, {
-        silent: isFinalPass,
-        circularSegments
-      }).finally(() => {
-        isCompilingRef.current = false
+    manifoldBuildRef.current(generator.builderId, currentParams, {
+      silent: isFinalPass,
+      circularSegments
+    }).finally(() => {
+      isCompilingRef.current = false
 
-        if (pendingParamsRef.current) {
-          const pending = pendingParamsRef.current
-          pendingParamsRef.current = null
-          pendingFinalCompileRef.current = null
-          doCompile(pending)
-          return
-        }
+      if (pendingParamsRef.current) {
+        const pending = pendingParamsRef.current
+        pendingParamsRef.current = null
+        pendingFinalCompileRef.current = null
+        doCompile(pending)
+        return
+      }
 
-        // Queue final quality compile after draft preview
-        if (!isFinalPass) {
-          pendingFinalCompileRef.current = currentParams
-          setTimeout(() => {
-            if (pendingFinalCompileRef.current === currentParams) {
-              pendingFinalCompileRef.current = null
-              doCompile(currentParams, true)
-            }
-          }, 50)
-        }
-      })
-    } else if (isScadGenerator(generator)) {
-      // SCAD generator - use OpenSCAD compilation
-      const useProgressiveRendering = !isFinalPass
-      const compileQuality = useProgressiveRendering ? 'draft' : 'high'
-
-      isCompilingRef.current = true
-      pendingParamsRef.current = null
-
-      const paramsWithQuality = { ...currentParams, _quality: compileQuality }
-      const scadCode = generator.scadTemplate(paramsWithQuality)
-
-      scadCompileRef.current(scadCode, { silent: isFinalPass }).finally(() => {
-        isCompilingRef.current = false
-
-        if (pendingParamsRef.current) {
-          const pending = pendingParamsRef.current
-          pendingParamsRef.current = null
-          pendingFinalCompileRef.current = null
-          doCompile(pending)
-          return
-        }
-
-        if (useProgressiveRendering) {
-          pendingFinalCompileRef.current = currentParams
-          setTimeout(() => {
-            if (pendingFinalCompileRef.current === currentParams) {
-              pendingFinalCompileRef.current = null
-              doCompile(currentParams, true)
-            }
-          }, 50)
-        }
-      })
-    }
+      // Queue final quality compile after draft preview
+      if (!isFinalPass) {
+        pendingFinalCompileRef.current = currentParams
+        setTimeout(() => {
+          if (pendingFinalCompileRef.current === currentParams) {
+            pendingFinalCompileRef.current = null
+            doCompile(currentParams, true)
+          }
+        }, 50)
+      }
+    })
   }, [])
 
   // Debounced compile - called explicitly, not via effect
@@ -270,16 +217,6 @@ export default function App() {
     }
   }, [selectedGenerator, doCompile])
 
-  const [showDownloadDialog, setShowDownloadDialog] = useState(false)
-
-  // Check if model has downloadable parts (parts defined and relevant feature enabled)
-  const getDownloadableParts = useCallback((): GeneratorPart[] => {
-    if (!selectedGenerator.parts) return []
-    // For box, only show parts if lid is included
-    if (selectedGenerator.id === 'box' && !params['include_lid']) return []
-    return selectedGenerator.parts
-  }, [selectedGenerator, params])
-
   const downloadBlob = (blob: Blob, filename: string) => {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -291,48 +228,13 @@ export default function App() {
     URL.revokeObjectURL(url)
   }
 
-  const downloadParts = async (partsToDownload: GeneratorPart[]) => {
-    for (const part of partsToDownload) {
-      const scadCode = part.scadTemplate(params)
-      const blob = await scadCompile(scadCode)
-      if (blob) {
-        downloadBlob(blob, `${selectedGenerator.id}-${part.id}.stl`)
-      }
-    }
-    // Recompile combined model to restore viewer
-    doCompile(params)
-  }
-
   const handleDownload = () => {
-    // For Manifold generators, convert meshData to STL
-    if (isManifold && meshData) {
+    // Convert meshData to STL
+    if (meshData) {
       const stl = meshToStl(meshData)
       downloadBlob(stl, `${selectedGenerator.id}.stl`)
-      return
-    }
-
-    // For SCAD generators, use the compiled STL blob
-    if (!stlBlob) return
-
-    const parts = getDownloadableParts()
-    if (parts.length === 0) {
-      // No separate parts, download combined
-      downloadBlob(stlBlob, `${selectedGenerator.id}.stl`)
-    } else if (parts.length === 1) {
-      // Single part, download directly without dialog
-      downloadParts(parts)
-    } else {
-      // Multiple parts, show dialog
-      setShowDownloadDialog(true)
     }
   }
-
-  const handleDownloadSelected = (selectedParts: GeneratorPart[]) => {
-    setShowDownloadDialog(false)
-    downloadParts(selectedParts)
-  }
-
-  const downloadableParts = getDownloadableParts()
 
   return (
     <div className="flex h-screen relative">
@@ -372,32 +274,24 @@ export default function App() {
           onSliderDragEnd={handleSliderDragEnd}
           onDownload={handleDownload}
           onReset={handleReset}
-          canDownload={(stlBlob !== null || meshData !== null) && status === 'ready'}
+          canDownload={meshData !== null && status === 'ready'}
         />
       </div>
 
       <main className="flex-1 flex flex-col">
         <div className="flex-1 min-h-0">
           <Viewer
-            stlBlob={isManifold ? null : stlBlob}
-            meshData={isManifold ? meshData : null}
-            isCompiling={status === 'compiling' || status === 'building'}
+            stlBlob={null}
+            meshData={meshData}
+            isCompiling={status === 'building'}
           />
         </div>
         <CompilerOutput
-          output={compilerOutput}
+          output={null}
           status={status === 'building' ? 'compiling' : status}
           error={error}
         />
       </main>
-
-      <DownloadDialog
-        isOpen={showDownloadDialog}
-        generatorName={selectedGenerator.name}
-        parts={downloadableParts}
-        onDownload={handleDownloadSelected}
-        onClose={() => setShowDownloadDialog(false)}
-      />
     </div>
   )
 }

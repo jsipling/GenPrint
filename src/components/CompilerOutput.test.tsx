@@ -15,12 +15,12 @@ describe('CompilerOutput', () => {
 
   it('renders header even when output is null', () => {
     render(<CompilerOutput output={null} status="ready" error={null} />)
-    expect(screen.getByText('Compiler Output')).toBeTruthy()
+    expect(screen.getByText('Status')).toBeTruthy()
   })
 
   it('renders when output is provided', () => {
     render(<CompilerOutput output="Test output message" status="ready" error={null} />)
-    expect(screen.getByText('Compiler Output')).toBeTruthy()
+    expect(screen.getByText('Status')).toBeTruthy()
   })
 
   it('is expanded by default in development mode', () => {
@@ -35,7 +35,7 @@ describe('CompilerOutput', () => {
   it('toggles visibility when clicked', () => {
     render(<CompilerOutput output="Test output message" status="ready" error={null} />)
 
-    const toggleButton = screen.getByRole('button', { name: /compiler output/i })
+    const toggleButton = screen.getByRole('button', { name: /status/i })
     const initialExpanded = toggleButton.getAttribute('aria-expanded')
 
     fireEvent.click(toggleButton)

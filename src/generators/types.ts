@@ -60,12 +60,6 @@ export function isBooleanParam(param: ParameterDef): param is BooleanParameterDe
   return param.type === 'boolean'
 }
 
-export interface GeneratorPart {
-  id: string
-  name: string
-  scadTemplate: (params: Record<string, number | string | boolean>) => string
-}
-
 export type ParameterValues = Record<string, number | string | boolean>
 
 /**
@@ -78,30 +72,15 @@ export interface MeshData {
 }
 
 /**
- * Base interface for generators
+ * Manifold-based generator (builds geometry directly)
+ * The build function runs in a web worker with the manifold-3d module.
  */
-interface GeneratorBase {
+export interface ManifoldGenerator {
   id: string
+  type: 'manifold'
   name: string
   description: string
   parameters: ParameterDef[]
-  parts?: GeneratorPart[]
-}
-
-/**
- * OpenSCAD-based generator (returns SCAD code string)
- */
-export interface ScadGenerator extends GeneratorBase {
-  type?: 'scad'  // Optional for backwards compatibility
-  scadTemplate: (params: ParameterValues) => string
-}
-
-/**
- * Manifold-based generator (builds geometry directly)
- * The buildGeometry function runs in a web worker with the manifold-3d module.
- */
-export interface ManifoldGenerator extends GeneratorBase {
-  type: 'manifold'
   /**
    * Function ID that maps to a registered builder in the worker.
    * This allows the worker to look up the correct build function.
@@ -110,43 +89,15 @@ export interface ManifoldGenerator extends GeneratorBase {
 }
 
 /**
- * Union type for all generator types
+ * Generator type (all generators are now Manifold-based)
  */
-export type Generator = ScadGenerator | ManifoldGenerator
-
-/**
- * Type guard for ScadGenerator
- */
-export function isScadGenerator(gen: Generator): gen is ScadGenerator {
-  return gen.type === undefined || gen.type === 'scad'
-}
+export type Generator = ManifoldGenerator
 
 /**
  * Type guard for ManifoldGenerator
  */
 export function isManifoldGenerator(gen: Generator): gen is ManifoldGenerator {
   return gen.type === 'manifold'
-}
-
-/**
- * Quality levels for rendering. Affects $fn (circle segments).
- * - draft: Fast preview (~24 segments)
- * - normal: Balanced quality (~48 segments)
- * - high: Production quality (~64 segments)
- */
-export type QualityLevel = 'draft' | 'normal' | 'high'
-
-export const QUALITY_FN: Record<QualityLevel, number> = {
-  draft: 24,
-  normal: 48,
-  high: 64
-}
-
-/**
- * Returns OpenSCAD $fn setting for the given quality level.
- */
-export function getQualityFn(quality: QualityLevel = 'normal'): string {
-  return `$fn = ${QUALITY_FN[quality]};`
 }
 
 /**

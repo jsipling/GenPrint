@@ -2,6 +2,14 @@ import Module, { type ManifoldToplevel, type Manifold, type Mesh } from 'manifol
 // Import WASM file URL for proper loading in worker context
 import wasmUrl from 'manifold-3d/manifold.wasm?url'
 import { buildGridfinityBin } from '../generators/manifold/gridfinityBuilder'
+import { buildSpacer } from '../generators/manifold/spacerBuilder'
+import { buildWasher } from '../generators/manifold/washerBuilder'
+import { buildHook } from '../generators/manifold/hookBuilder'
+import { buildBracket } from '../generators/manifold/bracketBuilder'
+import { buildBox } from '../generators/manifold/boxBuilder'
+import { buildThumbKnob } from '../generators/manifold/thumbKnobBuilder'
+import { buildGear } from '../generators/manifold/gearBuilder'
+import { buildSign } from '../generators/manifold/signBuilder'
 
 interface BuildRequest {
   type: 'build'
@@ -34,6 +42,14 @@ type WorkerMessage = BuildRequest
 
 // Generator registry - maps builder IDs to build functions
 const generatorRegistry = new Map<string, (M: ManifoldToplevel, params: Record<string, number | string | boolean>) => Manifold>([
+  ['spacer', buildSpacer],
+  ['washer', buildWasher],
+  ['hook', buildHook],
+  ['bracket', buildBracket],
+  ['box', buildBox],
+  ['thumb_knob', buildThumbKnob],
+  ['spur_gear', buildGear],
+  ['sign', buildSign],
   ['gridfinity_bin', buildGridfinityBin]
 ])
 

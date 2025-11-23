@@ -6,8 +6,7 @@ import { thumbKnobGenerator } from './thumbKnob'
 import { washerGenerator } from './washer'
 import { bracketGenerator } from './bracket'
 import { hookGenerator } from './hook'
-import { gridfinityBinGenerator } from './gridfinityBin'
-import { gridfinityBinManifoldGenerator } from './gridfinityBinManifold'
+import { gridfinityBinGenerator } from './gridfinityBinManifold'
 import type { Generator } from './types'
 
 export const generators: Generator[] = [
@@ -19,9 +18,8 @@ export const generators: Generator[] = [
   washerGenerator,
   bracketGenerator,
   hookGenerator,
-  gridfinityBinGenerator,
-  gridfinityBinManifoldGenerator
+  gridfinityBinGenerator
 ]
 
-export type { Generator, ScadGenerator, ManifoldGenerator, GeneratorPart, ParameterDef, ParameterValues, NumberParameterDef, StringParameterDef, SelectParameterDef, BooleanParameterDef, QualityLevel, MeshData } from './types'
-export { isNumberParam, isStringParam, isSelectParam, isBooleanParam, isScadGenerator, isManifoldGenerator, flattenParameters, getQualityFn, QUALITY_FN } from './types'
+export type { Generator, ManifoldGenerator, ParameterDef, ParameterValues, NumberParameterDef, StringParameterDef, SelectParameterDef, BooleanParameterDef, MeshData } from './types'
+export { isNumberParam, isStringParam, isSelectParam, isBooleanParam, isManifoldGenerator, flattenParameters } from './types'

@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import type { CompileStatus } from '../hooks/useOpenSCAD'
+
+export type CompileStatus = 'idle' | 'loading' | 'compiling' | 'ready' | 'error'
 
 function getLineStyle(line: string): string {
   const trimmed = line.trim().toUpperCase()
@@ -19,7 +20,7 @@ function getStatusText(status: CompileStatus): string {
   switch (status) {
     case 'idle': return 'Idle'
     case 'loading': return 'Loading WASM...'
-    case 'compiling': return 'Compiling...'
+    case 'compiling': return 'Building...'
     case 'ready': return 'Ready'
     case 'error': return 'Error'
   }
@@ -65,7 +66,7 @@ export function CompilerOutput({ output, status, error }: CompilerOutputProps) {
         >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
         </svg>
-        <span className="font-medium">Compiler Output</span>
+        <span className="font-medium">Status</span>
         {statusText && (
           <>
             <span className="text-gray-600">-</span>

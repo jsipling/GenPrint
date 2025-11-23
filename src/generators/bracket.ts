@@ -1,8 +1,9 @@
-import type { ScadGenerator, ParameterValues, QualityLevel } from './types'
-import { getQualityFn } from './types'
+import type { ManifoldGenerator } from './types'
 
-export const bracketGenerator: ScadGenerator = {
+export const bracketGenerator: ManifoldGenerator = {
   id: 'bracket',
+  type: 'manifold',
+  builderId: 'bracket',
   name: 'Bracket',
   description: 'An L-bracket with mounting holes for corner reinforcement.',
   parameters: [
@@ -73,89 +74,5 @@ export const bracketGenerator: ScadGenerator = {
         }
       ]
     }
-  ],
-  scadTemplate: (params: ParameterValues) => {
-    const width = Number(params['width'])
-    const armLength = Number(params['arm_length'])
-    const thickness = Number(params['thickness'])
-    const holeD = Number(params['hole_diameter'])
-    const fillet = Number(params['fillet_radius'])
-    const holeCountArm1 = Number(params['hole_count_arm_1'])
-    const holeCountArm2 = Number(params['hole_count_arm_2'])
-    const addRib = Boolean(params['add_rib'])
-    const ribThickness = Number(params['rib_thickness'])
-    const quality = (params['_quality'] as QualityLevel) || 'normal'
-
-    return `
-// Dimensions
-width = ${width};
-arm_length = ${armLength};
-thickness = ${thickness};
-hole_d = ${holeD};
-fillet_r = ${fillet};
-hole_count_arm_1 = ${holeCountArm1};
-hole_count_arm_2 = ${holeCountArm2};
-add_rib = ${addRib};
-rib_thickness = ${ribThickness};
-
-${getQualityFn(quality)}
-
-difference() {
-    union() {
-        // Horizontal arm
-        cube([arm_length, width, thickness]);
-
-        // Vertical arm
-        cube([thickness, width, arm_length]);
-
-        // Fillet for strength
-        if (fillet_r > 0) {
-            translate([thickness, 0, thickness])
-            rotate([-90, 0, 0])
-            linear_extrude(width)
-            difference() {
-                square([fillet_r, fillet_r]);
-                translate([fillet_r, fillet_r])
-                    circle(r = fillet_r);
-            }
-        }
-        
-        if(add_rib) {
-            // Rib for strength
-            rib_profile = [
-                [thickness, 0],
-                [thickness, fillet_r],
-                [fillet_r, 0]
-            ];
-            
-            translate([0, (width-rib_thickness)/2, 0])
-            linear_extrude(height=rib_thickness)
-            polygon(points=rib_profile);
-        }
-    }
-
-    // Holes in horizontal arm
-    if(hole_count_arm_1 > 0) {
-        hole_offset_start = (arm_length - thickness) / (hole_count_arm_1 + 1) + thickness;
-        hole_spacing = (arm_length - thickness) / (hole_count_arm_1 + 1);
-        for (i = [0:hole_count_arm_1-1]) {
-            translate([hole_offset_start + i * hole_spacing, width / 2, -0.1])
-                cylinder(h = thickness + 0.2, d = hole_d);
-        }
-    }
-
-
-    // Holes in vertical arm
-    if(hole_count_arm_2 > 0) {
-        hole_offset_start = (arm_length - thickness) / (hole_count_arm_2 + 1) + thickness;
-        hole_spacing = (arm_length - thickness) / (hole_count_arm_2 + 1);
-        for (i = [0:hole_count_arm_2-1]) {
-            translate([-0.1, width / 2, hole_offset_start + i * hole_spacing])
-                rotate([0, 90, 0])
-                cylinder(h = thickness + 0.2, d = hole_d);
-        }
-    }
-}
-`
-  }
+  ]
 }

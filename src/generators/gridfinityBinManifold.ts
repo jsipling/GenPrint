@@ -6,11 +6,11 @@ import type { ManifoldGenerator } from './types'
  * Uses manifold-3d for 10-50x faster generation compared to OpenSCAD.
  * Same parameters as the SCAD version for compatibility.
  */
-export const gridfinityBinManifoldGenerator: ManifoldGenerator = {
-  id: 'gridfinity_bin_manifold',
+export const gridfinityBinGenerator: ManifoldGenerator = {
+  id: 'gridfinity_bin',
   type: 'manifold',
   builderId: 'gridfinity_bin',
-  name: 'Gridfinity Bin (Fast)',
+  name: 'Gridfinity Bin',
   description: 'Fast modular storage bin using Manifold geometry',
   parameters: [
     {

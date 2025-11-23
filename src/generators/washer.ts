@@ -1,8 +1,9 @@
-import type { ScadGenerator, ParameterValues, QualityLevel } from './types'
-import { QUALITY_FN } from './types'
+import type { ManifoldGenerator } from './types'
 
-export const washerGenerator: ScadGenerator = {
+export const washerGenerator: ManifoldGenerator = {
   id: 'washer',
+  type: 'manifold',
+  builderId: 'washer',
   name: 'Washer',
   description: 'A flat ring washer with configurable dimensions.',
   parameters: [
@@ -34,34 +35,5 @@ export const washerGenerator: ScadGenerator = {
       label: 'Thickness',
       min: 0.4, max: 10, default: 1.5, step: 0.1, unit: 'mm'
     }
-  ],
-  scadTemplate: (params: ParameterValues) => {
-    const outerD = Number(params['outer_diameter'])
-    const innerD = Number(params['inner_diameter'])
-    const thickness = Number(params['thickness'])
-    const quality = (params['_quality'] as QualityLevel) || 'normal'
-
-    // Ensure inner diameter leaves at least 1mm wall
-    const maxInner = outerD - 2
-    const safeInnerD = Math.min(innerD, maxInner)
-
-    // Scale $fn based on quality and size
-    const baseFn = QUALITY_FN[quality]
-    const scaledFn = Math.max(baseFn, Math.floor(outerD * 2))
-
-    return `
-// Dimensions
-outer_d = ${outerD};
-inner_d = ${safeInnerD};
-thickness = ${thickness};
-
-$fn = ${scaledFn};
-
-difference() {
-    cylinder(h = thickness, d = outer_d);
-    translate([0, 0, -0.1])
-        cylinder(h = thickness + 0.2, d = inner_d);
-}
-`
-  }
+  ]
 }

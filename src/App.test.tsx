@@ -5,8 +5,8 @@ import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/re
 
 // Mock the components and hooks to isolate App logic
 vi.mock('./components/Viewer', () => ({
-  Viewer: ({ stlBlob, isCompiling }: { stlBlob: Blob | null; isCompiling: boolean }) => (
-    <div data-testid="viewer" data-compiling={isCompiling} data-has-blob={!!stlBlob}>
+  Viewer: ({ meshData, isCompiling }: { meshData: unknown; isCompiling: boolean }) => (
+    <div data-testid="viewer" data-compiling={isCompiling} data-has-mesh={!!meshData}>
       Viewer Mock
     </div>
   )
@@ -54,22 +54,21 @@ vi.mock('./components/CompilerOutput', () => ({
   )
 }))
 
-// Mock useOpenSCAD hook
-const mockCompile = vi.fn()
-vi.mock('./hooks/useOpenSCAD', () => ({
-  useOpenSCAD: () => ({
+// Mock useManifold hook
+const mockBuild = vi.fn()
+vi.mock('./hooks/useManifold', () => ({
+  useManifold: () => ({
     status: 'ready',
     error: null,
-    compilerOutput: null,
-    stlBlob: new Blob(['test'], { type: 'model/stl' }),
-    compile: mockCompile
+    meshData: { positions: new Float32Array(), normals: new Float32Array(), indices: new Uint32Array() },
+    build: mockBuild
   })
 }))
 
 describe('App', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockCompile.mockResolvedValue(new Blob(['test']))
+    mockBuild.mockResolvedValue(undefined)
     // Reset URL state between tests to prevent pollution
     window.history.replaceState({}, '', window.location.pathname)
   })
@@ -86,7 +85,7 @@ describe('App', () => {
     expect(selectedGen.textContent).toBe('Spacer')
 
     const genCount = screen.getByTestId('generator-count')
-    expect(genCount.textContent).toBe('10')
+    expect(genCount.textContent).toBe('9')
   })
 
   it('initializes with default parameters for selected generator', async () => {
@@ -146,7 +145,7 @@ describe('App', () => {
     const App = (await import('./App')).default
     render(<App />)
 
-    // Should be able to download when blob exists and status is ready
+    // Should be able to download when mesh exists and status is ready
     const canDownload = screen.getByTestId('can-download')
     expect(canDownload.textContent).toBe('true')
   })
