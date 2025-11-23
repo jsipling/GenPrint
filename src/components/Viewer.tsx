@@ -92,8 +92,8 @@ function MeasuredGrid({ size = 100, divisions = 10 }: { size?: number; divisions
       <gridHelper args={[size, divisions, '#555', '#333']} rotation={[Math.PI / 2, 0, 0]} />
 
       {/* Main axis lines (positive direction only) */}
-      <Line points={[[0, 0, 0.01], [size/2, 0, 0.01]]} color="#ff4444" lineWidth={2} />
-      <Line points={[[0, 0, 0.01], [0, size/2, 0.01]]} color="#44ff44" lineWidth={2} />
+      <Line points={[[0, 0, 0.1], [size/2, 0, 0.1]]} color="#ff4444" lineWidth={2} />
+      <Line points={[[0, 0, 0.1], [0, size/2, 0.1]]} color="#44ff44" lineWidth={2} />
       <Line points={[[0, 0, 0], [0, 0, size/2]]} color="#4444ff" lineWidth={2} />
 
       {/* Tick marks */}

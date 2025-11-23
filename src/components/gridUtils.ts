@@ -50,7 +50,7 @@ export function calculateTicksAndLabels(size: number): GridCalculationResult {
     const isCm = mm % 10 === 0
     const tick = isCm ? TICK_SIZE : SMALL_TICK_SIZE
 
-    tickList.push({ points: [[mm, -tick, 0.01], [mm, tick, 0.01]], color: '#ff4444' })
+    tickList.push({ points: [[mm, -tick, 0.1], [mm, tick, 0.1]], color: '#ff4444' })
 
     // Label at intervals
     if (mm % effectiveLabelInterval === 0) {
@@ -63,7 +63,7 @@ export function calculateTicksAndLabels(size: number): GridCalculationResult {
     const isCm = mm % 10 === 0
     const tick = isCm ? TICK_SIZE : SMALL_TICK_SIZE
 
-    tickList.push({ points: [[-tick, mm, 0.01], [tick, mm, 0.01]], color: '#44ff44' })
+    tickList.push({ points: [[-tick, mm, 0.1], [tick, mm, 0.1]], color: '#44ff44' })
 
     if (mm % effectiveLabelInterval === 0) {
       labelList.push({ pos: [-TICK_SIZE - 2, mm, 0], text: `${mm}` })
