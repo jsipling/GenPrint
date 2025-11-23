@@ -47,4 +47,22 @@ describe('washerBuilder', () => {
     expect(getGeometryFingerprint(washer)).toMatchSnapshot()
     washer.delete()
   })
+
+  it('enforces 1.2mm minimum wall thickness per AGENTS.md', () => {
+    const params = {
+      outer_diameter: 10,
+      inner_diameter: 8, // Would leave 1mm wall, should clamp to 7.6mm
+      thickness: 2
+    }
+
+    const washer = buildWasher(M, params)
+    expectValid(washer)
+
+    // Volume check similar to spacer
+    const volume = washer.volume()
+    // With 1.2mm walls (inner clamped to 7.6): π * 2 * (25 - 14.44) ≈ 66.4
+    // With 1mm walls (inner = 8): π * 2 * (25 - 16) ≈ 56.5
+    expect(volume).toBeGreaterThan(60)
+    washer.delete()
+  })
 })

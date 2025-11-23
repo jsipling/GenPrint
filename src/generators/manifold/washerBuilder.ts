@@ -21,8 +21,8 @@ export function buildWasher(
     thickness: Number(params['thickness']) || 1.5
   }
 
-  // Ensure inner diameter leaves at least 1mm wall
-  const maxInner = p.outer_diameter - 2
+  // AGENTS.md: Minimum wall thickness 1.2mm (2.4mm total for both walls)
+  const maxInner = p.outer_diameter - 2.4
   const safeInnerD = Math.min(p.inner_diameter, maxInner)
 
   // Create outer cylinder
