@@ -11,20 +11,21 @@ export const gearGenerator: ManifoldGenerator = {
       type: 'number',
       name: 'teeth',
       label: 'Number of Teeth',
-      min: 8, max: 100, default: 20, step: 1, unit: '',
+      min: 8, max: 60, default: 20, step: 1, unit: '',
       dynamicMax: (params) => {
         const mod = Number(params['module']) || 2
-        // Limit to mod * 15 to ensure robust tooth geometry
-        // Ensure we never return less than param.min (8)
-        return Math.max(8, Math.floor(mod * 15))
+        // Limit by printable outer diameter (~150mm max)
+        // Outer diameter = module * (teeth + 2)
+        const maxBySize = Math.floor(150 / mod - 2)
+        return Math.max(8, Math.min(60, maxBySize))
       }
     },
     {
       type: 'number',
       name: 'module',
       label: 'Module (Size)',
-      min: 0.5, max: 10, default: 2, step: 0.1, unit: 'mm',
-      description: 'Determines overall size. Pitch Diameter = Teeth * Module'
+      min: 1, max: 5, default: 2, step: 0.5, unit: 'mm',
+      description: 'Tooth size. Pitch Diameter = Teeth × Module'
     },
     {
       type: 'number',
@@ -37,7 +38,14 @@ export const gearGenerator: ManifoldGenerator = {
       name: 'bore_diameter',
       label: 'Bore Diameter',
       min: 0, max: 50, default: 5, step: 0.5, unit: 'mm',
-      description: 'Center hole diameter (0 for solid)'
+      description: 'Center hole diameter (0 for solid)',
+      dynamicMax: (params) => {
+        const teeth = Number(params['teeth']) || 20
+        const mod = Number(params['module']) || 2
+        // Root diameter = teeth * module - 2.5 * module, need 4mm wall
+        const rootDiameter = mod * (teeth - 2.5)
+        return Math.max(0, Math.floor(rootDiameter - 4))
+      }
     },
     {
       type: 'number',

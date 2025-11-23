@@ -182,8 +182,8 @@ export function buildGear(
   M: ManifoldToplevel,
   params: Record<string, number | string | boolean>
 ): Manifold {
-  const teethInput = Math.floor(Number(params['teeth']) || 20)
-  const mod = Number(params['module']) || 2
+  const teeth = Math.max(8, Math.floor(Number(params['teeth']) || 20))
+  const mod = Math.max(1, Number(params['module']) || 2)
   const height = Number(params['height']) || 5
   const boreDiameter = Number(params['bore_diameter']) || 5
   const includeHub = Boolean(params['include_hub'])
@@ -192,10 +192,6 @@ export function buildGear(
   const pressureAngle = Number(params['pressure_angle']) || 20
   const tolerance = Number(params['tolerance']) || 0
   const tipSharpness = Number(params['tip_sharpness']) || 0
-
-  // Limit teeth based on module
-  const maxTeethForModule = Math.floor(mod * 15)
-  const teeth = Math.min(teethInput, Math.max(8, maxTeethForModule))
 
   // Validate tooth thickness for printability (minimum 1mm at pitch circle)
   const toothThickness = (Math.PI * mod) / 2
