@@ -33,7 +33,7 @@ export const spacerGenerator: ManifoldGenerator = {
       type: 'number',
       name: 'height',
       label: 'Height',
-      min: 1, max: 50, default: 10, step: 1, unit: 'mm'
+      min: 1.5, max: 50, default: 5, step: 0.5, unit: 'mm'
     }
   ]
 }

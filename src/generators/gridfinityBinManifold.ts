@@ -76,7 +76,12 @@ export const gridfinityBinGenerator: ManifoldGenerator = {
       max: 10,
       default: 0,
       step: 1,
-      description: 'Number of dividers along width'
+      description: 'Number of dividers along width',
+      dynamicMax: (params) => {
+        const gridX = Number(params['grid_x']) || 2
+        // Each cell needs minimum ~15mm width for usability
+        return Math.max(0, gridX * 2 - 1)
+      }
     },
     {
       type: 'number',
@@ -86,7 +91,12 @@ export const gridfinityBinGenerator: ManifoldGenerator = {
       max: 10,
       default: 0,
       step: 1,
-      description: 'Number of dividers along depth'
+      description: 'Number of dividers along depth',
+      dynamicMax: (params) => {
+        const gridY = Number(params['grid_y']) || 2
+        // Each cell needs minimum ~15mm depth for usability
+        return Math.max(0, gridY * 2 - 1)
+      }
     },
     {
       type: 'boolean',

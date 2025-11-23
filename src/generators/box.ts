@@ -29,7 +29,7 @@ export const boxGenerator: ManifoldGenerator = {
       type: 'number',
       name: 'wall_thickness',
       label: 'Wall Thickness',
-      min: 1, max: 5, default: 2, step: 0.5, unit: 'mm'
+      min: 1.2, max: 5, default: 2, step: 0.5, unit: 'mm'
     },
     {
       type: 'number',
@@ -76,7 +76,7 @@ export const boxGenerator: ManifoldGenerator = {
       type: 'number',
       name: 'bottom_thickness',
       label: 'Bottom Thickness',
-      min: 1, max: 10, default: 2, step: 0.5, unit: 'mm'
+      min: 1.2, max: 10, default: 2, step: 0.5, unit: 'mm'
     },
     {
       type: 'number',

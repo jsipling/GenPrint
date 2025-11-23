@@ -22,7 +22,7 @@ export const washerGenerator: ManifoldGenerator = {
       type: 'number',
       name: 'inner_diameter',
       label: 'Inner Diameter',
-      min: 1, max: 90, default: 6, step: 0.5, unit: 'mm',
+      min: 2, max: 90, default: 6, step: 0.5, unit: 'mm',
       dynamicMax: (params) => {
         const outerD = Number(params['outer_diameter']) || 12
         // Leave at least 2mm wall thickness
@@ -33,7 +33,7 @@ export const washerGenerator: ManifoldGenerator = {
       type: 'number',
       name: 'thickness',
       label: 'Thickness',
-      min: 0.4, max: 10, default: 1.5, step: 0.1, unit: 'mm'
+      min: 1.2, max: 10, default: 1.5, step: 0.1, unit: 'mm'
     }
   ]
 }

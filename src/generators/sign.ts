@@ -24,7 +24,7 @@ export const signGenerator: ManifoldGenerator = {
       type: 'number',
       name: 'text_depth',
       label: 'Text Depth',
-      min: 1, max: 5, default: 2, step: 0.5, unit: 'mm'
+      min: 1.2, max: 5, default: 2, step: 0.5, unit: 'mm'
     },
     {
       type: 'number',
@@ -36,7 +36,7 @@ export const signGenerator: ManifoldGenerator = {
       type: 'number',
       name: 'base_depth',
       label: 'Base Depth',
-      min: 1, max: 10, default: 3, step: 0.5, unit: 'mm'
+      min: 1.2, max: 10, default: 3, step: 0.5, unit: 'mm'
     },
     {
       type: 'number',

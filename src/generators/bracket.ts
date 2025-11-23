@@ -23,7 +23,7 @@ export const bracketGenerator: ManifoldGenerator = {
       type: 'number',
       name: 'thickness',
       label: 'Thickness',
-      min: 2, max: 15, default: 4, step: 0.5, unit: 'mm'
+      min: 3, max: 15, default: 4, step: 0.5, unit: 'mm'
     },
     {
       type: 'number',

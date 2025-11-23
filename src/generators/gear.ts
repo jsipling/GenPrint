@@ -17,7 +17,10 @@ export const gearGenerator: ManifoldGenerator = {
         // Limit by printable outer diameter (~150mm max)
         // Outer diameter = module * (teeth + 2)
         const maxBySize = Math.floor(150 / mod - 2)
-        return Math.max(8, Math.min(60, maxBySize))
+        // Limit teeth to keep them visually distinct and printable
+        // Higher module = more teeth allowed since teeth are larger
+        const maxByVisibility = Math.floor(mod * 15)
+        return Math.max(8, Math.min(60, maxBySize, maxByVisibility))
       }
     },
     {
@@ -31,13 +34,13 @@ export const gearGenerator: ManifoldGenerator = {
       type: 'number',
       name: 'height',
       label: 'Gear Height',
-      min: 2, max: 50, default: 5, step: 1, unit: 'mm'
+      min: 2, max: 50, default: 6, step: 1, unit: 'mm'
     },
     {
       type: 'number',
       name: 'bore_diameter',
       label: 'Bore Diameter',
-      min: 0, max: 50, default: 5, step: 0.5, unit: 'mm',
+      min: 0, max: 50, default: 6, step: 0.5, unit: 'mm',
       description: 'Center hole diameter (0 for solid)',
       dynamicMax: (params) => {
         const teeth = Number(params['teeth']) || 20
@@ -58,15 +61,15 @@ export const gearGenerator: ManifoldGenerator = {
       type: 'number',
       name: 'tolerance',
       label: 'Fit Tolerance',
-      min: 0, max: 0.5, default: 0, step: 0.05, unit: 'mm',
+      min: 0, max: 0.5, default: 0.2, step: 0.05, unit: 'mm',
       description: 'Increases backlash for better printing fit'
     },
     {
       type: 'number',
       name: 'tip_sharpness',
       label: 'Tip Sharpness',
-      min: 0, max: 1, default: 0, step: 0.1, unit: '',
-      description: '0 = flat tip (standard), 1 = pointed tip'
+      min: 0, max: 0.3, default: 0, step: 0.1, unit: '',
+      description: '0 = flat tip (recommended for FDM), higher values risk fragile tips'
     },
     {
       type: 'boolean',

@@ -25,25 +25,22 @@ export function buildHook(
     hole_diameter: Number(params['hole_diameter']) || 4
   }
 
-  // Create hook profile as polygon
-  // L-shape: vertical back + horizontal hook
-  const points: [number, number][] = [
-    [0, 0],
-    [0, p.hook_height],
-    [p.thickness, p.hook_height],
-    [p.thickness, p.thickness],
-    [p.hook_depth, p.thickness],
-    [p.hook_depth, 0]
-  ]
+  // Create L-shape using two boxes (like bracket does)
+  // Vertical back plate
+  const backPlate = M.Manifold.cube([p.thickness, p.hook_height, p.width], false)
 
-  const profile = new M.CrossSection([points])
-  let hook = profile.extrude(p.width)
-  profile.delete()
+  // Horizontal hook arm
+  const hookArm = M.Manifold.cube([p.hook_depth, p.thickness, p.width], false)
+
+  // Combine into L-shape
+  let hook = backPlate.add(hookArm)
+  backPlate.delete()
+  hookArm.delete()
 
   // Add mounting hole if specified
   if (p.hole_diameter > 0) {
     const holeRadius = p.hole_diameter / 2
-    const hole = M.Manifold.cylinder(p.thickness * 2, holeRadius, holeRadius, 0)
+    const hole = M.Manifold.cylinder(p.thickness * 2, holeRadius, holeRadius, 16)
       .rotate(0, 90, 0)
       .translate(p.thickness / 2, p.hook_height - p.thickness * 1.5, p.width / 2)
 

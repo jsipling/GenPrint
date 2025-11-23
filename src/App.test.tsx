@@ -96,7 +96,7 @@ describe('App', () => {
     const params = JSON.parse(paramsEl.textContent || '{}')
     expect(params.outer_diameter).toBe(20)
     expect(params.inner_hole).toBe(5)
-    expect(params.height).toBe(10)
+    expect(params.height).toBe(5)
   })
 
   it('switches generator and resets parameters', async () => {
@@ -165,7 +165,7 @@ describe('App - getDefaultParams', () => {
     expect(defaults).toEqual({
       outer_diameter: 20,
       inner_hole: 5,
-      height: 10
+      height: 5
     })
   })
 })

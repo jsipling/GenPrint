@@ -20,7 +20,7 @@ export const thumbKnobGenerator: ManifoldGenerator = {
       label: 'Knob Diameter',
       min: 10,
       max: 50,
-      default: 15,
+      default: 18,
       step: 1,
       unit: 'mm',
       dynamicMin: (params) => {
@@ -40,9 +40,9 @@ export const thumbKnobGenerator: ManifoldGenerator = {
       type: 'number',
       name: 'height',
       label: 'Height',
-      min: 4,
+      min: 6,
       max: 30,
-      default: 6,
+      default: 8,
       step: 1,
       unit: 'mm'
     },

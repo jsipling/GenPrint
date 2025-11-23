@@ -29,13 +29,18 @@ export const hookGenerator: ManifoldGenerator = {
       type: 'number',
       name: 'thickness',
       label: 'Thickness',
-      min: 3, max: 10, default: 5, step: 1, unit: 'mm'
+      min: 4, max: 10, default: 5, step: 1, unit: 'mm'
     },
     {
       type: 'number',
       name: 'hole_diameter',
       label: 'Hole Diameter',
-      min: 0, max: 8, default: 4, step: 0.5, unit: 'mm'
+      min: 0, max: 8, default: 4, step: 0.5, unit: 'mm',
+      dynamicMax: (params) => {
+        const thickness = Number(params['thickness']) || 5
+        // Hole must fit within the plate thickness
+        return Math.max(0, thickness - 1)
+      }
     }
   ]
 }
