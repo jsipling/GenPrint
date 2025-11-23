@@ -4,19 +4,19 @@ exports[`bracketBuilder > matches geometry snapshot 1`] = `
 {
   "boundingBox": {
     "max": [
-      -Infinity,
-      -Infinity,
-      -Infinity,
+      40,
+      20,
+      40,
     ],
     "min": [
-      Infinity,
-      Infinity,
-      Infinity,
+      0,
+      0,
+      0,
     ],
   },
-  "surfaceArea": 0,
-  "triangleCount": 0,
-  "vertexCount": 0,
-  "volume": 0,
+  "surfaceArea": 3936.2383,
+  "triangleCount": 364,
+  "vertexCount": 176,
+  "volume": 6777.5488,
 }
 `;

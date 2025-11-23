@@ -18,17 +18,19 @@ interface BracketParams {
 }
 
 /**
- * Create a fillet profile (quarter circle subtraction)
+ * Create a fillet profile (quarter circle to fill corner)
+ * Points must be counter-clockwise for positive area in CrossSection
  */
 function createFilletProfile(M: ManifoldToplevel, radius: number, segments: number = 16): CrossSection {
-  // Create a quarter circle arc points
+  // Build quarter pie shape with counter-clockwise winding:
+  // (0,0) → (radius,0) → arc → (0,radius) → back to (0,0)
   const points: [number, number][] = [[0, 0]]
 
   for (let i = 0; i <= segments; i++) {
     const angle = (Math.PI / 2) * (i / segments)
     points.push([
-      radius - radius * Math.cos(angle),
-      radius - radius * Math.sin(angle)
+      radius * Math.cos(angle),
+      radius * Math.sin(angle)
     ])
   }
 
@@ -77,16 +79,23 @@ export function buildBracket(
     bracket = newBracket
   }
 
-  // Add rib for strength
+  // Add rib for strength (triangular brace in the inner corner)
   if (p.add_rib) {
+    // Rib fills the inner corner between the two arms
+    // Use fillet_radius as rib size if set, otherwise default to arm_length/4
+    const defaultRibSize = Math.max(p.fillet_radius, (p.arm_length - p.thickness) / 4)
+    const ribSize = Math.min(defaultRibSize, p.arm_length - p.thickness)
+
+    // Profile in XY plane, extruded in Z, then rotated to XZ plane
     const ribPoints: [number, number][] = [
-      [p.thickness, 0],
-      [p.thickness, p.fillet_radius],
-      [p.fillet_radius, 0]
+      [0, 0],
+      [ribSize, 0],
+      [0, ribSize]
     ]
     const ribProfile = new M.CrossSection([ribPoints])
     const rib = ribProfile.extrude(p.rib_thickness)
-      .translate(0, (p.width - p.rib_thickness) / 2, 0)
+      .rotate(90, 0, 0)  // Rotate so rib is in XZ plane
+      .translate(p.thickness, (p.width + p.rib_thickness) / 2, p.thickness)
 
     const newBracket = bracket.add(rib)
     bracket.delete()
