@@ -51,13 +51,16 @@ class CanvasErrorBoundary extends Component<{ children: ReactNode }, ErrorBounda
 // Dynamic pan speed controls - scales with camera distance
 function DynamicControls() {
   const controlsRef = useRef<OrbitControlsImpl>(null)
+  const lastDistanceRef = useRef(0)
 
   useFrame(({ camera }) => {
     if (controlsRef.current) {
-      // Scale pan speed with camera distance (closer = faster relative movement)
       const distance = camera.position.length()
-      const basePanSpeed = 0.02
-      controlsRef.current.panSpeed = Math.max(0.5, distance * basePanSpeed)
+      // Only update pan speed if distance changed by >1%
+      if (Math.abs(distance - lastDistanceRef.current) > distance * 0.01) {
+        lastDistanceRef.current = distance
+        controlsRef.current.panSpeed = Math.max(0.5, distance * 0.02)
+      }
     }
   })
 
