@@ -1,4 +1,4 @@
-import type { Generator, ParameterValues, QualityLevel } from './types'
+import type { ScadGenerator, ParameterValues, QualityLevel } from './types'
 import { getQualityFn } from './types'
 
 /**
@@ -477,7 +477,7 @@ module gridfinity_bin() {
 `
 }
 
-export const gridfinityBinGenerator: Generator = {
+export const gridfinityBinGenerator: ScadGenerator = {
   id: 'gridfinity_bin',
   name: 'Gridfinity Extended Bin',
   description: 'Modular storage bin based on Gridfinity Extended',

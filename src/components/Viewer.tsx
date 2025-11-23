@@ -181,18 +181,73 @@ function Model({ geometry, preserveCamera = false }: ModelProps) {
   )
 }
 
+/**
+ * Mesh data from Manifold (bypasses STL parsing)
+ */
+interface MeshData {
+  positions: Float32Array
+  normals: Float32Array
+  indices: Uint32Array
+}
+
 interface ViewerProps {
-  stlBlob: Blob | null
+  /** STL blob from OpenSCAD compilation */
+  stlBlob?: Blob | null
+  /** Direct mesh data from Manifold (takes precedence over stlBlob) */
+  meshData?: MeshData | null
   isCompiling: boolean
 }
 
-export function Viewer({ stlBlob, isCompiling }: ViewerProps) {
+export function Viewer({ stlBlob, meshData, isCompiling }: ViewerProps) {
   const [geometry, setGeometry] = useState<THREE.BufferGeometry | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [modelMaxDim, setModelMaxDim] = useState<number>(0)
   const blobIdRef = useRef(0)
+  const meshDataIdRef = useRef(0)
 
+  // Handle direct mesh data from Manifold (takes precedence)
   useEffect(() => {
+    if (!meshData) return
+
+    const currentId = ++meshDataIdRef.current
+
+    try {
+      const geo = new THREE.BufferGeometry()
+      geo.setAttribute('position', new THREE.BufferAttribute(meshData.positions, 3))
+      geo.setAttribute('normal', new THREE.BufferAttribute(meshData.normals, 3))
+      geo.setIndex(new THREE.BufferAttribute(meshData.indices, 1))
+      geo.computeBoundingBox()
+
+      // Bail if superseded
+      if (currentId !== meshDataIdRef.current) {
+        geo.dispose()
+        return
+      }
+
+      // Calculate model size for grid sizing
+      if (geo.boundingBox) {
+        const size = new THREE.Vector3()
+        geo.boundingBox.getSize(size)
+        setModelMaxDim(Math.max(size.x, size.y, size.z))
+      }
+
+      setGeometry((prev) => {
+        prev?.dispose()
+        return geo
+      })
+      setLoadError(null)
+    } catch (err) {
+      if (currentId !== meshDataIdRef.current) return
+      if (import.meta.env.DEV) console.error('Mesh data error:', err)
+      setLoadError(err instanceof Error ? err.message : 'Failed to load mesh data')
+    }
+  }, [meshData])
+
+  // Handle STL blob from OpenSCAD (only if no meshData)
+  useEffect(() => {
+    // Skip if we have direct mesh data
+    if (meshData) return
+
     if (!stlBlob) {
       setGeometry((prev) => {
         prev?.dispose()
@@ -250,7 +305,7 @@ export function Viewer({ stlBlob, isCompiling }: ViewerProps) {
     return () => {
       reader.abort()
     }
-  }, [stlBlob])
+  }, [stlBlob, meshData])
 
   // Dispose geometry on unmount
   useEffect(() => {

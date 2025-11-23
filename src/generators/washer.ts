@@ -1,7 +1,7 @@
-import type { Generator, ParameterValues, QualityLevel } from './types'
+import type { ScadGenerator, ParameterValues, QualityLevel } from './types'
 import { QUALITY_FN } from './types'
 
-export const washerGenerator: Generator = {
+export const washerGenerator: ScadGenerator = {
   id: 'washer',
   name: 'Washer',
   description: 'A flat ring washer with configurable dimensions.',

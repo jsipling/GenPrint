@@ -1,7 +1,7 @@
-import type { Generator, ParameterValues, QualityLevel } from './types'
+import type { ScadGenerator, ParameterValues, QualityLevel } from './types'
 import { getQualityFn } from './types'
 
-export const bracketGenerator: Generator = {
+export const bracketGenerator: ScadGenerator = {
   id: 'bracket',
   name: 'Bracket',
   description: 'An L-bracket with mounting holes for corner reinforcement.',

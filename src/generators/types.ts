@@ -66,17 +66,67 @@ export interface GeneratorPart {
   scadTemplate: (params: Record<string, number | string | boolean>) => string
 }
 
-export interface Generator {
+export type ParameterValues = Record<string, number | string | boolean>
+
+/**
+ * Mesh data for direct rendering (bypasses STL parsing)
+ */
+export interface MeshData {
+  positions: Float32Array
+  normals: Float32Array
+  indices: Uint32Array
+}
+
+/**
+ * Base interface for generators
+ */
+interface GeneratorBase {
   id: string
   name: string
   description: string
   parameters: ParameterDef[]
-  scadTemplate: (params: Record<string, number | string | boolean>) => string
-  /** Optional separate parts that can be downloaded individually */
   parts?: GeneratorPart[]
 }
 
-export type ParameterValues = Record<string, number | string | boolean>
+/**
+ * OpenSCAD-based generator (returns SCAD code string)
+ */
+export interface ScadGenerator extends GeneratorBase {
+  type?: 'scad'  // Optional for backwards compatibility
+  scadTemplate: (params: ParameterValues) => string
+}
+
+/**
+ * Manifold-based generator (builds geometry directly)
+ * The buildGeometry function runs in a web worker with the manifold-3d module.
+ */
+export interface ManifoldGenerator extends GeneratorBase {
+  type: 'manifold'
+  /**
+   * Function ID that maps to a registered builder in the worker.
+   * This allows the worker to look up the correct build function.
+   */
+  builderId: string
+}
+
+/**
+ * Union type for all generator types
+ */
+export type Generator = ScadGenerator | ManifoldGenerator
+
+/**
+ * Type guard for ScadGenerator
+ */
+export function isScadGenerator(gen: Generator): gen is ScadGenerator {
+  return gen.type === undefined || gen.type === 'scad'
+}
+
+/**
+ * Type guard for ManifoldGenerator
+ */
+export function isManifoldGenerator(gen: Generator): gen is ManifoldGenerator {
+  return gen.type === 'manifold'
+}
 
 /**
  * Quality levels for rendering. Affects $fn (circle segments).

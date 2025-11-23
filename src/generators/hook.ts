@@ -1,7 +1,7 @@
-import type { Generator, ParameterValues, QualityLevel } from './types'
+import type { ScadGenerator, ParameterValues, QualityLevel } from './types'
 import { getQualityFn } from './types'
 
-export const hookGenerator: Generator = {
+export const hookGenerator: ScadGenerator = {
   id: 'hook',
   name: 'Hook',
   description: 'A simple wall hook for hanging items',

@@ -1,7 +1,7 @@
-import type { Generator, ParameterValues, QualityLevel } from './types'
+import type { ScadGenerator, ParameterValues, QualityLevel } from './types'
 import { getQualityFn } from './types'
 
-export const thumbKnobGenerator: Generator = {
+export const thumbKnobGenerator: ScadGenerator = {
   id: 'thumb-knob',
   name: 'Thumb Knob',
   description: 'A grip handle for standard hex bolts/nuts (e.g., M3). Turns a screw into a thumb-screw.',

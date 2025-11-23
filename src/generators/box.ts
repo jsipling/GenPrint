@@ -1,4 +1,4 @@
-import type { Generator, GeneratorPart, ParameterValues, QualityLevel } from './types'
+import type { ScadGenerator, GeneratorPart, ParameterValues, QualityLevel } from './types'
 import { getQualityFn } from './types'
 
 // Shared SCAD code for box generator parts
@@ -213,7 +213,7 @@ lid();
   }
 }
 
-export const boxGenerator: Generator = {
+export const boxGenerator: ScadGenerator = {
   id: 'box',
   name: 'Box',
   description: 'A customizable box with optional lid',

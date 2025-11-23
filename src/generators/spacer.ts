@@ -1,7 +1,7 @@
-import type { Generator, ParameterValues, QualityLevel } from './types'
+import type { ScadGenerator, ParameterValues, QualityLevel } from './types'
 import { getQualityFn } from './types'
 
-export const spacerGenerator: Generator = {
+export const spacerGenerator: ScadGenerator = {
   id: 'spacer',
   name: 'Spacer',
   description: 'A simple cylindrical spacer with a center hole',

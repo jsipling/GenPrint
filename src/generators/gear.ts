@@ -1,7 +1,7 @@
-import type { Generator, ParameterValues, QualityLevel } from './types'
+import type { ScadGenerator, ParameterValues, QualityLevel } from './types'
 import { getQualityFn } from './types'
 
-export const gearGenerator: Generator = {
+export const gearGenerator: ScadGenerator = {
   id: 'spur_gear',
   name: 'Spur Gear',
   description: 'A parametric spur gear with optional hub',

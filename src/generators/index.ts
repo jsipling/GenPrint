@@ -7,6 +7,7 @@ import { washerGenerator } from './washer'
 import { bracketGenerator } from './bracket'
 import { hookGenerator } from './hook'
 import { gridfinityBinGenerator } from './gridfinityBin'
+import { gridfinityBinManifoldGenerator } from './gridfinityBinManifold'
 import type { Generator } from './types'
 
 export const generators: Generator[] = [
@@ -18,8 +19,9 @@ export const generators: Generator[] = [
   washerGenerator,
   bracketGenerator,
   hookGenerator,
-  gridfinityBinGenerator
+  gridfinityBinGenerator,
+  gridfinityBinManifoldGenerator
 ]
 
-export type { Generator, GeneratorPart, ParameterDef, ParameterValues, NumberParameterDef, StringParameterDef, SelectParameterDef, BooleanParameterDef, QualityLevel } from './types'
-export { isNumberParam, isStringParam, isSelectParam, isBooleanParam, flattenParameters, getQualityFn, QUALITY_FN } from './types'
+export type { Generator, ScadGenerator, ManifoldGenerator, GeneratorPart, ParameterDef, ParameterValues, NumberParameterDef, StringParameterDef, SelectParameterDef, BooleanParameterDef, QualityLevel, MeshData } from './types'
+export { isNumberParam, isStringParam, isSelectParam, isBooleanParam, isScadGenerator, isManifoldGenerator, flattenParameters, getQualityFn, QUALITY_FN } from './types'
