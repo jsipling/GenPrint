@@ -1,0 +1,22 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`spacerBuilder > matches geometry snapshot 1`] = `
+{
+  "boundingBox": {
+    "max": [
+      10,
+      10,
+      10,
+    ],
+    "min": [
+      -10,
+      -10,
+      0,
+    ],
+  },
+  "surfaceArea": 1369.4081,
+  "triangleCount": 256,
+  "vertexCount": 128,
+  "volume": 2926.3548,
+}
+`;

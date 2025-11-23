@@ -1,0 +1,22 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`boxBuilder > matches geometry snapshot 1`] = `
+{
+  "boundingBox": {
+    "max": [
+      30,
+      20,
+      30,
+    ],
+    "min": [
+      -30,
+      -20,
+      0,
+    ],
+  },
+  "surfaceArea": 15732.4115,
+  "triangleCount": 284,
+  "vertexCount": 144,
+  "volume": 15339.3897,
+}
+`;
