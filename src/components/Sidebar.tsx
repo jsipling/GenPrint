@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import type { Generator, ParameterValues, ParameterDef } from '../generators'
 import { isStringParam, isSelectParam, isBooleanParam } from '../generators'
 
@@ -216,6 +216,24 @@ export function Sidebar({
   onReset,
   canDownload
 }: SidebarProps) {
+  // Memoize sorted generators to avoid re-sorting on every render
+  const sortedGenerators = useMemo(
+    () => [...generators].sort((a, b) => a.name.localeCompare(b.name)),
+    [generators]
+  )
+
+  // Memoize sorted parameters to avoid re-sorting on every render
+  const sortedParameters = useMemo(
+    () => [...selectedGenerator.parameters].sort((a, b) => {
+      const aHasChildren = isBooleanParam(a) && a.children && a.children.length > 0
+      const bHasChildren = isBooleanParam(b) && b.children && b.children.length > 0
+      if (aHasChildren && !bHasChildren) return 1
+      if (!aHasChildren && bHasChildren) return -1
+      return 0
+    }),
+    [selectedGenerator.parameters]
+  )
+
   return (
     <aside className="w-72 bg-gray-800 text-white flex flex-col h-full">
       <div className="p-4 border-b border-gray-700 bg-gray-900">
@@ -232,7 +250,7 @@ export function Sidebar({
             onChange={(e) => onGeneratorChange(e.target.value)}
             className="w-full custom-select"
           >
-            {[...generators].sort((a, b) => a.name.localeCompare(b.name)).map((gen) => (
+            {sortedGenerators.map((gen) => (
               <option key={gen.id} value={gen.id}>{gen.name}</option>
             ))}
           </select>
@@ -256,23 +274,14 @@ export function Sidebar({
 
       <div className="flex-1 overflow-y-auto px-4 pb-4">
         <div className="space-y-4">
-          {/* Sort parameters: main options first, feature toggles (booleans with children) last */}
-          {[...selectedGenerator.parameters]
-            .sort((a, b) => {
-              const aHasChildren = isBooleanParam(a) && a.children && a.children.length > 0
-              const bHasChildren = isBooleanParam(b) && b.children && b.children.length > 0
-              if (aHasChildren && !bHasChildren) return 1
-              if (!aHasChildren && bHasChildren) return -1
-              return 0
-            })
-            .map((param) => (
-              <ParameterInput
-                key={param.name}
-                param={param}
-                params={params}
-                onParamChange={onParamChange}
-              />
-            ))}
+          {sortedParameters.map((param) => (
+            <ParameterInput
+              key={param.name}
+              param={param}
+              params={params}
+              onParamChange={onParamChange}
+            />
+          ))}
         </div>
       </div>
 
