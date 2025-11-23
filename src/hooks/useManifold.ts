@@ -217,7 +217,7 @@ export function useManifold(): UseManifoldReturn {
     currentBuildIdRef.current = buildId
 
     // Check cache first
-    const cacheKey = hashCode(JSON.stringify({ generatorId, params, circularSegments }))
+    const cacheKey = hashCode(`${generatorId}:${circularSegments}:${JSON.stringify(params)}`)
     const cached = meshCache.get(cacheKey)
     if (cached) {
       if (import.meta.env.DEV) console.log('Manifold cache hit')
