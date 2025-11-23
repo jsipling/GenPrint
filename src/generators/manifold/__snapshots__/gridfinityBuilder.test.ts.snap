@@ -1,0 +1,22 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`gridfinityBuilder > matches geometry snapshot 1`] = `
+{
+  "boundingBox": {
+    "max": [
+      41.75,
+      41.75,
+      30.4,
+    ],
+    "min": [
+      -41.75,
+      -41.75,
+      0,
+    ],
+  },
+  "surfaceArea": 33106.4545,
+  "triangleCount": 500,
+  "vertexCount": 252,
+  "volume": 21082.2789,
+}
+`;

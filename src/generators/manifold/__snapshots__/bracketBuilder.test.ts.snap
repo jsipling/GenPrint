@@ -1,0 +1,22 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`bracketBuilder > matches geometry snapshot 1`] = `
+{
+  "boundingBox": {
+    "max": [
+      -Infinity,
+      -Infinity,
+      -Infinity,
+    ],
+    "min": [
+      Infinity,
+      Infinity,
+      Infinity,
+    ],
+  },
+  "surfaceArea": 0,
+  "triangleCount": 0,
+  "vertexCount": 0,
+  "volume": 0,
+}
+`;

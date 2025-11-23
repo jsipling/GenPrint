@@ -1,0 +1,22 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`gearBuilder > matches geometry snapshot 1`] = `
+{
+  "boundingBox": {
+    "max": [
+      19.1151,
+      19.1151,
+      10,
+    ],
+    "min": [
+      -19.1151,
+      -19.1151,
+      0,
+    ],
+  },
+  "surfaceArea": 3785.587,
+  "triangleCount": 3968,
+  "vertexCount": 1984,
+  "volume": 9996.2257,
+}
+`;

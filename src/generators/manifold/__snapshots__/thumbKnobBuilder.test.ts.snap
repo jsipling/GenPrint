@@ -1,0 +1,22 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`thumbKnobBuilder > matches geometry snapshot 1`] = `
+{
+  "boundingBox": {
+    "max": [
+      11.75,
+      11.75,
+      11,
+    ],
+    "min": [
+      -11.75,
+      -11.75,
+      0,
+    ],
+  },
+  "surfaceArea": 1879.3411,
+  "triangleCount": 344,
+  "vertexCount": 172,
+  "volume": 4311.5827,
+}
+`;

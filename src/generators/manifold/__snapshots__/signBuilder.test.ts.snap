@@ -1,0 +1,22 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`signBuilder > matches geometry snapshot 1`] = `
+{
+  "boundingBox": {
+    "max": [
+      52,
+      22,
+      4,
+    ],
+    "min": [
+      0,
+      0,
+      0,
+    ],
+  },
+  "surfaceArea": 3079.5895,
+  "triangleCount": 930,
+  "vertexCount": 467,
+  "volume": 2756.3332,
+}
+`;
