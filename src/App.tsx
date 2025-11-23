@@ -6,7 +6,7 @@ import { useManifold } from './hooks/useManifold'
 import { generators, flattenParameters, type ParameterValues } from './generators'
 import { meshToStl } from './lib/meshToStl'
 
-const DEBOUNCE_MS = 1000
+// No debounce - render immediately as settings change
 
 // Parse URL params on load
 function getUrlState(): { generatorId?: string; params?: ParameterValues } {
@@ -95,11 +95,9 @@ export default function App() {
     build: manifoldBuild
   } = useManifold()
 
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const hasCompiledOnceRef = useRef(false)
   const isCompilingRef = useRef(false)
   const pendingParamsRef = useRef<ParameterValues | null>(null)
-  const isDraggingRef = useRef(false)
 
   // Use ref to always have latest build function and generator without triggering effects
   const manifoldBuildRef = useRef(manifoldBuild)
@@ -154,18 +152,10 @@ export default function App() {
     })
   }, [])
 
-  // Debounced compile - called explicitly, not via effect
+  // Immediate compile - called on every parameter change
   const scheduleCompile = useCallback((newParams: ParameterValues) => {
     if (!hasCompiledOnceRef.current) return
-    if (isDraggingRef.current) return
-
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current)
-    }
-
-    debounceRef.current = setTimeout(() => {
-      doCompile(newParams)
-    }, DEBOUNCE_MS)
+    doCompile(newParams)
   }, [doCompile])
 
   // Initial compile when WASM is ready
@@ -176,7 +166,7 @@ export default function App() {
     }
   }, [status]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // For non-slider inputs: update params and schedule debounced compile
+  // Update params and compile immediately
   const handleParamChange = useCallback((name: string, value: number | string | boolean) => {
     setParams((prev) => {
       const newParams = { ...prev, [name]: value }
@@ -184,29 +174,6 @@ export default function App() {
       return newParams
     })
   }, [scheduleCompile])
-
-  // Slider drag start: just set flag (onChange will update UI but not compile)
-  const handleSliderDragStart = useCallback(() => {
-    isDraggingRef.current = true
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current)
-      debounceRef.current = null
-    }
-  }, [])
-
-  // Slider drag end: clear flag
-  const handleSliderDragEnd = useCallback(() => {
-    isDraggingRef.current = false
-  }, [])
-
-  // Slider release: compile immediately with final value
-  const handleParamCommit = useCallback((name: string, value: number | string | boolean) => {
-    setParams((prev) => {
-      const newParams = { ...prev, [name]: value }
-      doCompile(newParams)
-      return newParams
-    })
-  }, [doCompile])
 
   // Reset parameters to defaults
   const handleReset = useCallback(() => {
@@ -269,9 +236,6 @@ export default function App() {
           onGeneratorChange={handleGeneratorChange}
           params={params}
           onParamChange={handleParamChange}
-          onParamCommit={handleParamCommit}
-          onSliderDragStart={handleSliderDragStart}
-          onSliderDragEnd={handleSliderDragEnd}
           onDownload={handleDownload}
           onReset={handleReset}
           canDownload={meshData !== null && status === 'ready'}
