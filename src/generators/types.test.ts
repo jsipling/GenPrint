@@ -5,6 +5,7 @@ import {
   type ParameterDef,
   type BooleanParameterDef
 } from './types'
+import { generators } from './index'
 
 describe('flattenParameters', () => {
   it('should return flat array unchanged', () => {
@@ -118,5 +119,77 @@ describe('BooleanParameterDef with children', () => {
 
     expect(isBooleanParam(boolParam)).toBe(true)
     expect(boolParam.children).toBeUndefined()
+  })
+})
+
+describe('generators', () => {
+  it('exports all 9 generators', () => {
+    expect(generators).toHaveLength(9)
+  })
+
+  it('all generators have required fields', () => {
+    for (const gen of generators) {
+      expect(gen.id).toBeDefined()
+      expect(gen.type).toBe('manifold')
+      expect(gen.name).toBeDefined()
+      expect(gen.description).toBeDefined()
+      expect(gen.parameters).toBeDefined()
+      expect(gen.builderId).toBeDefined()
+    }
+  })
+
+  it('all generator IDs are unique', () => {
+    const ids = generators.map(g => g.id)
+    expect(new Set(ids).size).toBe(ids.length)
+  })
+
+  it('all generators have valid default parameters', () => {
+    for (const gen of generators) {
+      for (const param of flattenParameters(gen.parameters)) {
+        expect(param.default).toBeDefined()
+        if (param.type === 'number') {
+          expect(typeof param.default).toBe('number')
+          expect(param.default).toBeGreaterThanOrEqual(param.min)
+          expect(param.default).toBeLessThanOrEqual(param.max)
+        }
+      }
+    }
+  })
+
+  it('dynamicMax functions return valid numbers', () => {
+    for (const gen of generators) {
+      const params: Record<string, number> = {}
+      for (const param of flattenParameters(gen.parameters)) {
+        if (param.type === 'number') {
+          params[param.name] = param.default
+        }
+      }
+
+      for (const param of flattenParameters(gen.parameters)) {
+        if (param.type === 'number' && param.dynamicMax) {
+          const result = param.dynamicMax(params)
+          expect(typeof result).toBe('number')
+          expect(result).toBeGreaterThan(0)
+        }
+      }
+    }
+  })
+
+  it('dynamicMin functions return valid numbers', () => {
+    for (const gen of generators) {
+      const params: Record<string, number> = {}
+      for (const param of flattenParameters(gen.parameters)) {
+        if (param.type === 'number') {
+          params[param.name] = param.default
+        }
+      }
+
+      for (const param of flattenParameters(gen.parameters)) {
+        if (param.type === 'number' && param.dynamicMin) {
+          const result = param.dynamicMin(params)
+          expect(typeof result).toBe('number')
+        }
+      }
+    }
   })
 })
