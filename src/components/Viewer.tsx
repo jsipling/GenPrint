@@ -176,7 +176,7 @@ function Model({ geometry, preserveCamera = false }: ModelProps) {
 
   return (
     <mesh ref={meshRef} geometry={geometry}>
-      <meshStandardMaterial color="#4a90d9" metalness={0.3} roughness={0.6} />
+      <meshLambertMaterial color="#4a90d9" />
     </mesh>
   )
 }

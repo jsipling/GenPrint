@@ -44,7 +44,7 @@ function roundedRect(
 
   // Create rounded rectangle as polygon with arcs
   const points: [number, number][] = []
-  const segments = 8 // segments per corner
+  const segments = 4 // segments per corner (reduced for performance)
 
   // Four corners: TR, TL, BL, BR
   const corners = [
@@ -216,10 +216,11 @@ export function buildGridfinityBin(
   body.delete()
   positionedLip.delete()
 
-  // Add magnet holes if enabled
+  // Add magnet holes if enabled (batched for performance)
   if (p.enable_magnets) {
     const magnetRadius = 3.25
     const magnetDepth = 2.4
+    const magnetHoles: Manifold[] = []
 
     for (let x = 0; x < p.grid_x; x++) {
       for (let y = 0; y < p.grid_y; y++) {
@@ -232,54 +233,60 @@ export function buildGridfinityBin(
         ]
 
         for (const [ox, oy] of offsets) {
-          const hole = M.Manifold.cylinder(magnetDepth, magnetRadius, magnetRadius, 16)
-          const positioned = hole.translate(cx + ox!, cy + oy!, 0)
-          const newBin = bin.subtract(positioned)
-          bin.delete()
+          const hole = M.Manifold.cylinder(magnetDepth, magnetRadius, magnetRadius, 12)
+          magnetHoles.push(hole.translate(cx + ox!, cy + oy!, 0))
           hole.delete()
-          positioned.delete()
-          bin = newBin
         }
       }
     }
+
+    // Single batched subtract
+    const allMagnetHoles = M.Manifold.union(magnetHoles)
+    magnetHoles.forEach(h => h.delete())
+    const newBin = bin.subtract(allMagnetHoles)
+    bin.delete()
+    allMagnetHoles.delete()
+    bin = newBin
   }
 
-  // Add screw holes if enabled
+  // Add screw holes if enabled (batched for performance)
   if (p.enable_screws) {
     const screwRadius = 1.5
     const screwDepth = 6
+    const screwHoles: Manifold[] = []
 
     for (let x = 0; x < p.grid_x; x++) {
       for (let y = 0; y < p.grid_y; y++) {
         const cx = (x + 0.5) * GRID_PITCH - totalWidth / 2
         const cy = (y + 0.5) * GRID_PITCH - totalDepth / 2
 
-        const hole = M.Manifold.cylinder(screwDepth, screwRadius, screwRadius, 12)
-        const positioned = hole.translate(cx, cy, 0)
-        const newBin = bin.subtract(positioned)
-        bin.delete()
+        const hole = M.Manifold.cylinder(screwDepth, screwRadius, screwRadius, 8)
+        screwHoles.push(hole.translate(cx, cy, 0))
         hole.delete()
-        positioned.delete()
-        bin = newBin
       }
     }
+
+    // Single batched subtract
+    const allScrewHoles = M.Manifold.union(screwHoles)
+    screwHoles.forEach(h => h.delete())
+    const newBin = bin.subtract(allScrewHoles)
+    bin.delete()
+    allScrewHoles.delete()
+    bin = newBin
   }
 
-  // Add dividers if specified
+  // Add dividers if specified (batched for performance)
   if (p.dividers_x > 0 || p.dividers_y > 0) {
     const dividerThickness = 1.2
     const dividerHeight = totalHeight - BASE_HEIGHT - WALL_THICKNESS
+    const dividers: Manifold[] = []
 
     // X dividers (running along Y axis)
     for (let i = 1; i <= p.dividers_x; i++) {
       const xPos = (i / (p.dividers_x + 1)) * cavityWidth - cavityWidth / 2
       const divider = M.Manifold.cube([dividerThickness, cavityDepth - 2, dividerHeight], true)
         .translate(xPos, 0, BASE_HEIGHT + WALL_THICKNESS + dividerHeight / 2)
-
-      const newBin = bin.add(divider)
-      bin.delete()
-      divider.delete()
-      bin = newBin
+      dividers.push(divider)
     }
 
     // Y dividers (running along X axis)
@@ -287,10 +294,16 @@ export function buildGridfinityBin(
       const yPos = (i / (p.dividers_y + 1)) * cavityDepth - cavityDepth / 2
       const divider = M.Manifold.cube([cavityWidth - 2, dividerThickness, dividerHeight], true)
         .translate(0, yPos, BASE_HEIGHT + WALL_THICKNESS + dividerHeight / 2)
+      dividers.push(divider)
+    }
 
-      const newBin = bin.add(divider)
+    // Single batched add
+    if (dividers.length > 0) {
+      const allDividers = M.Manifold.union(dividers)
+      dividers.forEach(d => d.delete())
+      const newBin = bin.add(allDividers)
       bin.delete()
-      divider.delete()
+      allDividers.delete()
       bin = newBin
     }
   }
