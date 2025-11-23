@@ -70,7 +70,7 @@ export const bracketGenerator: ManifoldGenerator = {
           type: 'number',
           name: 'rib_thickness',
           label: 'Rib Thickness',
-          min: 1, max: 10, default: 4, step: 0.5, unit: 'mm'
+          min: 1.2, max: 10, default: 4, step: 0.5, unit: 'mm'
         }
       ]
     }

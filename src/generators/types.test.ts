@@ -6,6 +6,7 @@ import {
   type BooleanParameterDef
 } from './types'
 import { generators } from './index'
+import { bracketGenerator } from './bracket'
 
 describe('flattenParameters', () => {
   it('should return flat array unchanged', () => {
@@ -191,5 +192,18 @@ describe('generators', () => {
         }
       }
     }
+  })
+
+  it('bracket rib_thickness has 1.2mm minimum per AGENTS.md', () => {
+    const ribParam = bracketGenerator.parameters.find(
+      p => p.type === 'boolean' && p.name === 'add_rib'
+    )
+    expect(ribParam).toBeDefined()
+
+    const ribThicknessParam = ribParam?.children?.find(
+      (c: { name: string }) => c.name === 'rib_thickness'
+    )
+    expect(ribThicknessParam).toBeDefined()
+    expect(ribThicknessParam?.min).toBeGreaterThanOrEqual(1.2)
   })
 })
