@@ -156,24 +156,30 @@ function gearProfile(M: ManifoldToplevel, params: GearParams): CrossSection {
     tip_sharpness
   )
 
+  // Batch all teeth and union once (faster than individual unions)
+  const toothCrosses: CrossSection[] = []
   for (let i = 0; i < teeth; i++) {
     const angle = (360 * i) / teeth
+    const rad = (angle * Math.PI) / 180
+    const cos = Math.cos(rad)
+    const sin = Math.sin(rad)
 
-    // Rotate tooth points
-    const rotatedPoints: [number, number][] = toothPoints.map(([x, y]) => {
-      const rad = (angle * Math.PI) / 180
-      return [
-        x * Math.cos(rad) - y * Math.sin(rad),
-        x * Math.sin(rad) + y * Math.cos(rad)
-      ]
-    })
+    const rotatedPoints: [number, number][] = toothPoints.map(([x, y]) => [
+      x * cos - y * sin,
+      x * sin + y * cos
+    ])
 
-    const toothCross = new M.CrossSection([rotatedPoints])
-    const newGear = gearCross.add(toothCross)
-    gearCross.delete()
-    toothCross.delete()
-    gearCross = newGear
+    toothCrosses.push(new M.CrossSection([rotatedPoints]))
   }
+
+  // Single batch union of all teeth
+  const allTeeth = M.CrossSection.union(toothCrosses)
+  toothCrosses.forEach(t => t.delete())
+
+  const newGear = gearCross.add(allTeeth)
+  gearCross.delete()
+  allTeeth.delete()
+  gearCross = newGear
 
   return gearCross
 }
