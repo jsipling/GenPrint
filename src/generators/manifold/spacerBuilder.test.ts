@@ -86,4 +86,24 @@ describe('spacerBuilder', () => {
     expect(fingerprint).toMatchSnapshot()
     spacer.delete()
   })
+
+  it('enforces 1.2mm minimum wall thickness per AGENTS.md', () => {
+    const params = {
+      outer_diameter: 10,
+      inner_hole: 8, // Would leave 1mm wall, should clamp to 7.6mm (10 - 2.4)
+      height: 5
+    }
+
+    const spacer = buildSpacer(M, params)
+    expectValid(spacer)
+
+    // Calculate expected wall thickness: (10 - 7.6) / 2 = 1.2mm
+    // Volume of ring: π * h * (R² - r²)
+    // With outer=10, inner clamped to 7.6, height=5:
+    // V = π * 5 * (25 - 14.44) = π * 5 * 10.56 ≈ 165.9
+    const volume = spacer.volume()
+    // If inner was NOT clamped (8mm), volume would be: π * 5 * (25 - 16) = 141.4
+    expect(volume).toBeGreaterThan(150) // Proves wall is thicker than 1mm
+    spacer.delete()
+  })
 })

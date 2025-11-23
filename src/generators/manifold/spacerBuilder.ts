@@ -21,8 +21,8 @@ export function buildSpacer(
     height: Number(params['height']) || 10
   }
 
-  // Clamp inner_hole to be at most outer_diameter - 2mm for minimum wall thickness
-  const maxInnerHole = p.outer_diameter - 2
+  // AGENTS.md: Minimum wall thickness 1.2mm (2.4mm total for both walls)
+  const maxInnerHole = p.outer_diameter - 2.4
   const safeInnerHole = Math.min(p.inner_hole, maxInnerHole)
 
   // Create outer cylinder
