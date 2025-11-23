@@ -41,7 +41,7 @@ export function calculateTicksAndLabels(size: number): GridCalculationResult {
     : baseTickInterval
 
   // Calculate label interval based on size - show fewer labels for larger grids
-  const labelInterval = size > 200 ? 50 : (size > 100 ? 20 : 10)
+  const labelInterval = size > 400 ? 100 : (size > 200 ? 50 : (size > 100 ? 20 : 10))
   // Scale label interval with tick interval for very large models
   const effectiveLabelInterval = Math.max(labelInterval, tickInterval * 2)
 
