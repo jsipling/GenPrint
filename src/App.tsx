@@ -1,6 +1,8 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { Viewer } from './components/Viewer'
+import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react'
 import { Sidebar } from './components/Sidebar'
+
+// Lazy load Viewer to code-split Three.js (~1MB) from initial bundle
+const Viewer = lazy(() => import('./components/Viewer').then(m => ({ default: m.Viewer })))
 import { CompilerOutput } from './components/CompilerOutput'
 import { useManifold } from './hooks/useManifold'
 import { generators, flattenParameters, type ParameterValues } from './generators'
@@ -253,11 +255,17 @@ export default function App() {
 
       <main className="flex-1 flex flex-col">
         <div className="flex-1 min-h-0">
-          <Viewer
-            meshData={meshData}
-            isCompiling={status === 'building'}
-            generatorId={selectedGenerator.id}
-          />
+          <Suspense fallback={
+            <div className="w-full h-full bg-gray-900 flex items-center justify-center">
+              <div className="text-gray-500">Loading 3D viewer...</div>
+            </div>
+          }>
+            <Viewer
+              meshData={meshData}
+              isCompiling={status === 'building'}
+              generatorId={selectedGenerator.id}
+            />
+          </Suspense>
         </div>
         <CompilerOutput
           output={null}
