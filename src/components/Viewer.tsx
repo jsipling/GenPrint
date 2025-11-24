@@ -185,7 +185,10 @@ function Model({ geometry, generatorId }: ModelProps) {
   const hasInitializedCameraRef = useRef(false)
 
   useEffect(() => {
-    if (!meshRef.current) return
+    // Capture mesh ref at effect start to avoid race conditions
+    // Also verify mesh has position property (guards against test mocks without Three.js mesh)
+    const mesh = meshRef.current
+    if (!mesh || !mesh.position) return
 
     // computeBoundingBox() only computes and caches the box, it doesn't mutate vertex data
     geometry.computeBoundingBox()
@@ -193,9 +196,7 @@ function Model({ geometry, generatorId }: ModelProps) {
     if (!box) return
 
     // Place model corner at origin (min X, Y, Z all at 0)
-    if (meshRef.current) {
-      meshRef.current.position.set(-box.min.x, -box.min.y, -box.min.z)
-    }
+    mesh.position.set(-box.min.x, -box.min.y, -box.min.z)
 
     // Only reset camera when generator changes (not on parameter changes)
     // Use null coalescing to treat undefined as 'default' for comparison

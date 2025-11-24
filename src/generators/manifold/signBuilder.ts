@@ -3,8 +3,9 @@
  * A customizable sign with raised text using stroke-based font
  */
 
-import type { ManifoldToplevel, Manifold, CrossSection } from 'manifold-3d'
+import type { ManifoldToplevel, Manifold } from 'manifold-3d'
 import { STROKE_FONT, DOTTED_CHARS, getCharSpacing } from './strokeFont'
+import { roundedRect } from './shapes'
 
 interface SignParams {
   text: string
@@ -13,46 +14,6 @@ interface SignParams {
   padding: number
   base_depth: number
   corner_radius: number
-}
-
-/**
- * Create a rounded rectangle cross-section
- */
-function roundedRect(
-  M: ManifoldToplevel,
-  width: number,
-  height: number,
-  radius: number
-): CrossSection {
-  const r = Math.min(radius, width / 2, height / 2)
-  if (r <= 0) {
-    return new M.CrossSection([[[0, 0], [width, 0], [width, height], [0, height]]])
-  }
-
-  const points: [number, number][] = []
-  const segments = 8
-
-  // Four corners: BR, TR, TL, BL
-  const corners = [
-    { cx: width - r, cy: r },      // Bottom-right
-    { cx: width - r, cy: height - r }, // Top-right
-    { cx: r, cy: height - r },     // Top-left
-    { cx: r, cy: r }               // Bottom-left
-  ]
-
-  for (let i = 0; i < 4; i++) {
-    const corner = corners[i]!
-    const startAngle = (-Math.PI / 2) + (i * Math.PI) / 2
-    for (let j = 0; j <= segments; j++) {
-      const angle = startAngle + (j * Math.PI) / (2 * segments)
-      points.push([
-        corner.cx + r * Math.cos(angle),
-        corner.cy + r * Math.sin(angle)
-      ])
-    }
-  }
-
-  return new M.CrossSection([points])
 }
 
 /**
@@ -265,8 +226,8 @@ export function buildSign(
   const baseWidth = textWidth + p.padding * 2
   const baseHeight = p.text_size + p.padding * 2
 
-  // Create base plate
-  const baseProfile = roundedRect(M, baseWidth, baseHeight, p.corner_radius)
+  // Create base plate (non-centered, bottom-left at origin)
+  const baseProfile = roundedRect(M, baseWidth, baseHeight, p.corner_radius, false)
   let sign = baseProfile.extrude(p.base_depth)
   baseProfile.delete()
 

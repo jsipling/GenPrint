@@ -11,7 +11,8 @@
  * - Lip profile: For stacking
  */
 
-import type { ManifoldToplevel, Manifold, CrossSection } from 'manifold-3d'
+import type { ManifoldToplevel, Manifold } from 'manifold-3d'
+import { roundedRect } from './shapes'
 
 // Gridfinity constants
 const GRID_PITCH = 42    // mm per grid unit
@@ -31,44 +32,6 @@ interface GridfinityParams {
   dividers_x: number
   dividers_y: number
   finger_slide: boolean
-}
-
-/**
- * Create a rounded rectangle cross-section
- */
-function roundedRect(
-  M: ManifoldToplevel,
-  width: number,
-  depth: number,
-  radius: number
-): CrossSection {
-  const r = Math.min(radius, width / 2, depth / 2)
-  const w2 = width / 2
-  const d2 = depth / 2
-
-  const points: [number, number][] = []
-  const segments = 8 // Optimal for FDM printing (0.03mm deviation at 4mm radius)
-
-  const corners = [
-    { cx: w2 - r, cy: d2 - r },
-    { cx: -w2 + r, cy: d2 - r },
-    { cx: -w2 + r, cy: -d2 + r },
-    { cx: w2 - r, cy: -d2 + r }
-  ]
-
-  for (let i = 0; i < 4; i++) {
-    const corner = corners[i]!
-    const startAngle = (i * Math.PI) / 2
-    for (let j = 0; j <= segments; j++) {
-      const angle = startAngle + (j * Math.PI) / (2 * segments)
-      points.push([
-        corner.cx + r * Math.cos(angle),
-        corner.cy + r * Math.sin(angle)
-      ])
-    }
-  }
-
-  return new M.CrossSection([points])
 }
 
 /**

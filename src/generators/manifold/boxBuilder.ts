@@ -3,52 +3,8 @@
  * A customizable box with optional lid, dividers, and features
  */
 
-import type { ManifoldToplevel, Manifold, CrossSection } from 'manifold-3d'
-
-
-/**
- * Create a rounded rectangle cross-section
- */
-function roundedRect(
-  M: ManifoldToplevel,
-  width: number,
-  depth: number,
-  radius: number
-): CrossSection {
-  const r = Math.min(radius, width / 2, depth / 2)
-  if (r <= 0) {
-    // Simple rectangle
-    const w2 = width / 2
-    const d2 = depth / 2
-    return new M.CrossSection([[[-w2, -d2], [w2, -d2], [w2, d2], [-w2, d2]]])
-  }
-
-  const w2 = width / 2
-  const d2 = depth / 2
-  const points: [number, number][] = []
-  const segments = 8
-
-  const corners = [
-    { cx: w2 - r, cy: d2 - r },
-    { cx: -w2 + r, cy: d2 - r },
-    { cx: -w2 + r, cy: -d2 + r },
-    { cx: w2 - r, cy: -d2 + r }
-  ]
-
-  for (let i = 0; i < 4; i++) {
-    const corner = corners[i]!
-    const startAngle = (i * Math.PI) / 2
-    for (let j = 0; j <= segments; j++) {
-      const angle = startAngle + (j * Math.PI) / (2 * segments)
-      points.push([
-        corner.cx + r * Math.cos(angle),
-        corner.cy + r * Math.sin(angle)
-      ])
-    }
-  }
-
-  return new M.CrossSection([points])
-}
+import type { ManifoldToplevel, Manifold } from 'manifold-3d'
+import { roundedRect } from './shapes'
 
 /**
  * Create rounded box (3D)

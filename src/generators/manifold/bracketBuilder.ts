@@ -3,7 +3,8 @@
  * An L-bracket with mounting holes for corner reinforcement
  */
 
-import type { ManifoldToplevel, Manifold, CrossSection } from 'manifold-3d'
+import type { ManifoldToplevel, Manifold } from 'manifold-3d'
+import { createFilletProfile } from './shapes'
 
 interface BracketParams {
   width: number
@@ -15,26 +16,6 @@ interface BracketParams {
   hole_count_arm_2: number
   add_rib: boolean
   rib_thickness: number
-}
-
-/**
- * Create a fillet profile (quarter circle to fill corner)
- * Points must be counter-clockwise for positive area in CrossSection
- */
-function createFilletProfile(M: ManifoldToplevel, radius: number, segments: number = 16): CrossSection {
-  // Build quarter pie shape with counter-clockwise winding:
-  // (0,0) → (radius,0) → arc → (0,radius) → back to (0,0)
-  const points: [number, number][] = [[0, 0]]
-
-  for (let i = 0; i <= segments; i++) {
-    const angle = (Math.PI / 2) * (i / segments)
-    points.push([
-      radius * Math.cos(angle),
-      radius * Math.sin(angle)
-    ])
-  }
-
-  return new M.CrossSection([points])
 }
 
 export function buildBracket(

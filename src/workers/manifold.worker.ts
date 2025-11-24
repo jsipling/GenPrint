@@ -10,6 +10,7 @@ import { buildBox } from '../generators/manifold/boxBuilder'
 import { buildThumbKnob } from '../generators/manifold/thumbKnobBuilder'
 import { buildGear } from '../generators/manifold/gearBuilder'
 import { buildSign } from '../generators/manifold/signBuilder'
+import type { MeshData } from '../generators/types'
 
 interface BuildRequest {
   type: 'build'
@@ -17,12 +18,6 @@ interface BuildRequest {
   generatorId: string
   params: Record<string, number | string | boolean>
   circularSegments: number
-}
-
-interface MeshData {
-  positions: Float32Array
-  normals: Float32Array
-  indices: Uint32Array
 }
 
 interface BuildResponse {
@@ -92,18 +87,18 @@ function manifoldToMeshData(manifold: Manifold): MeshData {
   const positions = new Float32Array(numVerts * 3)
   for (let i = 0; i < numVerts; i++) {
     const pos = mesh.position(i)
-    positions[i * 3] = pos[0]!
-    positions[i * 3 + 1] = pos[1]!
-    positions[i * 3 + 2] = pos[2]!
+    positions[i * 3] = pos[0] ?? 0
+    positions[i * 3 + 1] = pos[1] ?? 0
+    positions[i * 3 + 2] = pos[2] ?? 0
   }
 
   // Extract indices
   const indices = new Uint32Array(numTris * 3)
   for (let i = 0; i < numTris; i++) {
     const tri = mesh.verts(i)
-    indices[i * 3] = tri[0]!
-    indices[i * 3 + 1] = tri[1]!
-    indices[i * 3 + 2] = tri[2]!
+    indices[i * 3] = tri[0] ?? 0
+    indices[i * 3 + 1] = tri[1] ?? 0
+    indices[i * 3 + 2] = tri[2] ?? 0
   }
 
   // Calculate normals (Three.js can do this, but we'll do it here for completeness)
@@ -236,10 +231,3 @@ onmessage = async (event: MessageEvent<WorkerMessage>) => {
 // Export for type checking (used by useManifold)
 export type { BuildRequest, BuildResponse, MeshData }
 
-// Allow main thread to register generators
-export function registerGenerator(
-  id: string,
-  fn: (M: ManifoldToplevel, params: Record<string, number | string | boolean>) => Manifold
-): void {
-  generatorRegistry.set(id, fn)
-}

@@ -142,9 +142,11 @@ export default function App() {
 
       // Queue final quality compile after draft preview
       if (!isFinalPass) {
+        const paramsKey = JSON.stringify(currentParams)
         pendingFinalCompileRef.current = currentParams
         setTimeout(() => {
-          if (pendingFinalCompileRef.current === currentParams) {
+          // Compare by value to handle reconstructed parameter objects
+          if (JSON.stringify(pendingFinalCompileRef.current) === paramsKey) {
             pendingFinalCompileRef.current = null
             doCompile(currentParams, true)
           }
@@ -165,6 +167,8 @@ export default function App() {
       hasCompiledOnceRef.current = true
       doCompile(params)
     }
+  // Intentionally omit `params` and `doCompile` from deps to prevent
+  // re-triggering initial compile on every param change - only run once when status becomes 'ready'
   }, [status]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Update params and compile immediately
@@ -186,14 +190,18 @@ export default function App() {
   }, [selectedGenerator, doCompile])
 
   const downloadBlob = (blob: Blob, filename: string) => {
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = filename
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
+    let url: string | null = null
+    try {
+      url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+    } finally {
+      if (url) URL.revokeObjectURL(url)
+    }
   }
 
   const handleDownload = () => {
