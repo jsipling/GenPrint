@@ -180,7 +180,7 @@ interface ModelProps {
 
 function Model({ geometry, generatorId }: ModelProps) {
   const meshRef = useRef<THREE.Mesh>(null)
-  const { camera } = useThree()
+  const { camera, controls } = useThree()
   const lastGeneratorIdRef = useRef<string | null>(null)
   const hasInitializedCameraRef = useRef(false)
 
@@ -228,16 +228,26 @@ function Model({ geometry, generatorId }: ModelProps) {
       const fov = camera.fov * (Math.PI / 180)
       const distance = maxDim / (2 * Math.tan(fov / 2)) * CAMERA_DISTANCE_MULTIPLIER
 
-      camera.position.set(distance, -distance, distance * CAMERA_HEIGHT_MULTIPLIER)
+      // Calculate center of model (after it's positioned with corner at origin)
+      const center = new THREE.Vector3(size.x / 2, size.y / 2, size.z / 2)
+
+      camera.position.set(center.x + distance, center.y - distance, center.z + distance * CAMERA_HEIGHT_MULTIPLIER)
       camera.up.set(0, 0, 1)
-      camera.lookAt(0, 0, 0)
+      camera.lookAt(center)
+
+      // Update OrbitControls target to orbit around model center
+      if (controls) {
+        const orbitControls = controls as OrbitControlsImpl
+        orbitControls.target.copy(center)
+        orbitControls.update()
+      }
 
       // Update clipping planes based on model size
       camera.near = Math.max(CAMERA_NEAR_PLANE_MIN, maxDim * CAMERA_NEAR_PLANE_RATIO)
       camera.far = Math.max(CAMERA_FAR_PLANE_MIN, maxDim * CAMERA_FAR_PLANE_RATIO)
       camera.updateProjectionMatrix()
     }
-  }, [geometry, camera, generatorId])
+  }, [geometry, camera, generatorId, controls])
 
   return (
     <mesh ref={meshRef} geometry={geometry}>
