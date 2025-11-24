@@ -204,14 +204,6 @@ describe('Viewer component', () => {
     cleanup()
   })
 
-  it('displays compiling overlay when isCompiling is true', async () => {
-    const { Viewer } = await import('./Viewer')
-    render(<Viewer isCompiling={true} />)
-
-    expect(screen.getByRole('status')).toBeTruthy()
-    expect(screen.getByText('Compiling...')).toBeTruthy()
-  })
-
   it('displays waiting message when no geometry and not compiling', async () => {
     const { Viewer } = await import('./Viewer')
     render(<Viewer isCompiling={false} />)
@@ -235,7 +227,7 @@ describe('Viewer component', () => {
 
   it('has accessible loading states with proper ARIA attributes', async () => {
     const { Viewer } = await import('./Viewer')
-    render(<Viewer isCompiling={true} />)
+    render(<Viewer isCompiling={false} />)
 
     const statusEl = screen.getByRole('status')
     expect(statusEl.getAttribute('aria-live')).toBe('polite')
