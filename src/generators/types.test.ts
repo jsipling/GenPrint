@@ -199,11 +199,14 @@ describe('generators', () => {
       p => p.type === 'boolean' && p.name === 'add_rib'
     )
     expect(ribParam).toBeDefined()
+    expect(isBooleanParam(ribParam!)).toBe(true)
 
-    const ribThicknessParam = ribParam?.children?.find(
-      (c: { name: string }) => c.name === 'rib_thickness'
+    const boolRibParam = ribParam as BooleanParameterDef
+    const ribThicknessParam = boolRibParam.children?.find(
+      c => c.name === 'rib_thickness'
     )
     expect(ribThicknessParam).toBeDefined()
-    expect(ribThicknessParam?.min).toBeGreaterThanOrEqual(1.2)
+    expect(ribThicknessParam!.type).toBe('number')
+    expect((ribThicknessParam as { min: number }).min).toBeGreaterThanOrEqual(1.2)
   })
 })

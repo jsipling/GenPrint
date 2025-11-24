@@ -1,4 +1,7 @@
-import { describe, it, expect } from 'vitest'
+/** @vitest-environment jsdom */
+
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { render, screen, cleanup } from '@testing-library/react'
 import {
   TICK_SIZE,
   SMALL_TICK_SIZE,
@@ -7,6 +10,67 @@ import {
   calculateTicksAndLabels,
   calculateGridParams
 } from './gridUtils'
+
+// Mock @react-three/fiber Canvas since WebGL isn't available in jsdom
+vi.mock('@react-three/fiber', () => ({
+  Canvas: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="canvas-mock">{children}</div>
+  ),
+  useThree: () => ({
+    camera: {
+      position: { set: vi.fn(), length: () => 100, copy: vi.fn() },
+      up: { set: vi.fn() },
+      lookAt: vi.fn(),
+      updateProjectionMatrix: vi.fn(),
+      fov: 50
+    }
+  }),
+  useFrame: vi.fn()
+}))
+
+// Mock @react-three/drei
+vi.mock('@react-three/drei', () => ({
+  OrbitControls: () => <div data-testid="orbit-controls" />,
+  Html: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  Line: () => <div data-testid="line" />
+}))
+
+// Mock three
+vi.mock('three', async () => {
+  const actual = await vi.importActual('three')
+  return {
+    ...actual as object,
+    BufferGeometry: class MockBufferGeometry {
+      boundingBox = { min: { x: 0, y: 0, z: 0 }, max: { x: 10, y: 10, z: 10 }, getSize: vi.fn() }
+      setAttribute = vi.fn()
+      setIndex = vi.fn()
+      computeBoundingBox = vi.fn()
+      computeVertexNormals = vi.fn()
+      dispose = vi.fn()
+    },
+    BufferAttribute: class MockBufferAttribute {
+      constructor(public array: Float32Array | Uint32Array, public itemSize: number) {}
+    },
+    Vector3: class MockVector3 {
+      x = 0; y = 0; z = 0
+      set = vi.fn()
+      getSize = vi.fn()
+    }
+  }
+})
+
+// Mock three-stdlib STLLoader
+vi.mock('three-stdlib', () => ({
+  STLLoader: class MockSTLLoader {
+    parse = vi.fn(() => ({
+      computeVertexNormals: vi.fn(),
+      computeBoundingBox: vi.fn(),
+      boundingBox: { min: { x: 0, y: 0, z: 0 }, max: { x: 10, y: 10, z: 10 }, getSize: vi.fn() },
+      dispose: vi.fn()
+    }))
+  },
+  OrbitControls: vi.fn()
+}))
 
 describe('MeasuredGrid tick calculation', () => {
   it('should use 5mm tick interval for small grids', () => {
@@ -128,5 +192,87 @@ describe('Grid size calculations', () => {
   it('should round up for models larger than default', () => {
     const { gridRange } = calculateGridParams(423)
     expect(gridRange).toBe(430) // ceil(423/10) * 10 = 430
+  })
+})
+
+describe('Viewer component', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('displays compiling overlay when isCompiling is true', async () => {
+    const { Viewer } = await import('./Viewer')
+    render(<Viewer isCompiling={true} />)
+
+    expect(screen.getByRole('status')).toBeTruthy()
+    expect(screen.getByText('Compiling...')).toBeTruthy()
+  })
+
+  it('displays waiting message when no geometry and not compiling', async () => {
+    const { Viewer } = await import('./Viewer')
+    render(<Viewer isCompiling={false} />)
+
+    expect(screen.getByText('Waiting for model...')).toBeTruthy()
+  })
+
+  it('does not show waiting message when compiling', async () => {
+    const { Viewer } = await import('./Viewer')
+    render(<Viewer isCompiling={true} />)
+
+    expect(screen.queryByText('Waiting for model...')).toBeNull()
+  })
+
+  it('renders Canvas with proper structure', async () => {
+    const { Viewer } = await import('./Viewer')
+    render(<Viewer isCompiling={false} />)
+
+    expect(screen.getByTestId('canvas-mock')).toBeTruthy()
+  })
+
+  it('has accessible loading states with proper ARIA attributes', async () => {
+    const { Viewer } = await import('./Viewer')
+    render(<Viewer isCompiling={true} />)
+
+    const statusEl = screen.getByRole('status')
+    expect(statusEl.getAttribute('aria-live')).toBe('polite')
+  })
+
+  it('renders with meshData without error', async () => {
+    const { Viewer } = await import('./Viewer')
+    const meshData = {
+      positions: new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]),
+      normals: new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1]),
+      indices: new Uint32Array([0, 1, 2])
+    }
+
+    // Should not throw when rendering with meshData
+    expect(() => {
+      render(<Viewer meshData={meshData} isCompiling={false} />)
+    }).not.toThrow()
+  })
+
+  it('passes generatorId to maintain camera state', async () => {
+    const { Viewer } = await import('./Viewer')
+
+    // First render with one generator
+    const { rerender } = render(<Viewer isCompiling={false} generatorId="gen1" />)
+
+    // Re-render with different generator - should not throw
+    expect(() => {
+      rerender(<Viewer isCompiling={false} generatorId="gen2" />)
+    }).not.toThrow()
+  })
+
+  it('handles undefined generatorId gracefully', async () => {
+    const { Viewer } = await import('./Viewer')
+
+    // Should not throw when generatorId is undefined
+    expect(() => {
+      render(<Viewer isCompiling={false} generatorId={undefined} />)
+    }).not.toThrow()
   })
 })

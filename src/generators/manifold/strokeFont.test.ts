@@ -38,7 +38,7 @@ describe('strokeFont', () => {
   })
 
   it('all paths have valid structure', () => {
-    for (const [char, paths] of Object.entries(STROKE_FONT)) {
+    for (const [, paths] of Object.entries(STROKE_FONT)) {
       expect(Array.isArray(paths)).toBe(true)
       for (const path of paths) {
         expect(Array.isArray(path)).toBe(true)

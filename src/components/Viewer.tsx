@@ -144,7 +144,7 @@ interface ModelProps {
 function Model({ geometry, generatorId }: ModelProps) {
   const meshRef = useRef<THREE.Mesh>(null)
   const { camera } = useThree()
-  const lastGeneratorIdRef = useRef<string | undefined>(undefined)
+  const lastGeneratorIdRef = useRef<string | null>(null)
   const hasInitializedCameraRef = useRef(false)
 
   useEffect(() => {
@@ -161,8 +161,11 @@ function Model({ geometry, generatorId }: ModelProps) {
     }
 
     // Only reset camera when generator changes (not on parameter changes)
-    const generatorChanged = generatorId !== lastGeneratorIdRef.current
-    lastGeneratorIdRef.current = generatorId
+    // Use null coalescing to treat undefined as 'default' for comparison
+    const currentId = generatorId ?? 'default'
+    const lastId = lastGeneratorIdRef.current ?? 'default'
+    const generatorChanged = currentId !== lastId
+    lastGeneratorIdRef.current = currentId
 
     // Skip camera reset if same generator and camera has been initialized
     if (!generatorChanged && hasInitializedCameraRef.current) {

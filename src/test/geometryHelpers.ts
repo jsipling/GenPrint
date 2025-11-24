@@ -64,6 +64,7 @@ export function expectVolumeApprox(
 
 /**
  * Assert bounding box matches expected dimensions
+ * @param tolerance - Relative tolerance for comparison (default 0.01 = 1%)
  */
 export function expectBoundingBox(
   manifold: Manifold,
@@ -71,29 +72,32 @@ export function expectBoundingBox(
   tolerance: number = 0.01
 ): void {
   const bbox = manifold.boundingBox()
+  // Convert relative tolerance to decimal places (0.01 = 2 decimal places)
+  const decimals = Math.max(0, Math.round(-Math.log10(tolerance)))
 
   if (expected.minX !== undefined) {
-    expect(bbox.min[0]).toBeCloseTo(expected.minX, 2)
+    expect(bbox.min[0]).toBeCloseTo(expected.minX, decimals)
   }
   if (expected.maxX !== undefined) {
-    expect(bbox.max[0]).toBeCloseTo(expected.maxX, 2)
+    expect(bbox.max[0]).toBeCloseTo(expected.maxX, decimals)
   }
   if (expected.minY !== undefined) {
-    expect(bbox.min[1]).toBeCloseTo(expected.minY, 2)
+    expect(bbox.min[1]).toBeCloseTo(expected.minY, decimals)
   }
   if (expected.maxY !== undefined) {
-    expect(bbox.max[1]).toBeCloseTo(expected.maxY, 2)
+    expect(bbox.max[1]).toBeCloseTo(expected.maxY, decimals)
   }
   if (expected.minZ !== undefined) {
-    expect(bbox.min[2]).toBeCloseTo(expected.minZ, 2)
+    expect(bbox.min[2]).toBeCloseTo(expected.minZ, decimals)
   }
   if (expected.maxZ !== undefined) {
-    expect(bbox.max[2]).toBeCloseTo(expected.maxZ, 2)
+    expect(bbox.max[2]).toBeCloseTo(expected.maxZ, decimals)
   }
 }
 
 /**
  * Assert bounding box dimensions (width, height, depth)
+ * @param tolerance - Relative tolerance for comparison (default 0.1 = 10%)
  */
 export function expectDimensions(
   manifold: Manifold,
@@ -104,15 +108,17 @@ export function expectDimensions(
   const width = bbox.max[0] - bbox.min[0]
   const depth = bbox.max[1] - bbox.min[1]
   const height = bbox.max[2] - bbox.min[2]
+  // Convert relative tolerance to decimal places (0.1 = 1 decimal place)
+  const decimals = Math.max(0, Math.round(-Math.log10(tolerance)))
 
   if (expected.width !== undefined) {
-    expect(width).toBeCloseTo(expected.width, 1)
+    expect(width).toBeCloseTo(expected.width, decimals)
   }
   if (expected.depth !== undefined) {
-    expect(depth).toBeCloseTo(expected.depth, 1)
+    expect(depth).toBeCloseTo(expected.depth, decimals)
   }
   if (expected.height !== undefined) {
-    expect(height).toBeCloseTo(expected.height, 1)
+    expect(height).toBeCloseTo(expected.height, decimals)
   }
 }
 
