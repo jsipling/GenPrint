@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { ManifoldWorkerManager, DEFAULT_BUILD_TIMEOUT } from '../useManifold'
+import { ManifoldWorkerManager, DEFAULT_BUILD_TIMEOUT, getMeshCache, MAX_CACHE_SIZE } from '../useManifold'
 
 /**
  * Mock Worker class for testing worker crash recovery
@@ -75,25 +75,25 @@ describe('ManifoldWorkerManager', () => {
       const workerPromise = manager.getWorker()
 
       // Get the mock worker instance that was created
-      const mockWorker = mockWorkerInstances[0]
+      const mockWorker = mockWorkerInstances[0]!
 
       // Simulate the worker becoming ready
       mockWorker.simulateReady()
       await workerPromise
 
       // Register some pending builds
-      const build1 = new Promise<null>((resolve, reject) => {
+      const build1 = new Promise<unknown>((resolve, reject) => {
         manager.registerBuild(manager.getNextBuildId(), {
-          resolve,
+          resolve: resolve as (data: unknown) => void,
           reject,
           onTiming: vi.fn(),
           onError: vi.fn()
         })
       })
 
-      const build2 = new Promise<null>((resolve, reject) => {
+      const build2 = new Promise<unknown>((resolve, reject) => {
         manager.registerBuild(manager.getNextBuildId(), {
-          resolve,
+          resolve: resolve as (data: unknown) => void,
           reject,
           onTiming: vi.fn(),
           onError: vi.fn()
@@ -113,7 +113,7 @@ describe('ManifoldWorkerManager', () => {
 
       // Get worker and wait for ready
       const workerPromise = manager.getWorker()
-      const firstMockWorker = mockWorkerInstances[0]
+      const firstMockWorker = mockWorkerInstances[0]!
       firstMockWorker.simulateReady()
       await workerPromise
 
@@ -126,7 +126,7 @@ describe('ManifoldWorkerManager', () => {
       // Wait for the new worker to be created
       await new Promise(resolve => setTimeout(resolve, 0))
 
-      const secondMockWorker = mockWorkerInstances[1]
+      const secondMockWorker = mockWorkerInstances[1]!
       secondMockWorker.simulateReady()
 
       // Should resolve with the new worker
@@ -144,7 +144,7 @@ describe('ManifoldWorkerManager', () => {
 
       // Get worker and wait for ready
       const workerPromise = manager.getWorker()
-      const mockWorker = mockWorkerInstances[0]
+      const mockWorker = mockWorkerInstances[0]!
       mockWorker.simulateReady()
       await workerPromise
 
@@ -175,7 +175,7 @@ describe('ManifoldWorkerManager', () => {
 
       // Get worker and wait for ready
       const workerPromise = manager.getWorker()
-      const mockWorker = mockWorkerInstances[0]
+      const mockWorker = mockWorkerInstances[0]!
       mockWorker.simulateReady()
       await workerPromise
 
@@ -222,20 +222,16 @@ describe('ManifoldWorkerManager', () => {
 
       // Get worker and wait for ready
       const workerPromise = manager.getWorker()
-      const mockWorker = mockWorkerInstances[0]
+      const mockWorker = mockWorkerInstances[0]!
       mockWorker.simulateReady()
       await workerPromise
 
       // Register a build with timeout
       const buildId = manager.getNextBuildId()
-      let rejectionError: Error | null = null
-      const buildPromise = new Promise<null>((resolve, reject) => {
+      const buildPromise = new Promise<unknown>((resolve, reject) => {
         manager.registerBuild(buildId, {
-          resolve,
-          reject: (err) => {
-            rejectionError = err
-            reject(err)
-          },
+          resolve: resolve as (data: unknown) => void,
+          reject,
           onTiming: vi.fn(),
           onError: vi.fn()
         }, { timeout: 1000 })
@@ -246,7 +242,6 @@ describe('ManifoldWorkerManager', () => {
 
       // Build should be rejected with timeout error
       await expect(buildPromise).rejects.toThrow('Build timed out')
-      expect(rejectionError?.message).toBe('Build timed out')
     })
 
     it('clears timeout when build completes successfully', async () => {
@@ -254,7 +249,7 @@ describe('ManifoldWorkerManager', () => {
 
       // Get worker and wait for ready
       const workerPromise = manager.getWorker()
-      const mockWorker = mockWorkerInstances[0]
+      const mockWorker = mockWorkerInstances[0]!
       mockWorker.simulateReady()
       await workerPromise
 
@@ -296,7 +291,7 @@ describe('ManifoldWorkerManager', () => {
 
       // Get worker and wait for ready
       const workerPromise = manager.getWorker()
-      const mockWorker = mockWorkerInstances[0]
+      const mockWorker = mockWorkerInstances[0]!
       mockWorker.simulateReady()
       await workerPromise
 
@@ -330,6 +325,85 @@ describe('ManifoldWorkerManager', () => {
 
       const result = await buildPromise
       expect(result).toBeDefined()
+    })
+  })
+
+  describe('LRU cache using Map insertion order', () => {
+    const createMockMeshData = (id: number) => ({
+      positions: new Float32Array([id]),
+      normals: new Float32Array([id]),
+      indices: new Uint32Array([id])
+    })
+
+    beforeEach(() => {
+      // Ensure cache is cleared before each test
+      ManifoldWorkerManager.reset()
+    })
+
+    it('moves accessed item to end of Map (most recently used)', () => {
+      const cache = getMeshCache()
+
+      // Add items in order: key1, key2, key3
+      cache.set('key1', { meshData: createMockMeshData(1) })
+      cache.set('key2', { meshData: createMockMeshData(2) })
+      cache.set('key3', { meshData: createMockMeshData(3) })
+
+      // Initial order should be: key1, key2, key3
+      const initialKeys = Array.from(cache.keys())
+      expect(initialKeys).toEqual(['key1', 'key2', 'key3'])
+
+      // Simulate cache hit on key1 - delete and re-add to move to end
+      const entry = cache.get('key1')
+      cache.delete('key1')
+      cache.set('key1', entry!)
+
+      // Order should now be: key2, key3, key1 (key1 moved to end)
+      const updatedKeys = Array.from(cache.keys())
+      expect(updatedKeys).toEqual(['key2', 'key3', 'key1'])
+    })
+
+    it('evicts oldest (first) item when cache is full using O(1) operation', () => {
+      const cache = getMeshCache()
+
+      // Fill cache to MAX_CACHE_SIZE
+      for (let i = 0; i < MAX_CACHE_SIZE; i++) {
+        cache.set(`key${i}`, { meshData: createMockMeshData(i) })
+      }
+      expect(cache.size).toBe(MAX_CACHE_SIZE)
+
+      // Verify first key is key0 (the oldest)
+      const firstKey = cache.keys().next().value
+      expect(firstKey).toBe('key0')
+
+      // Simulate LRU eviction for new entry
+      if (cache.size >= MAX_CACHE_SIZE) {
+        const oldestKey = cache.keys().next().value
+        if (oldestKey) cache.delete(oldestKey)
+      }
+      cache.set('newKey', { meshData: createMockMeshData(999) })
+
+      // Cache should still be at MAX_CACHE_SIZE
+      expect(cache.size).toBe(MAX_CACHE_SIZE)
+
+      // key0 should be gone, newKey should exist
+      expect(cache.has('key0')).toBe(false)
+      expect(cache.has('newKey')).toBe(true)
+
+      // First key should now be key1
+      const newFirstKey = cache.keys().next().value
+      expect(newFirstKey).toBe('key1')
+    })
+
+    it('CacheEntry should not have timestamp property', () => {
+      const cache = getMeshCache()
+
+      cache.set('testKey', { meshData: createMockMeshData(1) })
+      const entry = cache.get('testKey')
+
+      // Entry should only have meshData, no timestamp
+      expect(entry).toBeDefined()
+      expect(entry!.meshData).toBeDefined()
+      expect('timestamp' in entry!).toBe(false)
     })
   })
 })

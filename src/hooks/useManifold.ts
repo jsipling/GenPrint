@@ -16,11 +16,17 @@ function hashCode(str: string): string {
 
 interface CacheEntry {
   meshData: MeshData
-  timestamp: number
 }
 
-const MAX_CACHE_SIZE = 20
+export const MAX_CACHE_SIZE = 20
 const meshCache = new Map<string, CacheEntry>()
+
+/**
+ * Get the mesh cache for testing purposes.
+ */
+export function getMeshCache(): Map<string, CacheEntry> {
+  return meshCache
+}
 
 export interface BuildOptions {
   /** If true, don't show building status - runs silently in background */
@@ -283,7 +289,9 @@ export function useManifold(): UseManifoldReturn {
     const cached = meshCache.get(cacheKey)
     if (cached) {
       if (import.meta.env.DEV) console.log('Manifold cache hit')
-      cached.timestamp = Date.now()
+      // Move to end of Map (most recently used)
+      meshCache.delete(cacheKey)
+      meshCache.set(cacheKey, cached)
       setMeshData(cached.meshData)
       if (!silent) setStatus('ready')
       return cached.meshData
@@ -348,19 +356,12 @@ export function useManifold(): UseManifoldReturn {
         console.log('Manifold build complete, vertices:', result.positions.length / 3)
       }
 
-      // Store in cache with LRU eviction
+      // LRU eviction: Map maintains insertion order, first key is oldest
       if (meshCache.size >= MAX_CACHE_SIZE) {
-        let oldestKey: string | null = null
-        let oldestTime = Infinity
-        for (const [key, entry] of meshCache) {
-          if (entry.timestamp < oldestTime) {
-            oldestTime = entry.timestamp
-            oldestKey = key
-          }
-        }
+        const oldestKey = meshCache.keys().next().value
         if (oldestKey) meshCache.delete(oldestKey)
       }
-      meshCache.set(cacheKey, { meshData: result, timestamp: Date.now() })
+      meshCache.set(cacheKey, { meshData: result })
 
       setMeshData(result)
       if (!silent) setStatus('ready')
