@@ -226,6 +226,13 @@ class ManifoldWorkerManager {
     }
     this.pendingBuilds.delete(id)
   }
+
+  /**
+   * Check if a build is pending (for testing purposes).
+   */
+  hasPendingBuild(id: number): boolean {
+    return this.pendingBuilds.has(id)
+  }
 }
 
 export function useManifold(): UseManifoldReturn {
@@ -293,6 +300,7 @@ export function useManifold(): UseManifoldReturn {
       // Check if superseded while waiting
       if (currentBuildIdRef.current !== buildId) {
         if (import.meta.env.DEV) console.log('Build superseded, skipping')
+        manager.unregisterBuild(buildId)
         return null
       }
 
@@ -327,6 +335,7 @@ export function useManifold(): UseManifoldReturn {
       // Check if superseded during build
       if (currentBuildIdRef.current !== buildId) {
         if (import.meta.env.DEV) console.log('Build superseded after completion')
+        manager.unregisterBuild(buildId)
         return null
       }
 

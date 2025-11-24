@@ -138,6 +138,76 @@ describe('ManifoldWorkerManager', () => {
     })
   })
 
+  describe('superseded build cleanup', () => {
+    it('cleans up superseded builds from pendingBuilds Map', async () => {
+      const manager = ManifoldWorkerManager.getInstance()
+
+      // Get worker and wait for ready
+      const workerPromise = manager.getWorker()
+      const mockWorker = mockWorkerInstances[0]
+      mockWorker.simulateReady()
+      await workerPromise
+
+      // Register a build that will be "superseded"
+      const buildId1 = manager.getNextBuildId()
+      manager.registerBuild(buildId1, {
+        resolve: vi.fn(),
+        reject: vi.fn(),
+        onTiming: vi.fn(),
+        onError: vi.fn()
+      })
+
+      // Verify build is in pending map
+      expect(manager.hasPendingBuild(buildId1)).toBe(true)
+
+      // Simulate supersession by unregistering the build
+      // (this is what the build function should do when superseded)
+      manager.unregisterBuild(buildId1)
+
+      // Verify build was cleaned up
+      expect(manager.hasPendingBuild(buildId1)).toBe(false)
+    })
+
+    it('clears timeout when superseded build is cleaned up', async () => {
+      vi.useFakeTimers()
+
+      const manager = ManifoldWorkerManager.getInstance()
+
+      // Get worker and wait for ready
+      const workerPromise = manager.getWorker()
+      const mockWorker = mockWorkerInstances[0]
+      mockWorker.simulateReady()
+      await workerPromise
+
+      // Register a build with timeout that will be "superseded"
+      const buildId1 = manager.getNextBuildId()
+      const rejectFn = vi.fn()
+      manager.registerBuild(buildId1, {
+        resolve: vi.fn(),
+        reject: rejectFn,
+        onTiming: vi.fn(),
+        onError: vi.fn()
+      }, { timeout: 1000 })
+
+      // Verify build is in pending map
+      expect(manager.hasPendingBuild(buildId1)).toBe(true)
+
+      // Simulate supersession cleanup
+      manager.unregisterBuild(buildId1)
+
+      // Verify build was cleaned up
+      expect(manager.hasPendingBuild(buildId1)).toBe(false)
+
+      // Advance time past the original timeout
+      await vi.advanceTimersByTimeAsync(2000)
+
+      // Reject should NOT have been called (timeout was cleared)
+      expect(rejectFn).not.toHaveBeenCalled()
+
+      vi.useRealTimers()
+    })
+  })
+
   describe('build timeout', () => {
     beforeEach(() => {
       vi.useFakeTimers()
