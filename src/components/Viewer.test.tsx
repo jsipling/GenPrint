@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, cleanup, waitFor } from '@testing-library/react'
+import { render, screen, cleanup } from '@testing-library/react'
 import {
   TICK_SIZE,
   SMALL_TICK_SIZE,
@@ -280,7 +280,7 @@ describe('Viewer component', () => {
     const { Viewer } = await import('./Viewer')
 
     // Render without meshData first (no error)
-    const { rerender, container } = render(<Viewer isCompiling={false} />)
+    const { container } = render(<Viewer isCompiling={false} />)
 
     // Error boundary wrapper should have the key attribute
     const errorBoundary = container.querySelector('[data-error-boundary-key]')
