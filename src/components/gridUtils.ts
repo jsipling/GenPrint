@@ -1,3 +1,5 @@
+import { GRID_LINE_Z_OFFSET } from './viewerConstants'
+
 // Constants for tick mark sizes
 export const TICK_SIZE = 1.5 // Length of 10mm tick marks
 export const SMALL_TICK_SIZE = 0.8 // Length of 5mm tick marks
@@ -50,7 +52,7 @@ export function calculateTicksAndLabels(size: number): GridCalculationResult {
     const isCm = mm % 10 === 0
     const tick = isCm ? TICK_SIZE : SMALL_TICK_SIZE
 
-    tickList.push({ points: [[mm, -tick, 0.1], [mm, tick, 0.1]], color: '#ff4444' })
+    tickList.push({ points: [[mm, -tick, GRID_LINE_Z_OFFSET], [mm, tick, GRID_LINE_Z_OFFSET]], color: '#ff4444' })
 
     // Label at intervals
     if (mm % effectiveLabelInterval === 0) {
@@ -63,7 +65,7 @@ export function calculateTicksAndLabels(size: number): GridCalculationResult {
     const isCm = mm % 10 === 0
     const tick = isCm ? TICK_SIZE : SMALL_TICK_SIZE
 
-    tickList.push({ points: [[-tick, mm, 0.1], [tick, mm, 0.1]], color: '#44ff44' })
+    tickList.push({ points: [[-tick, mm, GRID_LINE_Z_OFFSET], [tick, mm, GRID_LINE_Z_OFFSET]], color: '#44ff44' })
 
     if (mm % effectiveLabelInterval === 0) {
       labelList.push({ pos: [-TICK_SIZE - 2, mm, 0], text: `${mm}` })
