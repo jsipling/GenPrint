@@ -249,6 +249,7 @@ export default function App() {
             stlBlob={null}
             meshData={meshData}
             isCompiling={status === 'building'}
+            generatorId={selectedGenerator.id}
           />
         </div>
         <CompilerOutput

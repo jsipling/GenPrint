@@ -124,14 +124,15 @@ function MeasuredGrid({ size = 100, divisions = 10 }: { size?: number; divisions
 
 interface ModelProps {
   geometry: THREE.BufferGeometry
-  /** If true, skip camera reset when model size is similar (for progressive rendering) */
-  preserveCamera?: boolean
+  /** Generator ID - camera only resets when this changes */
+  generatorId?: string
 }
 
-function Model({ geometry, preserveCamera = false }: ModelProps) {
+function Model({ geometry, generatorId }: ModelProps) {
   const meshRef = useRef<THREE.Mesh>(null)
   const { camera } = useThree()
-  const lastBoundsRef = useRef<{ min: THREE.Vector3; max: THREE.Vector3 } | null>(null)
+  const lastGeneratorIdRef = useRef<string | undefined>(undefined)
+  const hasInitializedCameraRef = useRef(false)
 
   useEffect(() => {
     if (!meshRef.current) return
@@ -146,19 +147,24 @@ function Model({ geometry, preserveCamera = false }: ModelProps) {
       meshRef.current.position.set(-box.min.x, -box.min.y, -box.min.z)
     }
 
-    // Check if this is a similar model (progressive update) vs new model
-    const isSimilarModel = preserveCamera && lastBoundsRef.current && (
-      box.min.distanceTo(lastBoundsRef.current.min) < 1 &&
-      box.max.distanceTo(lastBoundsRef.current.max) < 1
-    )
+    // Only reset camera when generator changes (not on parameter changes)
+    const generatorChanged = generatorId !== lastGeneratorIdRef.current
+    lastGeneratorIdRef.current = generatorId
 
-    // Save current bounds for next comparison
-    lastBoundsRef.current = { min: box.min.clone(), max: box.max.clone() }
-
-    // Skip camera reset for progressive updates of same model
-    if (isSimilarModel) {
+    // Skip camera reset if same generator and camera has been initialized
+    if (!generatorChanged && hasInitializedCameraRef.current) {
+      // Still update clipping planes for the new geometry size
+      const size = new THREE.Vector3()
+      box.getSize(size)
+      const maxDim = Math.max(size.x, size.y, size.z)
+      const perspCamera = camera as THREE.PerspectiveCamera
+      perspCamera.near = Math.max(0.1, maxDim * 0.001)
+      perspCamera.far = Math.max(2000, maxDim * 10)
+      camera.updateProjectionMatrix()
       return
     }
+
+    hasInitializedCameraRef.current = true
 
     const size = new THREE.Vector3()
     box.getSize(size)
@@ -175,7 +181,7 @@ function Model({ geometry, preserveCamera = false }: ModelProps) {
     perspCamera.near = Math.max(0.1, maxDim * 0.001)
     perspCamera.far = Math.max(2000, maxDim * 10)
     camera.updateProjectionMatrix()
-  }, [geometry, camera, preserveCamera])
+  }, [geometry, camera, generatorId])
 
   return (
     <mesh ref={meshRef} geometry={geometry}>
@@ -199,9 +205,11 @@ interface ViewerProps {
   /** Direct mesh data from Manifold (takes precedence over stlBlob) */
   meshData?: MeshData | null
   isCompiling: boolean
+  /** Generator ID - camera resets only when this changes */
+  generatorId?: string
 }
 
-export function Viewer({ stlBlob, meshData, isCompiling }: ViewerProps) {
+export function Viewer({ stlBlob, meshData, isCompiling, generatorId }: ViewerProps) {
   const [geometry, setGeometry] = useState<THREE.BufferGeometry | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [modelMaxDim, setModelMaxDim] = useState<number>(0)
@@ -331,7 +339,7 @@ export function Viewer({ stlBlob, meshData, isCompiling }: ViewerProps) {
           <ambientLight intensity={0.4} />
           <directionalLight position={[10, 10, 5]} intensity={1} />
           <directionalLight position={[-10, -10, -5]} intensity={0.3} />
-          {geometry && <Model geometry={geometry} preserveCamera />}
+          {geometry && <Model geometry={geometry} generatorId={generatorId} />}
           <DynamicControls />
           <MeasuredGrid size={gridSize} divisions={gridDivisions} />
         </Canvas>
