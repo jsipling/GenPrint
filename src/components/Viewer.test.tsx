@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, cleanup } from '@testing-library/react'
+import { render, screen, cleanup, waitFor } from '@testing-library/react'
 import {
   TICK_SIZE,
   SMALL_TICK_SIZE,
@@ -274,5 +274,21 @@ describe('Viewer component', () => {
     expect(() => {
       render(<Viewer isCompiling={false} generatorId={undefined} />)
     }).not.toThrow()
+  })
+
+  it('error boundary receives key prop to reset on data change', async () => {
+    const { Viewer } = await import('./Viewer')
+
+    // Render without meshData first (no error)
+    const { rerender, container } = render(<Viewer isCompiling={false} />)
+
+    // Error boundary wrapper should have the key attribute
+    const errorBoundary = container.querySelector('[data-error-boundary-key]')
+    expect(errorBoundary).not.toBeNull()
+    const key1 = errorBoundary?.getAttribute('data-error-boundary-key')
+    expect(key1).toBe('0') // Initial key is 0
+
+    // The key is incremented after successful mesh loads, which we can't easily
+    // test with mocks. Instead verify the attribute exists and has expected initial value.
   })
 })

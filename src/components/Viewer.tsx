@@ -29,11 +29,23 @@ interface ErrorBoundaryState {
   error: Error | null
 }
 
-class CanvasErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryState> {
+interface ErrorBoundaryProps {
+  children: ReactNode
+  resetKey?: number
+}
+
+class CanvasErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   state: ErrorBoundaryState = { hasError: false, error: null }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error }
+  }
+
+  componentDidUpdate(prevProps: ErrorBoundaryProps) {
+    // Reset error state when resetKey changes (new data arrived)
+    if (this.state.hasError && prevProps.resetKey !== this.props.resetKey) {
+      this.setState({ hasError: false, error: null })
+    }
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
@@ -61,7 +73,11 @@ class CanvasErrorBoundary extends Component<{ children: ReactNode }, ErrorBounda
         </div>
       )
     }
-    return this.props.children
+    return (
+      <div data-error-boundary-key={this.props.resetKey}>
+        {this.props.children}
+      </div>
+    )
   }
 }
 
@@ -237,6 +253,7 @@ export function Viewer({ stlBlob, meshData, isCompiling, generatorId }: ViewerPr
   const [geometry, setGeometry] = useState<THREE.BufferGeometry | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [modelMaxDim, setModelMaxDim] = useState<number>(0)
+  const [errorBoundaryKey, setErrorBoundaryKey] = useState(0)
   const blobIdRef = useRef(0)
   const meshDataIdRef = useRef(0)
 
@@ -274,6 +291,7 @@ export function Viewer({ stlBlob, meshData, isCompiling, generatorId }: ViewerPr
         return geo
       })
       setLoadError(null)
+      setErrorBoundaryKey(k => k + 1)
     } catch (err) {
       if (currentId !== meshDataIdRef.current) return
       if (import.meta.env.DEV) console.error('Mesh data error:', err)
@@ -330,6 +348,7 @@ export function Viewer({ stlBlob, meshData, isCompiling, generatorId }: ViewerPr
           return geo
         })
         setLoadError(null)
+        setErrorBoundaryKey(k => k + 1)
       } catch (err) {
         if (import.meta.env.DEV) console.error('STL parse error:', err)
         setLoadError(err instanceof Error ? err.message : 'Failed to parse STL')
@@ -365,7 +384,7 @@ export function Viewer({ stlBlob, meshData, isCompiling, generatorId }: ViewerPr
   return (
     <div className="relative w-full h-full bg-gray-900">
       {/* Always render Canvas to preserve WebGL context */}
-      <CanvasErrorBoundary>
+      <CanvasErrorBoundary resetKey={errorBoundaryKey}>
         <Canvas camera={{ position: [50, -50, 40], fov: 50, up: [0, 0, 1] }}>
           <ambientLight intensity={AMBIENT_LIGHT_INTENSITY} />
           <CameraLight />
