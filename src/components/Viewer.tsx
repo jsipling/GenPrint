@@ -185,7 +185,7 @@ function Model({ geometry, generatorId }: ModelProps) {
 
   return (
     <mesh ref={meshRef} geometry={geometry}>
-      <meshLambertMaterial color="#4a90d9" />
+      <meshLambertMaterial color="#4a90d9" flatShading />
     </mesh>
   )
 }
