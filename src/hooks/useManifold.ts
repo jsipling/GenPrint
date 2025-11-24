@@ -27,7 +27,11 @@ export interface BuildOptions {
   silent?: boolean
   /** Circle segment quality (higher = smoother, slower). Default 48. */
   circularSegments?: number
+  /** Timeout in ms. Default 30000 (30s). Set to 0 for no timeout. */
+  timeout?: number
 }
+
+export const DEFAULT_BUILD_TIMEOUT = 30000
 
 export interface UseManifoldReturn {
   status: ManifoldStatus
@@ -70,6 +74,11 @@ interface PendingBuild {
   reject: (error: Error) => void
   onTiming: (timing: number) => void
   onError: (error: string) => void
+  timeoutId?: ReturnType<typeof setTimeout>
+}
+
+interface RegisterBuildOptions {
+  timeout?: number
 }
 
 /**
@@ -147,6 +156,10 @@ class ManifoldWorkerManager {
         if (data.type === 'build-result') {
           const pending = this.pendingBuilds.get(data.id)
           if (pending) {
+            // Clear timeout before resolving/rejecting
+            if (pending.timeoutId) {
+              clearTimeout(pending.timeoutId)
+            }
             this.pendingBuilds.delete(data.id)
 
             if (data.timing !== undefined) {
@@ -168,8 +181,9 @@ class ManifoldWorkerManager {
       this.worker.onerror = (err) => {
         console.error('[useManifold] Worker error:', err)
 
-        // Reject all pending builds
+        // Reject all pending builds (clear timeouts first)
         for (const pending of this.pendingBuilds.values()) {
+          if (pending.timeoutId) clearTimeout(pending.timeoutId)
           pending.reject(new Error('Worker crashed'))
         }
         this.pendingBuilds.clear()
@@ -190,8 +204,27 @@ class ManifoldWorkerManager {
     return ++this.buildIdCounter
   }
 
-  registerBuild(id: number, handlers: PendingBuild): void {
-    this.pendingBuilds.set(id, handlers)
+  registerBuild(id: number, handlers: Omit<PendingBuild, 'timeoutId'>, options?: RegisterBuildOptions): void {
+    const timeout = options?.timeout
+    const pendingBuild: PendingBuild = { ...handlers }
+
+    // Set up timeout if specified and not 0
+    if (timeout !== undefined && timeout > 0) {
+      pendingBuild.timeoutId = setTimeout(() => {
+        this.unregisterBuild(id)
+        handlers.reject(new Error('Build timed out'))
+      }, timeout)
+    }
+
+    this.pendingBuilds.set(id, pendingBuild)
+  }
+
+  unregisterBuild(id: number): void {
+    const pending = this.pendingBuilds.get(id)
+    if (pending?.timeoutId) {
+      clearTimeout(pending.timeoutId)
+    }
+    this.pendingBuilds.delete(id)
   }
 }
 
@@ -279,7 +312,7 @@ export function useManifold(): UseManifoldReturn {
               setError(err)
             }
           }
-        })
+        }, { timeout: options?.timeout ?? DEFAULT_BUILD_TIMEOUT })
 
         const request: BuildRequest = {
           type: 'build',

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { ManifoldWorkerManager } from '../useManifold'
+import { ManifoldWorkerManager, DEFAULT_BUILD_TIMEOUT } from '../useManifold'
 
 /**
  * Mock Worker class for testing worker crash recovery
@@ -135,6 +135,131 @@ describe('ManifoldWorkerManager', () => {
 
       // Two Worker instances should have been created (original + recovery)
       expect(mockWorkerInstances.length).toBe(2)
+    })
+  })
+
+  describe('build timeout', () => {
+    beforeEach(() => {
+      vi.useFakeTimers()
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('rejects build after timeout expires', async () => {
+      const manager = ManifoldWorkerManager.getInstance()
+
+      // Get worker and wait for ready
+      const workerPromise = manager.getWorker()
+      const mockWorker = mockWorkerInstances[0]
+      mockWorker.simulateReady()
+      await workerPromise
+
+      // Register a build with timeout
+      const buildId = manager.getNextBuildId()
+      let rejectionError: Error | null = null
+      const buildPromise = new Promise<null>((resolve, reject) => {
+        manager.registerBuild(buildId, {
+          resolve,
+          reject: (err) => {
+            rejectionError = err
+            reject(err)
+          },
+          onTiming: vi.fn(),
+          onError: vi.fn()
+        }, { timeout: 1000 })
+      })
+
+      // Advance time past the timeout
+      vi.advanceTimersByTime(1001)
+
+      // Build should be rejected with timeout error
+      await expect(buildPromise).rejects.toThrow('Build timed out')
+      expect(rejectionError?.message).toBe('Build timed out')
+    })
+
+    it('clears timeout when build completes successfully', async () => {
+      const manager = ManifoldWorkerManager.getInstance()
+
+      // Get worker and wait for ready
+      const workerPromise = manager.getWorker()
+      const mockWorker = mockWorkerInstances[0]
+      mockWorker.simulateReady()
+      await workerPromise
+
+      // Register a build with timeout
+      const buildId = manager.getNextBuildId()
+      const buildPromise = new Promise<unknown>((resolve, reject) => {
+        manager.registerBuild(buildId, {
+          resolve,
+          reject,
+          onTiming: vi.fn(),
+          onError: vi.fn()
+        }, { timeout: 1000 })
+      })
+
+      // Simulate successful build response before timeout
+      mockWorker.onmessage!(new MessageEvent('message', {
+        data: {
+          type: 'build-result',
+          id: buildId,
+          success: true,
+          meshData: { positions: new Float32Array([]), normals: new Float32Array([]), indices: new Uint32Array([]) }
+        }
+      }))
+
+      // Build should resolve successfully
+      const result = await buildPromise
+      expect(result).toBeDefined()
+
+      // Advance time past the timeout - should not throw since timeout was cleared
+      await vi.advanceTimersByTimeAsync(2000)
+    })
+
+    it('uses default timeout of 30 seconds', () => {
+      expect(DEFAULT_BUILD_TIMEOUT).toBe(30000)
+    })
+
+    it('does not timeout when timeout is set to 0', async () => {
+      const manager = ManifoldWorkerManager.getInstance()
+
+      // Get worker and wait for ready
+      const workerPromise = manager.getWorker()
+      const mockWorker = mockWorkerInstances[0]
+      mockWorker.simulateReady()
+      await workerPromise
+
+      // Register a build with timeout disabled
+      const buildId = manager.getNextBuildId()
+      let resolved = false
+      const buildPromise = new Promise<unknown>((resolve, reject) => {
+        manager.registerBuild(buildId, {
+          resolve: (data) => { resolved = true; resolve(data) },
+          reject,
+          onTiming: vi.fn(),
+          onError: vi.fn()
+        }, { timeout: 0 })
+      })
+
+      // Advance time way past any reasonable timeout
+      await vi.advanceTimersByTimeAsync(60000)
+
+      // Build should still be pending (not rejected)
+      expect(resolved).toBe(false)
+
+      // Complete the build manually
+      mockWorker.onmessage!(new MessageEvent('message', {
+        data: {
+          type: 'build-result',
+          id: buildId,
+          success: true,
+          meshData: { positions: new Float32Array([]), normals: new Float32Array([]), indices: new Uint32Array([]) }
+        }
+      }))
+
+      const result = await buildPromise
+      expect(result).toBeDefined()
     })
   })
 })
