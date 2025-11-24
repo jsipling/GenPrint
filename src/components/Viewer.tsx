@@ -23,6 +23,10 @@ import {
   DIRECTIONAL_LIGHT_INTENSITY
 } from './viewerConstants'
 
+function isPerspectiveCamera(camera: THREE.Camera): camera is THREE.PerspectiveCamera {
+  return 'fov' in camera && 'near' in camera && 'far' in camera
+}
+
 // Error boundary to catch WebGL/Canvas crashes
 interface ErrorBoundaryState {
   hasError: boolean
@@ -206,10 +210,11 @@ function Model({ geometry, generatorId }: ModelProps) {
       const size = new THREE.Vector3()
       box.getSize(size)
       const maxDim = Math.max(size.x, size.y, size.z)
-      const perspCamera = camera as THREE.PerspectiveCamera
-      perspCamera.near = Math.max(CAMERA_NEAR_PLANE_MIN, maxDim * CAMERA_NEAR_PLANE_RATIO)
-      perspCamera.far = Math.max(CAMERA_FAR_PLANE_MIN, maxDim * CAMERA_FAR_PLANE_RATIO)
-      camera.updateProjectionMatrix()
+      if (isPerspectiveCamera(camera)) {
+        camera.near = Math.max(CAMERA_NEAR_PLANE_MIN, maxDim * CAMERA_NEAR_PLANE_RATIO)
+        camera.far = Math.max(CAMERA_FAR_PLANE_MIN, maxDim * CAMERA_FAR_PLANE_RATIO)
+        camera.updateProjectionMatrix()
+      }
       return
     }
 
@@ -218,18 +223,20 @@ function Model({ geometry, generatorId }: ModelProps) {
     const size = new THREE.Vector3()
     box.getSize(size)
     const maxDim = Math.max(size.x, size.y, size.z)
-    const perspCamera = camera as THREE.PerspectiveCamera
-    const fov = perspCamera.fov * (Math.PI / 180)
-    const distance = maxDim / (2 * Math.tan(fov / 2)) * CAMERA_DISTANCE_MULTIPLIER
 
-    camera.position.set(distance, -distance, distance * CAMERA_HEIGHT_MULTIPLIER)
-    camera.up.set(0, 0, 1)
-    camera.lookAt(0, 0, 0)
+    if (isPerspectiveCamera(camera)) {
+      const fov = camera.fov * (Math.PI / 180)
+      const distance = maxDim / (2 * Math.tan(fov / 2)) * CAMERA_DISTANCE_MULTIPLIER
 
-    // Update clipping planes based on model size to prevent large models from being clipped
-    perspCamera.near = Math.max(CAMERA_NEAR_PLANE_MIN, maxDim * CAMERA_NEAR_PLANE_RATIO)
-    perspCamera.far = Math.max(CAMERA_FAR_PLANE_MIN, maxDim * CAMERA_FAR_PLANE_RATIO)
-    camera.updateProjectionMatrix()
+      camera.position.set(distance, -distance, distance * CAMERA_HEIGHT_MULTIPLIER)
+      camera.up.set(0, 0, 1)
+      camera.lookAt(0, 0, 0)
+
+      // Update clipping planes based on model size
+      camera.near = Math.max(CAMERA_NEAR_PLANE_MIN, maxDim * CAMERA_NEAR_PLANE_RATIO)
+      camera.far = Math.max(CAMERA_FAR_PLANE_MIN, maxDim * CAMERA_FAR_PLANE_RATIO)
+      camera.updateProjectionMatrix()
+    }
   }, [geometry, camera, generatorId])
 
   return (
