@@ -167,6 +167,18 @@ class ManifoldWorkerManager {
 
       this.worker.onerror = (err) => {
         console.error('[useManifold] Worker error:', err)
+
+        // Reject all pending builds
+        for (const pending of this.pendingBuilds.values()) {
+          pending.reject(new Error('Worker crashed'))
+        }
+        this.pendingBuilds.clear()
+
+        // Reset worker state to allow recovery
+        this.worker = null
+        this.workerReady = false
+        this.workerReadyPromise = null
+
         reject(new Error('Worker failed to initialize'))
       }
     })
