@@ -2,11 +2,7 @@
  * Convert mesh data to binary STL format
  */
 
-interface MeshData {
-  positions: Float32Array
-  normals: Float32Array
-  indices: Uint32Array
-}
+import type { MeshData } from '../generators/types'
 
 /**
  * Convert mesh data (positions, normals, indices) to binary STL blob

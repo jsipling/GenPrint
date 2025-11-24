@@ -1,11 +1,6 @@
-/**
- * Mesh data from Manifold (bypasses STL parsing)
- */
-export interface MeshData {
-  positions: Float32Array
-  normals: Float32Array
-  indices: Uint32Array
-}
+import type { MeshData } from '../generators/types'
+
+export type { MeshData }
 
 export class MeshValidationError extends Error {
   constructor(message: string) {

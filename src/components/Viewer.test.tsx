@@ -1,7 +1,30 @@
 /** @vitest-environment jsdom */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
+
+// Suppress React Three Fiber JSX element warnings in jsdom
+// These are expected since r3f uses lowercase custom elements that jsdom doesn't recognize
+const originalConsoleError = console.error
+beforeAll(() => {
+  console.error = (...args: unknown[]) => {
+    const message = typeof args[0] === 'string' ? args[0] : ''
+    // Suppress r3f element warnings and React DOM prop warnings
+    if (
+      message.includes('is using incorrect casing') ||
+      message.includes('is unrecognized in this browser') ||
+      message.includes('React does not recognize the')
+    ) {
+      return
+    }
+    originalConsoleError.apply(console, args)
+  }
+})
+
+afterAll(() => {
+  console.error = originalConsoleError
+})
+
 import {
   TICK_SIZE,
   SMALL_TICK_SIZE,
