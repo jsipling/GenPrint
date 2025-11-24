@@ -48,6 +48,19 @@ class CanvasErrorBoundary extends Component<{ children: ReactNode }, ErrorBounda
   }
 }
 
+// Light that follows the camera - always illuminates from viewer's perspective
+function CameraLight() {
+  const lightRef = useRef<THREE.DirectionalLight>(null)
+
+  useFrame(({ camera }) => {
+    if (lightRef.current) {
+      lightRef.current.position.copy(camera.position)
+    }
+  })
+
+  return <directionalLight ref={lightRef} intensity={0.8} />
+}
+
 // Dynamic pan speed controls - scales with camera distance
 function DynamicControls() {
   const controlsRef = useRef<OrbitControlsImpl>(null)
@@ -336,9 +349,8 @@ export function Viewer({ stlBlob, meshData, isCompiling, generatorId }: ViewerPr
       {/* Always render Canvas to preserve WebGL context */}
       <CanvasErrorBoundary>
         <Canvas camera={{ position: [50, -50, 40], fov: 50, up: [0, 0, 1] }}>
-          <ambientLight intensity={0.4} />
-          <directionalLight position={[10, 10, 5]} intensity={1} />
-          <directionalLight position={[-10, -10, -5]} intensity={0.3} />
+          <ambientLight intensity={0.3} />
+          <CameraLight />
           {geometry && <Model geometry={geometry} generatorId={generatorId} />}
           <DynamicControls />
           <MeasuredGrid size={gridSize} divisions={gridDivisions} />
