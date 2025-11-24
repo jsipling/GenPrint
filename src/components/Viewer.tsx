@@ -2,7 +2,6 @@ import { useRef, useEffect, useState, useMemo, Component, type ReactNode } from 
 import { Canvas, useThree, useFrame } from '@react-three/fiber'
 import { OrbitControls, Html, Line } from '@react-three/drei'
 import * as THREE from 'three'
-import { STLLoader } from 'three-stdlib'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import { calculateTicksAndLabels, calculateGridParams } from './gridUtils'
 import { validateMeshData, MeshValidationError, type MeshData } from './meshValidation'
@@ -258,21 +257,18 @@ function Model({ geometry, generatorId }: ModelProps) {
 }
 
 interface ViewerProps {
-  /** STL blob from OpenSCAD compilation */
-  stlBlob?: Blob | null
-  /** Direct mesh data from Manifold (takes precedence over stlBlob) */
+  /** Mesh data from Manifold builder */
   meshData?: MeshData | null
   isCompiling: boolean
   /** Generator ID - camera resets only when this changes */
   generatorId?: string
 }
 
-export function Viewer({ stlBlob, meshData, isCompiling, generatorId }: ViewerProps) {
+export function Viewer({ meshData, isCompiling, generatorId }: ViewerProps) {
   const [geometry, setGeometry] = useState<THREE.BufferGeometry | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [modelMaxDim, setModelMaxDim] = useState<number>(0)
   const [errorBoundaryKey, setErrorBoundaryKey] = useState(0)
-  const blobIdRef = useRef(0)
   const meshDataIdRef = useRef(0)
 
   // Handle direct mesh data from Manifold (takes precedence)
@@ -320,71 +316,6 @@ export function Viewer({ stlBlob, meshData, isCompiling, generatorId }: ViewerPr
       }
     }
   }, [meshData])
-
-  // Handle STL blob from OpenSCAD (only if no meshData)
-  useEffect(() => {
-    // Skip if we have direct mesh data
-    if (meshData) return
-
-    if (!stlBlob) {
-      setGeometry((prev) => {
-        prev?.dispose()
-        return null
-      })
-      setModelMaxDim(0)
-      return
-    }
-
-    // Track blob version to prevent stale reads
-    const currentBlobId = ++blobIdRef.current
-    const loader = new STLLoader()
-    const reader = new FileReader()
-
-    reader.onload = () => {
-      // Bail if a newer blob arrived while reading
-      if (currentBlobId !== blobIdRef.current) return
-
-      try {
-        const arrayBuffer = reader.result as ArrayBuffer
-        const geo = loader.parse(arrayBuffer)
-
-        // Keep OpenSCAD's Z-up orientation (no rotation needed)
-
-        geo.computeVertexNormals()
-        geo.computeBoundingBox()
-
-        // Calculate model size for grid sizing
-        if (geo.boundingBox) {
-          const size = new THREE.Vector3()
-          geo.boundingBox.getSize(size)
-          setModelMaxDim(Math.max(size.x, size.y, size.z))
-        }
-
-        // Dispose old geometry and set new one
-        setGeometry((prev) => {
-          prev?.dispose()
-          return geo
-        })
-        setLoadError(null)
-        setErrorBoundaryKey(k => k + 1)
-      } catch (err) {
-        if (import.meta.env.DEV) console.error('STL parse error:', err)
-        setLoadError(err instanceof Error ? err.message : 'Failed to parse STL')
-      }
-    }
-
-    reader.onerror = () => {
-      if (currentBlobId !== blobIdRef.current) return
-      setLoadError('Failed to read STL blob')
-    }
-
-    reader.readAsArrayBuffer(stlBlob)
-
-    // Cleanup: abort reader if blob changes before read completes
-    return () => {
-      reader.abort()
-    }
-  }, [stlBlob, meshData])
 
   // Dispose geometry on unmount
   useEffect(() => {

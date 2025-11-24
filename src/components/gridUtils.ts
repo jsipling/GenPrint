@@ -6,6 +6,17 @@ export const SMALL_TICK_SIZE = 0.8 // Length of 5mm tick marks
 export const MAX_TICKS_PER_AXIS = 100 // Cap tick count to prevent performance issues with large models
 export const DEFAULT_GRID_SIZE = 400 // Default measurement range in mm
 
+// Label interval breakpoints - show fewer labels for larger grids to avoid clutter
+// Format: [sizeThreshold, labelInterval] - grids larger than threshold use next interval
+const LABEL_INTERVAL_LARGE = 100  // For grids > 400mm: label every 100mm
+const LABEL_INTERVAL_MEDIUM = 50  // For grids > 200mm: label every 50mm
+const LABEL_INTERVAL_SMALL = 20   // For grids > 100mm: label every 20mm
+const LABEL_INTERVAL_TINY = 10    // For smaller grids: label every 10mm
+
+const SIZE_THRESHOLD_LARGE = 400  // Grid size above which we use 100mm labels
+const SIZE_THRESHOLD_MEDIUM = 200 // Grid size above which we use 50mm labels
+const SIZE_THRESHOLD_SMALL = 100  // Grid size above which we use 20mm labels
+
 export interface TickData {
   points: [[number, number, number], [number, number, number]]
   color: string
@@ -43,7 +54,10 @@ export function calculateTicksAndLabels(size: number): GridCalculationResult {
     : baseTickInterval
 
   // Calculate label interval based on size - show fewer labels for larger grids
-  const labelInterval = size > 400 ? 100 : (size > 200 ? 50 : (size > 100 ? 20 : 10))
+  const labelInterval = size > SIZE_THRESHOLD_LARGE ? LABEL_INTERVAL_LARGE
+    : size > SIZE_THRESHOLD_MEDIUM ? LABEL_INTERVAL_MEDIUM
+    : size > SIZE_THRESHOLD_SMALL ? LABEL_INTERVAL_SMALL
+    : LABEL_INTERVAL_TINY
   // Scale label interval with tick interval for very large models
   const effectiveLabelInterval = Math.max(labelInterval, tickInterval * 2)
 

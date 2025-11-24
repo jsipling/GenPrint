@@ -18,12 +18,22 @@ export function buildHook(
   M: ManifoldToplevel,
   params: Record<string, number | string | boolean>
 ): Manifold {
+  const width = Number(params['width']) || 15
+  const thickness = Number(params['thickness']) || 5
+
+  // Clamp hole diameter to maintain 1.2mm minimum wall thickness (AGENTS.md)
+  // Hole is at Y = hook_height - 1.5*thickness, so max from wall constraints:
+  const maxFromTop = 3 * thickness - 2.4  // Wall to top of back plate
+  const maxFromSides = width - 2.4  // Wall to sides
+  const maxHole = Math.max(0, Math.min(maxFromTop, maxFromSides))
+  const safeHoleDiameter = Math.min(Number(params['hole_diameter']) || 4, maxHole)
+
   const p: HookParams = {
-    width: Number(params['width']) || 15,
+    width,
     hook_depth: Number(params['hook_depth']) || 25,
     hook_height: Number(params['hook_height']) || 30,
-    thickness: Number(params['thickness']) || 5,
-    hole_diameter: Number(params['hole_diameter']) || 4
+    thickness,
+    hole_diameter: safeHoleDiameter
   }
 
   // Create L-shape using two boxes (like bracket does)
