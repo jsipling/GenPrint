@@ -5,6 +5,22 @@ import * as THREE from 'three'
 import { STLLoader } from 'three-stdlib'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import { calculateTicksAndLabels, calculateGridParams } from './gridUtils'
+import {
+  GRID_LINE_Z_OFFSET,
+  AXIS_LABEL_OFFSET,
+  CAMERA_HEIGHT_MULTIPLIER,
+  CAMERA_DISTANCE_MULTIPLIER,
+  CAMERA_NEAR_PLANE_RATIO,
+  CAMERA_FAR_PLANE_RATIO,
+  CAMERA_FAR_PLANE_MIN,
+  CAMERA_NEAR_PLANE_MIN,
+  ZOOM_SPEED,
+  PAN_SPEED_MIN,
+  PAN_SPEED_SCALE,
+  PAN_SPEED_UPDATE_THRESHOLD,
+  AMBIENT_LIGHT_INTENSITY,
+  DIRECTIONAL_LIGHT_INTENSITY
+} from './viewerConstants'
 
 // Error boundary to catch WebGL/Canvas crashes
 interface ErrorBoundaryState {
@@ -58,7 +74,7 @@ function CameraLight() {
     }
   })
 
-  return <directionalLight ref={lightRef} intensity={0.8} />
+  return <directionalLight ref={lightRef} intensity={DIRECTIONAL_LIGHT_INTENSITY} />
 }
 
 // Dynamic pan speed controls - scales with camera distance
@@ -69,15 +85,15 @@ function DynamicControls() {
   useFrame(({ camera }) => {
     if (controlsRef.current) {
       const distance = camera.position.length()
-      // Only update pan speed if distance changed by >1%
-      if (Math.abs(distance - lastDistanceRef.current) > distance * 0.01) {
+      // Only update pan speed if distance changed by threshold
+      if (Math.abs(distance - lastDistanceRef.current) > distance * PAN_SPEED_UPDATE_THRESHOLD) {
         lastDistanceRef.current = distance
-        controlsRef.current.panSpeed = Math.max(0.5, distance * 0.02)
+        controlsRef.current.panSpeed = Math.max(PAN_SPEED_MIN, distance * PAN_SPEED_SCALE)
       }
     }
   })
 
-  return <OrbitControls ref={controlsRef} makeDefault zoomSpeed={1.5} />
+  return <OrbitControls ref={controlsRef} makeDefault zoomSpeed={ZOOM_SPEED} />
 }
 
 // Grid with measurement labels (Z-up coordinate system)
@@ -105,8 +121,8 @@ function MeasuredGrid({ size = 100, divisions = 10 }: { size?: number; divisions
       <gridHelper args={[size, divisions, '#555', '#333']} rotation={[Math.PI / 2, 0, 0]} />
 
       {/* Main axis lines (positive direction only) */}
-      <Line points={[[0, 0, 0.1], [size/2, 0, 0.1]]} color="#ff4444" lineWidth={2} />
-      <Line points={[[0, 0, 0.1], [0, size/2, 0.1]]} color="#44ff44" lineWidth={2} />
+      <Line points={[[0, 0, GRID_LINE_Z_OFFSET], [size/2, 0, GRID_LINE_Z_OFFSET]]} color="#ff4444" lineWidth={2} />
+      <Line points={[[0, 0, GRID_LINE_Z_OFFSET], [0, size/2, GRID_LINE_Z_OFFSET]]} color="#44ff44" lineWidth={2} />
       <Line points={[[0, 0, 0], [0, 0, size/2]]} color="#4444ff" lineWidth={2} />
 
       {/* Tick marks */}
@@ -122,13 +138,13 @@ function MeasuredGrid({ size = 100, divisions = 10 }: { size?: number; divisions
       ))}
 
       {/* Axis labels */}
-      <Html position={[size/2 + 5, 0, 0]} style={{ ...axisLabelStyle, color: '#ff6666' }} center>
+      <Html position={[size/2 + AXIS_LABEL_OFFSET, 0, 0]} style={{ ...axisLabelStyle, color: '#ff6666' }} center>
         X (mm)
       </Html>
-      <Html position={[0, size/2 + 5, 0]} style={{ ...axisLabelStyle, color: '#66ff66' }} center>
+      <Html position={[0, size/2 + AXIS_LABEL_OFFSET, 0]} style={{ ...axisLabelStyle, color: '#66ff66' }} center>
         Y (mm)
       </Html>
-      <Html position={[0, 0, size/2 + 5]} style={{ ...axisLabelStyle, color: '#6666ff' }} center>
+      <Html position={[0, 0, size/2 + AXIS_LABEL_OFFSET]} style={{ ...axisLabelStyle, color: '#6666ff' }} center>
         Z (mm)
       </Html>
     </group>
@@ -174,8 +190,8 @@ function Model({ geometry, generatorId }: ModelProps) {
       box.getSize(size)
       const maxDim = Math.max(size.x, size.y, size.z)
       const perspCamera = camera as THREE.PerspectiveCamera
-      perspCamera.near = Math.max(0.1, maxDim * 0.001)
-      perspCamera.far = Math.max(2000, maxDim * 10)
+      perspCamera.near = Math.max(CAMERA_NEAR_PLANE_MIN, maxDim * CAMERA_NEAR_PLANE_RATIO)
+      perspCamera.far = Math.max(CAMERA_FAR_PLANE_MIN, maxDim * CAMERA_FAR_PLANE_RATIO)
       camera.updateProjectionMatrix()
       return
     }
@@ -187,15 +203,15 @@ function Model({ geometry, generatorId }: ModelProps) {
     const maxDim = Math.max(size.x, size.y, size.z)
     const perspCamera = camera as THREE.PerspectiveCamera
     const fov = perspCamera.fov * (Math.PI / 180)
-    const distance = maxDim / (2 * Math.tan(fov / 2)) * 1.5
+    const distance = maxDim / (2 * Math.tan(fov / 2)) * CAMERA_DISTANCE_MULTIPLIER
 
-    camera.position.set(distance, -distance, distance * 0.8)
+    camera.position.set(distance, -distance, distance * CAMERA_HEIGHT_MULTIPLIER)
     camera.up.set(0, 0, 1)
     camera.lookAt(0, 0, 0)
 
     // Update clipping planes based on model size to prevent large models from being clipped
-    perspCamera.near = Math.max(0.1, maxDim * 0.001)
-    perspCamera.far = Math.max(2000, maxDim * 10)
+    perspCamera.near = Math.max(CAMERA_NEAR_PLANE_MIN, maxDim * CAMERA_NEAR_PLANE_RATIO)
+    perspCamera.far = Math.max(CAMERA_FAR_PLANE_MIN, maxDim * CAMERA_FAR_PLANE_RATIO)
     camera.updateProjectionMatrix()
   }, [geometry, camera, generatorId])
 
@@ -352,7 +368,7 @@ export function Viewer({ stlBlob, meshData, isCompiling, generatorId }: ViewerPr
       {/* Always render Canvas to preserve WebGL context */}
       <CanvasErrorBoundary>
         <Canvas camera={{ position: [50, -50, 40], fov: 50, up: [0, 0, 1] }}>
-          <ambientLight intensity={0.3} />
+          <ambientLight intensity={AMBIENT_LIGHT_INTENSITY} />
           <CameraLight />
           {geometry && <Model geometry={geometry} generatorId={generatorId} />}
           <DynamicControls />
