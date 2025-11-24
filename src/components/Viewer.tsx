@@ -5,6 +5,7 @@ import * as THREE from 'three'
 import { STLLoader } from 'three-stdlib'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import { calculateTicksAndLabels, calculateGridParams } from './gridUtils'
+import { validateMeshData, MeshValidationError, type MeshData } from './meshValidation'
 import {
   GRID_LINE_Z_OFFSET,
   AXIS_LABEL_OFFSET,
@@ -222,15 +223,6 @@ function Model({ geometry, generatorId }: ModelProps) {
   )
 }
 
-/**
- * Mesh data from Manifold (bypasses STL parsing)
- */
-interface MeshData {
-  positions: Float32Array
-  normals: Float32Array
-  indices: Uint32Array
-}
-
 interface ViewerProps {
   /** STL blob from OpenSCAD compilation */
   stlBlob?: Blob | null
@@ -255,6 +247,9 @@ export function Viewer({ stlBlob, meshData, isCompiling, generatorId }: ViewerPr
     const currentId = ++meshDataIdRef.current
 
     try {
+      // Validate before processing
+      validateMeshData(meshData)
+
       const geo = new THREE.BufferGeometry()
       geo.setAttribute('position', new THREE.BufferAttribute(meshData.positions, 3))
       geo.setAttribute('normal', new THREE.BufferAttribute(meshData.normals, 3))
@@ -282,7 +277,11 @@ export function Viewer({ stlBlob, meshData, isCompiling, generatorId }: ViewerPr
     } catch (err) {
       if (currentId !== meshDataIdRef.current) return
       if (import.meta.env.DEV) console.error('Mesh data error:', err)
-      setLoadError(err instanceof Error ? err.message : 'Failed to load mesh data')
+      if (err instanceof MeshValidationError) {
+        setLoadError(`Invalid mesh: ${err.message}`)
+      } else {
+        setLoadError(err instanceof Error ? err.message : 'Failed to load mesh data')
+      }
     }
   }, [meshData])
 
