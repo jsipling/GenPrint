@@ -78,7 +78,7 @@ class CanvasErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySta
       )
     }
     return (
-      <div data-error-boundary-key={this.props.resetKey}>
+      <div className="w-full h-full" data-error-boundary-key={this.props.resetKey}>
         {this.props.children}
       </div>
     )
