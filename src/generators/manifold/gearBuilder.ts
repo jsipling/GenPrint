@@ -201,7 +201,7 @@ export function buildGear(
 
   // Validate tooth thickness for printability (minimum 1mm at pitch circle)
   const toothThickness = (Math.PI * mod) / 2
-  if (toothThickness < 1.0) {
+  if (import.meta.env.DEV && toothThickness < 1.0) {
     console.warn(`[Gear] Tooth thickness ${toothThickness.toFixed(2)}mm may be too thin for FDM printing`)
   }
 

@@ -3,7 +3,7 @@
  * A simple wall hook for hanging items
  */
 
-import type { ManifoldToplevel, Manifold } from 'manifold-3d'
+import type { ManifoldToplevel, Manifold, CrossSection } from 'manifold-3d'
 
 interface HookParams {
   width: number
@@ -11,6 +11,24 @@ interface HookParams {
   hook_height: number
   thickness: number
   hole_diameter: number
+}
+
+/**
+ * Create a fillet profile (quarter circle to fill corner)
+ * Points must be counter-clockwise for positive area in CrossSection
+ */
+function createFilletProfile(M: ManifoldToplevel, radius: number, segments: number = 8): CrossSection {
+  const points: [number, number][] = [[0, 0]]
+
+  for (let i = 0; i <= segments; i++) {
+    const angle = (Math.PI / 2) * (i / segments)
+    points.push([
+      radius * Math.cos(angle),
+      radius * Math.sin(angle)
+    ])
+  }
+
+  return new M.CrossSection([points])
 }
 
 export function buildHook(
@@ -36,6 +54,20 @@ export function buildHook(
   let hook = backPlate.add(hookArm)
   backPlate.delete()
   hookArm.delete()
+
+  // Add corner fillet for structural strength at the L-joint
+  // Fillet radius is half the thickness for good strength without being too bulky
+  const filletRadius = p.thickness / 2
+  const filletProfile = createFilletProfile(M, filletRadius)
+  const fillet = filletProfile.extrude(p.width)
+    .rotate(90, 0, 0)
+    .translate(p.thickness, p.width, p.thickness)
+
+  const filletedHook = hook.add(fillet)
+  hook.delete()
+  fillet.delete()
+  filletProfile.delete()
+  hook = filletedHook
 
   // Add mounting hole if specified
   if (p.hole_diameter > 0) {

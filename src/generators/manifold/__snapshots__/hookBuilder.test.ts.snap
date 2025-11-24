@@ -14,9 +14,9 @@ exports[`hookBuilder > matches geometry snapshot 1`] = `
       0,
     ],
   },
-  "surfaceArea": 3481.2145,
-  "triangleCount": 88,
-  "vertexCount": 46,
-  "volume": 6469.3853,
+  "surfaceArea": 3540.0247,
+  "triangleCount": 148,
+  "vertexCount": 76,
+  "volume": 6542.5442,
 }
 `;

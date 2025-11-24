@@ -226,5 +226,23 @@ export function buildGridfinityBin(
     }
   }
 
+  // === FINGER SLIDE (scoop cutout for easy access) ===
+  if (p.finger_slide) {
+    // Create a curved scoop on the front edge (-Y side)
+    // The scoop is a cylinder rotated to create a smooth curved cutout
+    const scoopRadius = totalHeight * 0.6
+    const scoopWidth = innerWidth * 0.7  // 70% of interior width
+
+    // Create scoop cylinder oriented along X axis
+    const scoop = M.Manifold.cylinder(scoopWidth, scoopRadius, scoopRadius, 32, true)
+      .rotate(0, 90, 0)  // Orient along X
+      .translate(0, -outerDepth / 2 + scoopRadius * 0.3, totalHeight * 0.7)
+
+    const newBin = bin.subtract(scoop)
+    bin.delete()
+    scoop.delete()
+    bin = newBin
+  }
+
   return bin
 }
