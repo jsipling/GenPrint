@@ -13,11 +13,12 @@
 
 import type { ManifoldToplevel, Manifold } from 'manifold-3d'
 import { roundedRect } from './shapes'
+import { MIN_WALL_THICKNESS, HOLE_CYLINDER_SEGMENTS } from './printingConstants'
 
 // Gridfinity constants
 const GRID_PITCH = 42    // mm per grid unit
 const Z_PITCH = 7        // mm per height unit
-const WALL_THICKNESS = 1.2
+const WALL_THICKNESS = MIN_WALL_THICKNESS
 const BASE_HEIGHT = 5    // Total base height
 const LIP_HEIGHT = 4.4   // Stacking lip
 const TOLERANCE = 0.25   // Gap for fit
@@ -120,7 +121,7 @@ export function buildGridfinityBin(
 
         const offsets = [[-13, -13], [13, -13], [-13, 13], [13, 13]]
         for (const [ox, oy] of offsets) {
-          const hole = M.Manifold.cylinder(magnetDepth, magnetRadius, magnetRadius, 8)
+          const hole = M.Manifold.cylinder(magnetDepth, magnetRadius, magnetRadius, HOLE_CYLINDER_SEGMENTS)
           magnetHoles.push(hole.translate(cx + ox!, cy + oy!, 0))
           hole.delete()
         }
@@ -145,7 +146,7 @@ export function buildGridfinityBin(
       for (let y = 0; y < p.grid_y; y++) {
         const cx = (x + 0.5) * GRID_PITCH - totalWidth / 2
         const cy = (y + 0.5) * GRID_PITCH - totalDepth / 2
-        const hole = M.Manifold.cylinder(screwDepth, screwRadius, screwRadius, 6)
+        const hole = M.Manifold.cylinder(screwDepth, screwRadius, screwRadius, HOLE_CYLINDER_SEGMENTS)
         screwHoles.push(hole.translate(cx, cy, 0))
         hole.delete()
       }

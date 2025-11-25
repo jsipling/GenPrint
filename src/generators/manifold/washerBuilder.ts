@@ -4,6 +4,7 @@
  */
 
 import type { ManifoldToplevel, Manifold } from 'manifold-3d'
+import { maxInnerDiameter, MIN_WALL_THICKNESS, printingWarning } from './printingConstants'
 
 interface WasherParams {
   outer_diameter: number
@@ -22,8 +23,14 @@ export function buildWasher(
   }
 
   // AGENTS.md: Minimum wall thickness 1.2mm (2.4mm total for both walls)
-  const maxInner = p.outer_diameter - 2.4
+  const maxInner = maxInnerDiameter(p.outer_diameter)
   const safeInnerD = Math.min(p.inner_diameter, maxInner)
+
+  // Dev warning for thin walls
+  const wallThickness = (p.outer_diameter - safeInnerD) / 2
+  if (wallThickness <= MIN_WALL_THICKNESS * 1.25) {
+    printingWarning('Washer', `Wall thickness ${wallThickness.toFixed(2)}mm is near ${MIN_WALL_THICKNESS}mm minimum`)
+  }
 
   // Create outer cylinder
   const outerRadius = p.outer_diameter / 2

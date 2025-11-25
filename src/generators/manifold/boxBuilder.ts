@@ -5,6 +5,7 @@
 
 import type { ManifoldToplevel, Manifold } from 'manifold-3d'
 import { roundedRect } from './shapes'
+import { MIN_WALL_THICKNESS, safeWallThickness, printingWarning } from './printingConstants'
 
 /**
  * Create rounded box (3D)
@@ -64,8 +65,17 @@ export function buildBox(
   const stackable = Boolean(params['stackable'])
 
   // Safe values (1.2mm minimum for reliable FDM printing)
-  const safeWall = Math.max(1.2, Math.min(wallThickness, width / 2 - 0.5, depth / 2 - 0.5, height - 1))
-  const safeBottom = Math.max(1.2, Math.min(bottomThickness, height - 1))
+  const maxWallByGeometry = Math.min(width / 2 - 0.5, depth / 2 - 0.5, height - 1)
+  const safeWall = safeWallThickness(wallThickness, maxWallByGeometry)
+  const safeBottom = safeWallThickness(bottomThickness, height - 1)
+
+  // Dev warnings for thin walls
+  if (safeWall <= MIN_WALL_THICKNESS * 1.25) {
+    printingWarning('Box', `Wall thickness ${safeWall.toFixed(2)}mm is near ${MIN_WALL_THICKNESS}mm minimum`)
+  }
+  if (safeBottom <= MIN_WALL_THICKNESS * 1.25) {
+    printingWarning('Box', `Bottom thickness ${safeBottom.toFixed(2)}mm is near ${MIN_WALL_THICKNESS}mm minimum`)
+  }
   const maxCorner = Math.max(0, Math.min(width, depth) / 2 - safeWall)
   const safeCorner = Math.max(0, Math.min(cornerRadius, maxCorner))
   const safeLidClearance = Math.min(Math.max(lidClearance, 0), 1)

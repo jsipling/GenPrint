@@ -4,6 +4,7 @@
  */
 
 import type { ManifoldToplevel, Manifold } from 'manifold-3d'
+import { maxInnerDiameter, MIN_WALL_THICKNESS, printingWarning } from './printingConstants'
 
 interface SpacerParams {
   outer_diameter: number
@@ -22,8 +23,14 @@ export function buildSpacer(
   }
 
   // AGENTS.md: Minimum wall thickness 1.2mm (2.4mm total for both walls)
-  const maxInnerHole = p.outer_diameter - 2.4
+  const maxInnerHole = maxInnerDiameter(p.outer_diameter)
   const safeInnerHole = Math.min(p.inner_hole, maxInnerHole)
+
+  // Dev warning for thin walls
+  const wallThickness = (p.outer_diameter - safeInnerHole) / 2
+  if (wallThickness <= MIN_WALL_THICKNESS * 1.25) {
+    printingWarning('Spacer', `Wall thickness ${wallThickness.toFixed(2)}mm is near ${MIN_WALL_THICKNESS}mm minimum`)
+  }
 
   // Create outer cylinder
   const outerRadius = p.outer_diameter / 2
