@@ -169,7 +169,8 @@ describe('generator registry coverage', () => {
   })
 
   // Test that all registered generators produce valid mesh data
-  const generatorTests = [
+  type BuilderFn = (M: ManifoldToplevel, params: Record<string, number | string | boolean>) => Manifold
+  const generatorTests: Array<{ name: string; builder: BuilderFn; params: Record<string, number | string | boolean> }> = [
     {
       name: 'spacer',
       builder: buildSpacer,

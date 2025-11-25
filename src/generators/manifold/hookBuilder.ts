@@ -5,6 +5,7 @@
 
 import type { ManifoldToplevel, Manifold } from 'manifold-3d'
 import { createFilletProfile } from './shapes'
+import { HOLE_CYLINDER_SEGMENTS } from './printingConstants'
 
 interface HookParams {
   width: number
@@ -65,7 +66,7 @@ export function buildHook(
   // Add mounting hole if specified
   if (p.hole_diameter > 0) {
     const holeRadius = p.hole_diameter / 2
-    const hole = M.Manifold.cylinder(p.thickness * 2, holeRadius, holeRadius, 16)
+    const hole = M.Manifold.cylinder(p.thickness * 2, holeRadius, holeRadius, HOLE_CYLINDER_SEGMENTS)
       .rotate(0, 90, 0)
       .translate(p.thickness / 2, p.hook_height - p.thickness * 1.5, p.width / 2)
 

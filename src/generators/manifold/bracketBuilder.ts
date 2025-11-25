@@ -5,6 +5,7 @@
 
 import type { ManifoldToplevel, Manifold } from 'manifold-3d'
 import { createFilletProfile } from './shapes'
+import { HOLE_CYLINDER_SEGMENTS } from './printingConstants'
 
 interface BracketParams {
   width: number
@@ -95,7 +96,7 @@ export function buildBracket(
     const holeSpacing = (p.arm_length - p.thickness) / (p.hole_count_arm_1 + 1)
 
     for (let i = 0; i < p.hole_count_arm_1; i++) {
-      const hole = M.Manifold.cylinder(p.thickness + 0.4, holeRadius, holeRadius, 16)
+      const hole = M.Manifold.cylinder(p.thickness + 0.4, holeRadius, holeRadius, HOLE_CYLINDER_SEGMENTS)
         .translate(holeOffsetStart + i * holeSpacing, p.width / 2, -0.2)
       allHoles.push(hole)
     }
@@ -107,7 +108,7 @@ export function buildBracket(
     const holeSpacing = (p.arm_length - p.thickness) / (p.hole_count_arm_2 + 1)
 
     for (let i = 0; i < p.hole_count_arm_2; i++) {
-      const hole = M.Manifold.cylinder(p.thickness + 0.4, holeRadius, holeRadius, 16)
+      const hole = M.Manifold.cylinder(p.thickness + 0.4, holeRadius, holeRadius, HOLE_CYLINDER_SEGMENTS)
         .rotate(0, 90, 0)
         .translate(-0.2, p.width / 2, holeOffsetStart + i * holeSpacing)
       allHoles.push(hole)
