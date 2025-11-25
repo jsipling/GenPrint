@@ -160,6 +160,89 @@ describe('manifoldToMeshData', () => {
   })
 })
 
+describe('bounding box calculation', () => {
+  let M: ManifoldToplevel
+
+  beforeAll(async () => {
+    M = await getManifold()
+    setCircularSegments(M, 32)
+  })
+
+  it('computes correct bounding box for cube centered at origin', () => {
+    const cube = M.Manifold.cube([10, 10, 10], true) // centered
+    const bbox = cube.boundingBox()
+
+    // Centered cube of size 10 should have bounds -5 to 5 on each axis
+    expect(bbox.min[0]).toBeCloseTo(-5, 5)
+    expect(bbox.min[1]).toBeCloseTo(-5, 5)
+    expect(bbox.min[2]).toBeCloseTo(-5, 5)
+    expect(bbox.max[0]).toBeCloseTo(5, 5)
+    expect(bbox.max[1]).toBeCloseTo(5, 5)
+    expect(bbox.max[2]).toBeCloseTo(5, 5)
+
+    cube.delete()
+  })
+
+  it('computes correct bounding box for cube at origin corner', () => {
+    const cube = M.Manifold.cube([10, 20, 30], false) // corner at origin
+    const bbox = cube.boundingBox()
+
+    // Corner-aligned cube should have bounds 0 to size on each axis
+    expect(bbox.min[0]).toBeCloseTo(0, 5)
+    expect(bbox.min[1]).toBeCloseTo(0, 5)
+    expect(bbox.min[2]).toBeCloseTo(0, 5)
+    expect(bbox.max[0]).toBeCloseTo(10, 5)
+    expect(bbox.max[1]).toBeCloseTo(20, 5)
+    expect(bbox.max[2]).toBeCloseTo(30, 5)
+
+    cube.delete()
+  })
+
+  it('computes correct bounding box for translated geometry', () => {
+    const cube = M.Manifold.cube([10, 10, 10], false).translate([5, 10, 15])
+    const bbox = cube.boundingBox()
+
+    expect(bbox.min[0]).toBeCloseTo(5, 5)
+    expect(bbox.min[1]).toBeCloseTo(10, 5)
+    expect(bbox.min[2]).toBeCloseTo(15, 5)
+    expect(bbox.max[0]).toBeCloseTo(15, 5)
+    expect(bbox.max[1]).toBeCloseTo(20, 5)
+    expect(bbox.max[2]).toBeCloseTo(25, 5)
+
+    cube.delete()
+  })
+
+  it('computes correct bounding box for generated washer', () => {
+    const washer = buildWasher(M, { outer_diameter: 20, inner_diameter: 10, thickness: 3 })
+    const bbox = washer.boundingBox()
+
+    // Washer should be centered in X and Y, with Z from 0 to thickness
+    expect(bbox.min[0]).toBeCloseTo(-10, 1) // -outer_diameter/2
+    expect(bbox.max[0]).toBeCloseTo(10, 1)  // outer_diameter/2
+    expect(bbox.min[1]).toBeCloseTo(-10, 1)
+    expect(bbox.max[1]).toBeCloseTo(10, 1)
+    expect(bbox.min[2]).toBeCloseTo(0, 1)
+    expect(bbox.max[2]).toBeCloseTo(3, 1)   // thickness
+
+    washer.delete()
+  })
+
+  it('returns BoundingBox-compatible structure', () => {
+    const cube = M.Manifold.cube([10, 10, 10], false)
+    const bbox = cube.boundingBox()
+
+    // Verify structure matches our BoundingBox type
+    expect(Array.isArray(bbox.min)).toBe(true)
+    expect(Array.isArray(bbox.max)).toBe(true)
+    expect(bbox.min.length).toBe(3)
+    expect(bbox.max.length).toBe(3)
+    expect(typeof bbox.min[0]).toBe('number')
+    expect(typeof bbox.max[0]).toBe('number')
+
+    cube.delete()
+  })
+})
+
 describe('generator registry coverage', () => {
   let M: ManifoldToplevel
 

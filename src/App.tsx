@@ -95,6 +95,7 @@ export default function App() {
     status,
     error,
     meshData,
+    boundingBox,
     build: manifoldBuild
   } = useManifold()
 
@@ -264,6 +265,9 @@ export default function App() {
               meshData={meshData}
               isCompiling={status === 'building'}
               generatorId={selectedGenerator.id}
+              boundingBox={boundingBox}
+              displayDimensions={selectedGenerator.displayDimensions}
+              params={params}
             />
           </Suspense>
         </div>

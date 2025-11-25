@@ -5,6 +5,7 @@ import * as THREE from 'three'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import { calculateTicksAndLabels, calculateGridParams } from './gridUtils'
 import { validateMeshData, MeshValidationError, type MeshData } from './meshValidation'
+import type { BoundingBox, DisplayDimension, ParameterValues } from '../generators'
 import {
   GRID_LINE_Z_OFFSET,
   AXIS_LABEL_OFFSET,
@@ -256,15 +257,128 @@ function Model({ geometry, generatorId }: ModelProps) {
   )
 }
 
+/**
+ * Formats a number for display in the dimension panel.
+ * Shows 1 decimal place for non-integers, whole number otherwise.
+ */
+function formatDimension(value: number): string {
+  return Number.isInteger(value) ? value.toString() : value.toFixed(1)
+}
+
+/**
+ * Gets a nested parameter value from params using dot notation.
+ * e.g., "bore.diameter" gets params.bore.diameter
+ */
+function getNestedParam(params: ParameterValues, path: string): number | string | boolean | undefined {
+  const parts = path.split('.')
+  let current: unknown = params
+  for (const part of parts) {
+    if (current === null || current === undefined || typeof current !== 'object') {
+      return undefined
+    }
+    current = (current as Record<string, unknown>)[part]
+  }
+  return current as number | string | boolean | undefined
+}
+
+interface DimensionPanelProps {
+  boundingBox?: BoundingBox | null
+  displayDimensions?: DisplayDimension[]
+  params?: ParameterValues
+  isLoading?: boolean
+}
+
+/**
+ * Overlay panel showing model dimensions and key feature measurements.
+ */
+function DimensionPanel({ boundingBox, displayDimensions, params, isLoading }: DimensionPanelProps) {
+  // Calculate bounding box dimensions
+  const boxDimensions = useMemo(() => {
+    if (!boundingBox) return null
+    const [minX, minY, minZ] = boundingBox.min
+    const [maxX, maxY, maxZ] = boundingBox.max
+    return {
+      width: maxX - minX,
+      depth: maxY - minY,
+      height: maxZ - minZ
+    }
+  }, [boundingBox])
+
+  // Format feature dimensions from displayDimensions config
+  const featureDimensions = useMemo(() => {
+    if (!displayDimensions || !params) return []
+    return displayDimensions.map(dim => {
+      const value = getNestedParam(params, dim.param)
+      if (value === undefined) return null
+
+      // Format the value
+      let formattedValue: string
+      if (typeof value === 'number') {
+        if (dim.format) {
+          formattedValue = dim.format.replace('{value}', formatDimension(value))
+        } else {
+          formattedValue = `${formatDimension(value)}mm`
+        }
+      } else {
+        formattedValue = String(value)
+      }
+
+      return { label: dim.label, value: formattedValue }
+    }).filter((d): d is { label: string; value: string } => d !== null)
+  }, [displayDimensions, params])
+
+  return (
+    <div
+      className="absolute top-3 right-3 bg-gray-900/80 backdrop-blur-sm rounded-lg border border-gray-700 text-white text-sm font-mono shadow-lg"
+      style={{ minWidth: '140px' }}
+    >
+      {/* Header */}
+      <div className="px-3 py-2 border-b border-gray-700 text-gray-400 text-xs flex items-center gap-1.5">
+        <span>📐</span>
+        <span>Dimensions</span>
+      </div>
+
+      {/* Bounding box dimensions */}
+      <div className="px-3 py-2 border-b border-gray-700">
+        {isLoading || !boxDimensions ? (
+          <span className="text-gray-500">—</span>
+        ) : (
+          <span>
+            {formatDimension(boxDimensions.width)} × {formatDimension(boxDimensions.depth)} × {formatDimension(boxDimensions.height)} mm
+          </span>
+        )}
+      </div>
+
+      {/* Feature dimensions */}
+      {featureDimensions.length > 0 && (
+        <div className="px-3 py-2">
+          {featureDimensions.map((dim, i) => (
+            <div key={i} className="flex justify-between gap-4">
+              <span className="text-gray-400">{dim.label}</span>
+              <span>{isLoading ? '—' : dim.value}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 interface ViewerProps {
   /** Mesh data from Manifold builder */
   meshData?: MeshData | null
   isCompiling: boolean
   /** Generator ID - camera resets only when this changes */
   generatorId?: string
+  /** Bounding box from Manifold */
+  boundingBox?: BoundingBox | null
+  /** Display dimensions configuration from generator */
+  displayDimensions?: DisplayDimension[]
+  /** Current parameter values */
+  params?: ParameterValues
 }
 
-export function Viewer({ meshData, isCompiling, generatorId }: ViewerProps) {
+export function Viewer({ meshData, isCompiling, generatorId, boundingBox, displayDimensions, params }: ViewerProps) {
   const [geometry, setGeometry] = useState<THREE.BufferGeometry | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [modelMaxDim, setModelMaxDim] = useState<number>(0)
@@ -342,6 +456,14 @@ export function Viewer({ meshData, isCompiling, generatorId }: ViewerProps) {
           <MeasuredGrid size={gridSize} divisions={gridDivisions} />
         </Canvas>
       </CanvasErrorBoundary>
+
+      {/* Dimension panel overlay */}
+      <DimensionPanel
+        boundingBox={boundingBox}
+        displayDimensions={displayDimensions}
+        params={params}
+        isLoading={isCompiling || !geometry}
+      />
 
       {/* Overlay states */}
       {loadError && (

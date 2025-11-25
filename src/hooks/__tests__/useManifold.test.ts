@@ -335,6 +335,16 @@ describe('ManifoldWorkerManager', () => {
       indices: new Uint32Array([id])
     })
 
+    const mockBoundingBox = {
+      min: [0, 0, 0] as [number, number, number],
+      max: [10, 10, 10] as [number, number, number]
+    }
+
+    const createMockCacheEntry = (id: number) => ({
+      meshData: createMockMeshData(id),
+      boundingBox: mockBoundingBox
+    })
+
     beforeEach(() => {
       // Ensure cache is cleared before each test
       ManifoldWorkerManager.reset()
@@ -344,9 +354,9 @@ describe('ManifoldWorkerManager', () => {
       const cache = getMeshCache()
 
       // Add items in order: key1, key2, key3
-      cache.set('key1', { meshData: createMockMeshData(1) })
-      cache.set('key2', { meshData: createMockMeshData(2) })
-      cache.set('key3', { meshData: createMockMeshData(3) })
+      cache.set('key1', createMockCacheEntry(1))
+      cache.set('key2', createMockCacheEntry(2))
+      cache.set('key3', createMockCacheEntry(3))
 
       // Initial order should be: key1, key2, key3
       const initialKeys = Array.from(cache.keys())
@@ -367,7 +377,7 @@ describe('ManifoldWorkerManager', () => {
 
       // Fill cache to MAX_CACHE_SIZE
       for (let i = 0; i < MAX_CACHE_SIZE; i++) {
-        cache.set(`key${i}`, { meshData: createMockMeshData(i) })
+        cache.set(`key${i}`, createMockCacheEntry(i))
       }
       expect(cache.size).toBe(MAX_CACHE_SIZE)
 
@@ -380,7 +390,7 @@ describe('ManifoldWorkerManager', () => {
         const oldestKey = cache.keys().next().value
         if (oldestKey) cache.delete(oldestKey)
       }
-      cache.set('newKey', { meshData: createMockMeshData(999) })
+      cache.set('newKey', createMockCacheEntry(999))
 
       // Cache should still be at MAX_CACHE_SIZE
       expect(cache.size).toBe(MAX_CACHE_SIZE)
@@ -397,12 +407,13 @@ describe('ManifoldWorkerManager', () => {
     it('CacheEntry should not have timestamp property', () => {
       const cache = getMeshCache()
 
-      cache.set('testKey', { meshData: createMockMeshData(1) })
+      cache.set('testKey', createMockCacheEntry(1))
       const entry = cache.get('testKey')
 
-      // Entry should only have meshData, no timestamp
+      // Entry should only have meshData and boundingBox, no timestamp
       expect(entry).toBeDefined()
       expect(entry!.meshData).toBeDefined()
+      expect(entry!.boundingBox).toBeDefined()
       expect('timestamp' in entry!).toBe(false)
     })
   })

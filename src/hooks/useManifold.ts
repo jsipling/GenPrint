@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
-import type { MeshData, ParameterValues } from '../generators'
+import type { MeshData, ParameterValues, BoundingBox } from '../generators'
 import type { BuildRequest, WorkerResponse } from '../workers/types'
 
 export type ManifoldStatus = 'idle' | 'loading' | 'ready' | 'building' | 'error'
@@ -17,6 +17,7 @@ function hashCode(str: string): string {
 
 interface CacheEntry {
   meshData: MeshData
+  boundingBox: BoundingBox
 }
 
 export const MAX_CACHE_SIZE = 20
@@ -44,12 +45,18 @@ export interface UseManifoldReturn {
   status: ManifoldStatus
   error: string | null
   meshData: MeshData | null
+  boundingBox: BoundingBox | null
   timing: number | null
-  build: (generatorId: string, params: ParameterValues, options?: BuildOptions) => Promise<MeshData | null>
+  build: (generatorId: string, params: ParameterValues, options?: BuildOptions) => Promise<{ meshData: MeshData; boundingBox: BoundingBox } | null>
+}
+
+interface BuildResult {
+  meshData: MeshData
+  boundingBox: BoundingBox
 }
 
 interface PendingBuild {
-  resolve: (data: MeshData | null) => void
+  resolve: (data: BuildResult | null) => void
   reject: (error: Error) => void
   onTiming: (timing: number) => void
   onError: (error: string) => void
@@ -145,8 +152,8 @@ class ManifoldWorkerManager {
               pending.onTiming(data.timing)
             }
 
-            if (data.success && data.meshData) {
-              pending.resolve(data.meshData)
+            if (data.success && data.meshData && data.boundingBox) {
+              pending.resolve({ meshData: data.meshData, boundingBox: data.boundingBox })
             } else {
               pending.onError(data.error || 'Build failed')
               pending.resolve(null)
@@ -218,6 +225,7 @@ export function useManifold(): UseManifoldReturn {
   const [status, setStatus] = useState<ManifoldStatus>('idle')
   const [error, setError] = useState<string | null>(null)
   const [meshData, setMeshData] = useState<MeshData | null>(null)
+  const [boundingBox, setBoundingBox] = useState<BoundingBox | null>(null)
   const [timing, setTiming] = useState<number | null>(null)
   const currentBuildIdRef = useRef<number | null>(null)
   const managerRef = useRef(ManifoldWorkerManager.getInstance())
@@ -250,7 +258,7 @@ export function useManifold(): UseManifoldReturn {
     generatorId: string,
     params: ParameterValues,
     options?: BuildOptions
-  ): Promise<MeshData | null> => {
+  ): Promise<BuildResult | null> => {
     const silent = options?.silent ?? false
     const circularSegments = options?.circularSegments ?? 48
     const manager = managerRef.current
@@ -266,8 +274,9 @@ export function useManifold(): UseManifoldReturn {
       meshCache.delete(cacheKey)
       meshCache.set(cacheKey, cached)
       setMeshData(cached.meshData)
+      setBoundingBox(cached.boundingBox)
       if (!silent) setStatus('ready')
-      return cached.meshData
+      return { meshData: cached.meshData, boundingBox: cached.boundingBox }
     }
 
     if (!silent) {
@@ -287,7 +296,7 @@ export function useManifold(): UseManifoldReturn {
 
       if (import.meta.env.DEV) console.log('Manifold cache miss, building...')
 
-      const result = await new Promise<MeshData | null>((resolve, reject) => {
+      const result = await new Promise<BuildResult | null>((resolve, reject) => {
         manager.registerBuild(buildId, {
           resolve,
           reject,
@@ -326,7 +335,7 @@ export function useManifold(): UseManifoldReturn {
       }
 
       if (import.meta.env.DEV) {
-        console.log('Manifold build complete, vertices:', result.positions.length / 3)
+        console.log('Manifold build complete, vertices:', result.meshData.positions.length / 3)
       }
 
       // LRU eviction: Map maintains insertion order, first key is oldest
@@ -334,9 +343,10 @@ export function useManifold(): UseManifoldReturn {
         const oldestKey = meshCache.keys().next().value
         if (oldestKey) meshCache.delete(oldestKey)
       }
-      meshCache.set(cacheKey, { meshData: result })
+      meshCache.set(cacheKey, { meshData: result.meshData, boundingBox: result.boundingBox })
 
-      setMeshData(result)
+      setMeshData(result.meshData)
+      setBoundingBox(result.boundingBox)
       if (!silent) setStatus('ready')
       return result
 
@@ -352,7 +362,7 @@ export function useManifold(): UseManifoldReturn {
     }
   }, [])
 
-  return { status, error, meshData, timing, build }
+  return { status, error, meshData, boundingBox, timing, build }
 }
 
 // Export for testing

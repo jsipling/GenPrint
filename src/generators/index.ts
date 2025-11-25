@@ -21,5 +21,5 @@ export const generators: Generator[] = [
   gridfinityBinGenerator
 ]
 
-export type { Generator, ManifoldGenerator, ParameterDef, ParameterValues, NumberParameterDef, StringParameterDef, SelectParameterDef, BooleanParameterDef, MeshData } from './types'
+export type { Generator, ManifoldGenerator, ParameterDef, ParameterValues, NumberParameterDef, StringParameterDef, SelectParameterDef, BooleanParameterDef, MeshData, DisplayDimension, BoundingBox } from './types'
 export { isNumberParam, isStringParam, isSelectParam, isBooleanParam, isManifoldGenerator, flattenParameters } from './types'

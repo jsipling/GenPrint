@@ -63,6 +63,27 @@ export function isBooleanParam(param: ParameterDef): param is BooleanParameterDe
 export type ParameterValues = Record<string, number | string | boolean>
 
 /**
+ * Configuration for displaying a parameter value in the dimension overlay.
+ * Used by generators to highlight key functional dimensions.
+ */
+export interface DisplayDimension {
+  /** Label shown in the panel (e.g., "Bore", "Wall") */
+  label: string
+  /** Key into params object. Supports nested paths like "bore.diameter" */
+  param: string
+  /** Optional format string. Use {value} for the value (e.g., "⌀{value}mm") */
+  format?: string
+}
+
+/**
+ * Axis-aligned bounding box computed from Manifold geometry.
+ */
+export interface BoundingBox {
+  min: [number, number, number]
+  max: [number, number, number]
+}
+
+/**
  * Mesh data for direct rendering (bypasses STL parsing)
  */
 export interface MeshData {
@@ -86,6 +107,11 @@ export interface ManifoldGenerator {
    * This allows the worker to look up the correct build function.
    */
   builderId: string
+  /**
+   * Optional list of parameters to display in the dimension overlay panel.
+   * Generators without this field show only the bounding box dimensions.
+   */
+  displayDimensions?: DisplayDimension[]
 }
 
 /**

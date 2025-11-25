@@ -10,7 +10,7 @@ import { buildBox } from '../generators/manifold/boxBuilder'
 import { buildThumbKnob } from '../generators/manifold/thumbKnobBuilder'
 import { buildGear } from '../generators/manifold/gearBuilder'
 import { buildSign } from '../generators/manifold/signBuilder'
-import type { MeshData } from '../generators/types'
+import type { MeshData, BoundingBox } from '../generators/types'
 import type {
   BuildRequest,
   BuildResponse,
@@ -167,6 +167,13 @@ onmessage = async (event: MessageEvent<WorkerMessage>) => {
       // Build the manifold
       const manifold = generator(manifoldModule, params)
 
+      // Get bounding box before cleanup
+      const bbox = manifold.boundingBox()
+      const boundingBox: BoundingBox = {
+        min: [bbox.min[0], bbox.min[1], bbox.min[2]],
+        max: [bbox.max[0], bbox.max[1], bbox.max[2]]
+      }
+
       // Convert to mesh data
       const meshData = manifoldToMeshData(manifold)
 
@@ -183,6 +190,7 @@ onmessage = async (event: MessageEvent<WorkerMessage>) => {
         id,
         success: true,
         meshData,
+        boundingBox,
         timing
       }
 

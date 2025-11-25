@@ -6,6 +6,11 @@ export const washerGenerator: ManifoldGenerator = {
   builderId: 'washer',
   name: 'Washer',
   description: 'A flat ring washer with configurable dimensions.',
+  displayDimensions: [
+    { label: 'OD', param: 'outer_diameter', format: '⌀{value}mm' },
+    { label: 'ID', param: 'inner_diameter', format: '⌀{value}mm' },
+    { label: 'Thick', param: 'thickness' }
+  ],
   parameters: [
     {
       type: 'number',

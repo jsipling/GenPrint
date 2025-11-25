@@ -3,7 +3,7 @@
  * Used by both the worker and the main thread
  */
 
-import type { MeshData, ParameterValues } from '../generators/types'
+import type { MeshData, ParameterValues, BoundingBox } from '../generators/types'
 
 export interface BuildRequest {
   type: 'build'
@@ -18,6 +18,7 @@ export interface BuildResponse {
   id: number
   success: boolean
   meshData?: MeshData
+  boundingBox?: BoundingBox
   error?: string
   timing?: number
 }

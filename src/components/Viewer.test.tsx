@@ -176,3 +176,129 @@ describe('Viewer component', () => {
     // test with mocks. Instead verify the attribute exists and has expected initial value.
   })
 })
+
+describe('DimensionPanel', () => {
+  // Helper to create valid mesh data for tests
+  const createMeshData = () => ({
+    positions: new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]),
+    normals: new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1]),
+    indices: new Uint32Array([0, 1, 2])
+  })
+
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('renders bounding box dimensions correctly', async () => {
+    const { Viewer } = await import('./Viewer')
+    const boundingBox = {
+      min: [0, 0, 0] as [number, number, number],
+      max: [45, 30, 20] as [number, number, number]
+    }
+
+    render(<Viewer isCompiling={false} boundingBox={boundingBox} meshData={createMeshData()} />)
+
+    // Check for the bounding box dimensions (W × D × H)
+    expect(screen.getByText('45 × 30 × 20 mm')).toBeTruthy()
+  })
+
+  it('renders feature dimensions with custom formatting', async () => {
+    const { Viewer } = await import('./Viewer')
+    const displayDimensions = [
+      { label: 'Bore', param: 'boreDiameter', format: '⌀{value}mm' },
+      { label: 'Wall', param: 'wallThickness' }
+    ]
+    const params = { boreDiameter: 8, wallThickness: 2.5 }
+
+    render(
+      <Viewer
+        isCompiling={false}
+        boundingBox={{ min: [0, 0, 0], max: [10, 10, 10] }}
+        displayDimensions={displayDimensions}
+        params={params}
+        meshData={createMeshData()}
+      />
+    )
+
+    // Check for formatted values
+    expect(screen.getByText('⌀8mm')).toBeTruthy()
+    expect(screen.getByText('2.5mm')).toBeTruthy()
+    expect(screen.getByText('Bore')).toBeTruthy()
+    expect(screen.getByText('Wall')).toBeTruthy()
+  })
+
+  it('handles missing displayDimensions gracefully (shows only bounding box)', async () => {
+    const { Viewer } = await import('./Viewer')
+    const boundingBox = {
+      min: [0, 0, 0] as [number, number, number],
+      max: [10, 10, 10] as [number, number, number]
+    }
+
+    render(<Viewer isCompiling={false} boundingBox={boundingBox} meshData={createMeshData()} />)
+
+    // Should show bounding box
+    expect(screen.getByText('10 × 10 × 10 mm')).toBeTruthy()
+
+    // Should not have feature dimension labels
+    expect(screen.queryByText('Bore')).toBeNull()
+    expect(screen.queryByText('Wall')).toBeNull()
+
+    // Should have the dimension panel with header
+    expect(screen.getByText('Dimensions')).toBeTruthy()
+  })
+
+  it('shows loading placeholder when model is loading', async () => {
+    const { Viewer } = await import('./Viewer')
+
+    render(<Viewer isCompiling={true} />)
+
+    // Should show "—" placeholder while loading
+    expect(screen.getByText('—')).toBeTruthy()
+  })
+
+  it('shows loading placeholder when no geometry exists', async () => {
+    const { Viewer } = await import('./Viewer')
+
+    render(<Viewer isCompiling={false} />)
+
+    // Should show "—" placeholder when no geometry
+    expect(screen.getByText('—')).toBeTruthy()
+  })
+
+  it('formats decimal dimensions to 1 decimal place', async () => {
+    const { Viewer } = await import('./Viewer')
+    const boundingBox = {
+      min: [0, 0, 0] as [number, number, number],
+      max: [45.6789, 30.1234, 20.5] as [number, number, number]
+    }
+
+    render(<Viewer isCompiling={false} boundingBox={boundingBox} meshData={createMeshData()} />)
+
+    // Should show 1 decimal place
+    expect(screen.getByText('45.7 × 30.1 × 20.5 mm')).toBeTruthy()
+  })
+
+  it('supports nested param paths like bore.diameter', async () => {
+    const { Viewer } = await import('./Viewer')
+    const displayDimensions = [
+      { label: 'Bore', param: 'bore.diameter', format: '⌀{value}mm' }
+    ]
+    // Note: In practice this would be a nested object, but our simple params
+    // are flat. Test verifies the function handles missing nested paths gracefully.
+    const params = { 'bore.diameter': 8 } // Flat key won't match nested path
+
+    render(
+      <Viewer
+        isCompiling={false}
+        boundingBox={{ min: [0, 0, 0], max: [10, 10, 10] }}
+        displayDimensions={displayDimensions}
+        params={params}
+        meshData={createMeshData()}
+      />
+    )
+
+    // Since bore.diameter isn't a nested object, it won't find the value
+    // and should gracefully not display that feature dimension
+    expect(screen.queryByText('Bore')).toBeNull()
+  })
+})
