@@ -66,7 +66,7 @@ export const boxGenerator: ManifoldGenerator = {
         {
           type: 'number',
           name: 'lid_lip_height',
-          label: 'Lid Lip Depth',
+          label: 'Lid Lip Height',
           min: 2, max: 30, default: 5, step: 0.5, unit: 'mm',
           description: 'How far the lid lip extends into the box'
         }

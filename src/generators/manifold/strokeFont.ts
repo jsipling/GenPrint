@@ -156,13 +156,6 @@ export const STROKE_FONT: Record<string, CharacterPaths> = {
 export const DOTTED_CHARS = ['!', '.']
 
 /**
- * Get character width (all characters are 4 units wide + spacing)
- */
-export function getCharWidth(): number {
-  return 4
-}
-
-/**
  * Get default character spacing factor
  */
 export function getCharSpacing(): number {

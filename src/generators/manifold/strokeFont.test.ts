@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { STROKE_FONT, DOTTED_CHARS, getCharWidth, getCharSpacing } from './strokeFont'
+import { STROKE_FONT, DOTTED_CHARS, getCharSpacing } from './strokeFont'
 
 describe('strokeFont', () => {
   it('defines all uppercase letters A-Z', () => {
@@ -27,10 +27,6 @@ describe('strokeFont', () => {
     expect(DOTTED_CHARS).toContain('!')
     expect(DOTTED_CHARS).toContain('.')
     expect(DOTTED_CHARS).not.toContain('A')
-  })
-
-  it('returns consistent char width', () => {
-    expect(getCharWidth()).toBe(4)
   })
 
   it('returns consistent char spacing', () => {

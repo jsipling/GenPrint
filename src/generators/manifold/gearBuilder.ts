@@ -4,6 +4,7 @@
  */
 
 import type { ManifoldToplevel, Manifold, CrossSection } from 'manifold-3d'
+import { HOLE_CYLINDER_SEGMENTS } from './printingConstants'
 
 interface GearParams {
   teeth: number
@@ -49,7 +50,6 @@ function generateToothProfile(
   outerRadius: number,
   rootRadius: number,
   mod: number,
-  _pressureAngle: number,
   clearance: number,
   tipSharpness: number
 ): [number, number][] {
@@ -151,7 +151,6 @@ function gearProfile(M: ManifoldToplevel, params: GearParams): CrossSection {
     outerRadius,
     rootRadius,
     mod,
-    pressure_angle,
     tolerance,
     tip_sharpness
   )
@@ -212,8 +211,8 @@ export function buildGear(
   const maxBore = Math.max(0, rootDiameter - 4)
   const safeBore = Math.min(boreDiameter, maxBore)
 
-  // Safe hub diameter
-  const safeHubDiameter = Math.max(hubDiameter, safeBore + 4)
+  // Safe hub diameter - must fit bore but not exceed root diameter
+  const safeHubDiameter = Math.min(Math.max(hubDiameter, safeBore + 4), rootDiameter)
 
   const p: GearParams = {
     teeth,
@@ -246,7 +245,7 @@ export function buildGear(
 
   // Bore hole
   if (safeBore > 0) {
-    const bore = M.Manifold.cylinder(height + hubHeight + 2, safeBore / 2, safeBore / 2, 0)
+    const bore = M.Manifold.cylinder(height + hubHeight + 2, safeBore / 2, safeBore / 2, HOLE_CYLINDER_SEGMENTS)
       .translate(0, 0, -1)
 
     const newGear = gear.subtract(bore)

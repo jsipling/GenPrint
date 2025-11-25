@@ -14,9 +14,9 @@ exports[`spacerBuilder > matches geometry snapshot 1`] = `
       0,
     ],
   },
-  "surfaceArea": 1369.4081,
-  "triangleCount": 256,
-  "vertexCount": 128,
-  "volume": 2926.3548,
+  "surfaceArea": 1369.4026,
+  "triangleCount": 192,
+  "vertexCount": 96,
+  "volume": 2930.1034,
 }
 `;

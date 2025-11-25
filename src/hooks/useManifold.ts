@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import type { MeshData, ParameterValues } from '../generators'
+import type { BuildRequest, WorkerResponse } from '../workers/types'
 
 export type ManifoldStatus = 'idle' | 'loading' | 'ready' | 'building' | 'error'
 
@@ -46,34 +47,6 @@ export interface UseManifoldReturn {
   timing: number | null
   build: (generatorId: string, params: ParameterValues, options?: BuildOptions) => Promise<MeshData | null>
 }
-
-interface BuildRequest {
-  type: 'build'
-  id: number
-  generatorId: string
-  params: ParameterValues
-  circularSegments: number
-}
-
-interface BuildResponse {
-  type: 'build-result'
-  id: number
-  success: boolean
-  meshData?: MeshData
-  error?: string
-  timing?: number
-}
-
-interface ReadyMessage {
-  type: 'ready'
-}
-
-interface InitErrorMessage {
-  type: 'init-error'
-  error: string
-}
-
-type WorkerResponse = BuildResponse | ReadyMessage | InitErrorMessage
 
 interface PendingBuild {
   resolve: (data: MeshData | null) => void

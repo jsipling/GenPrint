@@ -4,6 +4,7 @@
  */
 
 import type { ManifoldToplevel, Manifold, CrossSection } from 'manifold-3d'
+import { HOLE_CYLINDER_SEGMENTS } from './printingConstants'
 
 
 // Standard Metric Hex Dimensions (ISO 4014 / DIN 931)
@@ -152,7 +153,7 @@ export function buildThumbKnob(
   knob = newKnob
 
   // Create through hole for screw shaft
-  const throughHole = M.Manifold.cylinder(height + 1, holeD / 2, holeD / 2, 0)
+  const throughHole = M.Manifold.cylinder(height + 1, holeD / 2, holeD / 2, HOLE_CYLINDER_SEGMENTS)
     .translate(0, 0, hexDepth - 0.1)
 
   newKnob = knob.subtract(throughHole)

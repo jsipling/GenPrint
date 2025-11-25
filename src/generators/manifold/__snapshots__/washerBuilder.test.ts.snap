@@ -14,9 +14,9 @@ exports[`washerBuilder > matches geometry snapshot 1`] = `
       0,
     ],
   },
-  "surfaceArea": 253.2448,
-  "triangleCount": 256,
-  "vertexCount": 128,
-  "volume": 126.4185,
+  "surfaceArea": 254.1885,
+  "triangleCount": 192,
+  "vertexCount": 96,
+  "volume": 127.2282,
 }
 `;

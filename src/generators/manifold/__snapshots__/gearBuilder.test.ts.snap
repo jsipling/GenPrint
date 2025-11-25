@@ -14,9 +14,9 @@ exports[`gearBuilder > matches geometry snapshot 1`] = `
       0,
     ],
   },
-  "surfaceArea": 3785.587,
-  "triangleCount": 3968,
-  "vertexCount": 1984,
-  "volume": 9996.2257,
+  "surfaceArea": 3786.298,
+  "triangleCount": 3904,
+  "vertexCount": 1952,
+  "volume": 10005.8221,
 }
 `;

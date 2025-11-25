@@ -4,7 +4,7 @@
  */
 
 import type { ManifoldToplevel, Manifold } from 'manifold-3d'
-import { maxInnerDiameter, MIN_WALL_THICKNESS, printingWarning } from './printingConstants'
+import { maxInnerDiameter, MIN_WALL_THICKNESS, printingWarning, HOLE_CYLINDER_SEGMENTS } from './printingConstants'
 
 interface WasherParams {
   outer_diameter: number
@@ -38,7 +38,7 @@ export function buildWasher(
 
   // Create inner cylinder (through hole)
   const innerRadius = safeInnerD / 2
-  const inner = M.Manifold.cylinder(p.thickness + 0.4, innerRadius, innerRadius, 0)
+  const inner = M.Manifold.cylinder(p.thickness + 0.4, innerRadius, innerRadius, HOLE_CYLINDER_SEGMENTS)
     .translate(0, 0, -0.2)
 
   // Subtract inner from outer

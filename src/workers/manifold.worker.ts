@@ -11,34 +11,13 @@ import { buildThumbKnob } from '../generators/manifold/thumbKnobBuilder'
 import { buildGear } from '../generators/manifold/gearBuilder'
 import { buildSign } from '../generators/manifold/signBuilder'
 import type { MeshData } from '../generators/types'
-
-interface BuildRequest {
-  type: 'build'
-  id: number
-  generatorId: string
-  params: Record<string, number | string | boolean>
-  circularSegments: number
-}
-
-interface BuildResponse {
-  type: 'build-result'
-  id: number
-  success: boolean
-  meshData?: MeshData
-  error?: string
-  timing?: number
-}
-
-interface ReadyMessage {
-  type: 'ready'
-}
-
-interface InitErrorMessage {
-  type: 'init-error'
-  error: string
-}
-
-type WorkerMessage = BuildRequest
+import type {
+  BuildRequest,
+  BuildResponse,
+  ReadyMessage,
+  InitErrorMessage,
+  WorkerMessage
+} from './types'
 
 // Generator registry - maps builder IDs to build functions
 const generatorRegistry = new Map<string, (M: ManifoldToplevel, params: Record<string, number | string | boolean>) => Manifold>([
@@ -228,6 +207,6 @@ onmessage = async (event: MessageEvent<WorkerMessage>) => {
   }
 }
 
-// Export for type checking (used by useManifold)
+// Re-export types for convenience (used by useManifold)
 export type { BuildRequest, BuildResponse, MeshData }
 

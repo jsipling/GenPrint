@@ -14,9 +14,9 @@ exports[`thumbKnobBuilder > matches geometry snapshot 1`] = `
       0,
     ],
   },
-  "surfaceArea": 1879.3411,
-  "triangleCount": 344,
-  "vertexCount": 172,
-  "volume": 4311.5827,
+  "surfaceArea": 1879.7343,
+  "triangleCount": 280,
+  "vertexCount": 140,
+  "volume": 4314.1624,
 }
 `;

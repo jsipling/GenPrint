@@ -4,7 +4,7 @@
  */
 
 import type { ManifoldToplevel, Manifold } from 'manifold-3d'
-import { maxInnerDiameter, MIN_WALL_THICKNESS, printingWarning } from './printingConstants'
+import { maxInnerDiameter, MIN_WALL_THICKNESS, printingWarning, HOLE_CYLINDER_SEGMENTS } from './printingConstants'
 
 interface SpacerParams {
   outer_diameter: number
@@ -38,7 +38,7 @@ export function buildSpacer(
 
   // Create inner cylinder (through hole)
   const innerRadius = safeInnerHole / 2
-  const inner = M.Manifold.cylinder(p.height + 2, innerRadius, innerRadius, 0)
+  const inner = M.Manifold.cylinder(p.height + 2, innerRadius, innerRadius, HOLE_CYLINDER_SEGMENTS)
     .translate(0, 0, -1)
 
   // Subtract inner from outer
