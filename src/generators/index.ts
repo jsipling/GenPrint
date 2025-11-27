@@ -7,6 +7,7 @@ import { washerGenerator } from './washer'
 import { bracketGenerator } from './bracket'
 import { hookGenerator } from './hook'
 import { gridfinityBinGenerator } from './gridfinityBinManifold'
+import { cableClipGenerator } from './cableClip'
 import type { Generator } from './types'
 
 export const generators: Generator[] = [
@@ -18,7 +19,8 @@ export const generators: Generator[] = [
   washerGenerator,
   bracketGenerator,
   hookGenerator,
-  gridfinityBinGenerator
+  gridfinityBinGenerator,
+  cableClipGenerator
 ]
 
 export type { Generator, ManifoldGenerator, ParameterDef, ParameterValues, NumberParameterDef, StringParameterDef, SelectParameterDef, BooleanParameterDef, MeshData, DisplayDimension, BoundingBox } from './types'

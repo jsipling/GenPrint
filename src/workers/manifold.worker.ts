@@ -10,6 +10,7 @@ import { buildBox } from '../generators/manifold/boxBuilder'
 import { buildThumbKnob } from '../generators/manifold/thumbKnobBuilder'
 import { buildGear } from '../generators/manifold/gearBuilder'
 import { buildSign } from '../generators/manifold/signBuilder'
+import { buildCableClip } from '../generators/manifold/cableClipBuilder'
 import { BuilderContext } from '../generators/manifold/fluent/BuilderContext'
 import type { MeshData, BoundingBox } from '../generators/types'
 import type {
@@ -31,7 +32,8 @@ const generatorRegistry = new Map<string, (M: ManifoldToplevel, params: Record<s
   ['thumb_knob', buildThumbKnob],
   ['spur_gear', buildGear],
   ['sign', buildSign],
-  ['gridfinity_bin', buildGridfinityBin]
+  ['gridfinity_bin', buildGridfinityBin],
+  ['cable_clip', buildCableClip]
 ])
 
 let manifoldModule: ManifoldToplevel | null = null
