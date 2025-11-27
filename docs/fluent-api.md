@@ -302,6 +302,135 @@ const rod = cylinder(30, 3).inFrame(leftBankFrame)
 const wristPin = cylinder(5, 2).inFrame(leftBankFrame)
 ```
 
+## Named Parts
+
+Name shapes for debugging and assembly validation.
+
+### .name(name)
+Set a name for this shape (useful for debugging and `findDisconnected`).
+
+```typescript
+const piston = cylinder(20, 5).name('piston_cyl1')
+```
+
+### .getName()
+Get the name of this shape (returns `undefined` if not named).
+
+```typescript
+const name = shape.getName() // 'piston_cyl1' or undefined
+```
+
+## Polar/Cylindrical Positioning
+
+Natural positioning for rotary assemblies (engines, gearboxes, turbines).
+
+### .polar(angle, radius, plane?)
+Position by angle and radius in a plane.
+- `angle` - Angle in degrees
+- `radius` - Distance from origin
+- `plane` - 'xy', 'xz' (default), or 'yz'
+
+```typescript
+// Position crankpin at 90 degrees, 20mm radius in XZ plane
+const pin = cylinder(10, 3).polar(90, 20)
+
+// Position in XY plane
+const bolt = cylinder(5, 2).polar(45, 15, 'xy')
+```
+
+### .cylindrical(angle, radius, height, options?)
+Position by angle, radius, and height (cylindrical coordinates).
+- `angle` - Angle in degrees
+- `radius` - Distance from axis
+- `height` - Position along the axis
+- `options.axis` - 'x', 'y' (default), or 'z'
+
+```typescript
+// Position with height along Y axis (default)
+const pin = cylinder(10, 3).cylindrical(90, 20, 15)
+
+// Position with height along Z axis
+const bolt = cylinder(5, 2).cylindrical(45, 15, 10, { axis: 'z' })
+```
+
+## Assembly Positioning
+
+Tools for positioning parts in assemblies.
+
+### .connectTo(target, options)
+Connect this shape to a target with specified overlap.
+Automatically positions the shape to overlap the target by the specified amount.
+
+```typescript
+const exhaustPipe = cylinder(30, 5)
+  .connectTo(engineBlock, {
+    overlap: 2,         // How much to overlap
+    direction: '-x',    // Which direction to approach from
+    at: [0, 5, 5],      // Where on target to connect
+    alignAxis: 'length' // Align cylinder's length with direction
+  })
+```
+
+Options:
+- `overlap` - How much to overlap with target (mm)
+- `direction` - '-x', '+x', '-y', '+y', '-z', or '+z'
+- `at` - Position on target (default: [0, 0, 0])
+- `alignAxis` - 'length' (default), 'width', 'height', or 'none'
+
+### .snapTo(target, options)
+Snap this shape flush against a target's surface.
+Used for fasteners, bosses, and surface-mounted features.
+
+```typescript
+const bolt = cylinder(10, 3)
+  .snapTo(bracket, {
+    surface: 'top',     // Which surface to snap to
+    at: [5, 5],         // Position on that surface
+    penetrate: 0        // 0 = flush, negative = gap, positive = embed
+  })
+```
+
+Options:
+- `surface` - 'top', 'bottom', 'left', 'right', 'front', or 'back'
+- `at` - Position on surface (2D coordinates in surface plane)
+- `penetrate` - Offset from surface (default: 0)
+
+## Overlap Verification
+
+Debug helpers for complex assemblies.
+
+### .overlaps(other, options?)
+Check if this shape intersects with another shape.
+Does not consume either shape.
+
+```typescript
+if (partA.overlaps(partB, { minVolume: 1 })) {
+  console.log('Parts connect')
+}
+```
+
+Options:
+- `minVolume` - Minimum intersection volume (default: 0.001 mm³)
+
+### .assertConnected()
+Assert that this shape is a single connected body.
+Throws if the shape has disconnected parts.
+Returns `this` for chaining.
+
+```typescript
+const engine = union(...parts).assertConnected()
+// Throws: "Shape has disconnected parts (genus: -7)"
+```
+
+### ctx.findDisconnected(mainBody, parts, options?)
+Find parts that do not overlap with the main body.
+Returns array of part names.
+
+```typescript
+const disconnected = ctx.findDisconnected(block, [piston, rod, sparkPlug])
+// Returns: ['sparkPlug'] if sparkPlug doesn't overlap
+```
+
 ## Attachment Points
 
 Define named points on shapes for automatic positioning.

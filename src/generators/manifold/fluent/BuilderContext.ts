@@ -5,7 +5,7 @@
 import type { ManifoldToplevel, Manifold } from 'manifold-3d'
 import { Shape } from './Shape'
 import { createPrimitives, type Primitives } from './primitives'
-import { createOperations, type Operations } from './operations'
+import { createOperations, type Operations, type FindDisconnectedOptions } from './operations'
 import {
   MIN_WALL_THICKNESS,
   MIN_SMALL_FEATURE,
@@ -144,6 +144,11 @@ export class BuilderContext {
   /** Create a grid array */
   gridArray = (shape: Shape, countX: number, countY: number, spacingX: number, spacingY: number): Shape => {
     return this.ops.gridArray(shape, countX, countY, spacingX, spacingY)
+  }
+
+  /** Find parts that do not overlap with main body */
+  findDisconnected = (mainBody: Shape, parts: Shape[], options?: FindDisconnectedOptions): string[] => {
+    return this.ops.findDisconnected(mainBody, parts, options)
   }
 
   /** Ensure minimum wall thickness */

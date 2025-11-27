@@ -12,6 +12,14 @@ import {
 } from '../printingConstants'
 
 /**
+ * Options for findDisconnected operation
+ */
+export interface FindDisconnectedOptions {
+  /** Minimum intersection volume to consider as connected (default: 0.001 mm³) */
+  minVolume?: number
+}
+
+/**
  * Operations interface for type safety
  */
 export interface Operations {
@@ -24,6 +32,9 @@ export interface Operations {
   linearArray(shape: Shape, count: number, spacing: [number, number, number]): Shape
   polarArray(shape: Shape, count: number, axis?: 'x' | 'y' | 'z'): Shape
   gridArray(shape: Shape, countX: number, countY: number, spacingX: number, spacingY: number): Shape
+
+  // Assembly validation
+  findDisconnected(mainBody: Shape, parts: Shape[], options?: FindDisconnectedOptions): string[]
 
   // Printing constraint helpers
   ensureMinWall(thickness: number): number
@@ -271,6 +282,27 @@ export function createOperations(M: ManifoldToplevel): Operations {
         }
         baseManifold.delete()
       }
+    },
+
+    /**
+     * Find parts that do not overlap with the main body
+     * Does not consume any shapes
+     * @param mainBody - The main shape to check against
+     * @param parts - Array of parts to check
+     * @param options - Configuration options
+     * @returns Array of names of disconnected parts
+     */
+    findDisconnected(mainBody: Shape, parts: Shape[], options?: FindDisconnectedOptions): string[] {
+      const minVolume = options?.minVolume ?? 0.001
+      const disconnected: string[] = []
+
+      for (const part of parts) {
+        if (!mainBody.overlaps(part, { minVolume })) {
+          disconnected.push(part.getName() ?? '<unnamed>')
+        }
+      }
+
+      return disconnected
     },
 
     /**

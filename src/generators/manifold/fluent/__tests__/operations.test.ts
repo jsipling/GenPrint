@@ -153,6 +153,75 @@ describe('operations', () => {
     })
   })
 
+  describe('findDisconnected', () => {
+    it('returns empty array when all parts overlap with main body', () => {
+      const main = p.box(20, 20, 20)
+      const part1 = p.box(5, 5, 5).translate(5, 0, 0).name('part1')
+      const part2 = p.box(5, 5, 5).translate(-5, 0, 0).name('part2')
+
+      const result = ops.findDisconnected(main, [part1, part2])
+      expect(result).toEqual([])
+    })
+
+    it('identifies parts that do not overlap with main body', () => {
+      const main = p.box(20, 20, 20)
+      const connected = p.box(5, 5, 5).translate(5, 0, 0).name('connected')
+      const disconnected = p.box(5, 5, 5).translate(50, 0, 0).name('disconnected')
+
+      const result = ops.findDisconnected(main, [connected, disconnected])
+      expect(result).toEqual(['disconnected'])
+    })
+
+    it('returns unnamed for parts without names', () => {
+      const main = p.box(20, 20, 20)
+      const disconnected = p.box(5, 5, 5).translate(50, 0, 0) // No name
+
+      const result = ops.findDisconnected(main, [disconnected])
+      expect(result).toEqual(['<unnamed>'])
+    })
+
+    it('respects minVolume option', () => {
+      const main = p.box(20, 20, 20)
+      // Barely overlapping - 0.5mm overlap = 0.5 * 5 * 5 = 12.5 mm³
+      const barelyConnected = p.box(5, 5, 5).translate(12.25, 0, 0).name('barelyConnected')
+
+      // With low threshold, should be considered connected
+      const resultLow = ops.findDisconnected(main, [barelyConnected.clone()], { minVolume: 1 })
+      expect(resultLow).toEqual([])
+
+      // With high threshold, should be considered disconnected
+      const resultHigh = ops.findDisconnected(main, [barelyConnected], { minVolume: 100 })
+      expect(resultHigh).toEqual(['barelyConnected'])
+    })
+
+    it('returns multiple disconnected parts', () => {
+      const main = p.box(10, 10, 10)
+      const disc1 = p.box(5, 5, 5).translate(50, 0, 0).name('disc1')
+      const disc2 = p.box(5, 5, 5).translate(-50, 0, 0).name('disc2')
+      const disc3 = p.box(5, 5, 5).translate(0, 50, 0).name('disc3')
+
+      const result = ops.findDisconnected(main, [disc1, disc2, disc3])
+      expect(result).toHaveLength(3)
+      expect(result).toContain('disc1')
+      expect(result).toContain('disc2')
+      expect(result).toContain('disc3')
+    })
+
+    it('does not consume the main body or parts', () => {
+      const main = p.box(20, 20, 20)
+      const part = p.box(5, 5, 5).translate(50, 0, 0).name('part')
+
+      ops.findDisconnected(main, [part])
+
+      // Both should still be usable
+      expect(main.getVolume()).toBeCloseTo(8000, 0)
+      expect(part.getVolume()).toBeCloseTo(125, 0)
+
+      main.delete()
+      part.delete()
+    })
+  })
+
   describe('edge cases', () => {
     it('union() with empty array returns empty geometry', () => {
       const result = ops.union()

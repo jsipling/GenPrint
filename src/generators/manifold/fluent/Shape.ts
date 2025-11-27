@@ -31,6 +31,60 @@ export interface MirrorUnionOptions {
 }
 
 /**
+ * Options for cylindrical positioning
+ */
+export interface CylindricalOptions {
+  /** Axis for height direction (default: 'y') */
+  axis?: 'x' | 'y' | 'z'
+}
+
+/**
+ * Options for overlap checking
+ */
+export interface OverlapOptions {
+  /** Minimum intersection volume to consider as overlap (default: 0.001 mm³) */
+  minVolume?: number
+}
+
+/**
+ * Direction for connectTo operation
+ */
+export type Direction = '-x' | '+x' | '-y' | '+y' | '-z' | '+z'
+
+/**
+ * Options for connectTo operation
+ */
+export interface ConnectToOptions {
+  /** How much to overlap with target (in mm) */
+  overlap: number
+  /** Direction to approach from */
+  direction: Direction
+  /** Position on target to connect to (default: [0, 0, 0]) */
+  at?: [number, number, number]
+  /** Align shape's axis with the connection direction */
+  alignAxis?: 'length' | 'width' | 'height' | 'none'
+  /** Coordinate frame for 'at' (default: 'world') */
+  frame?: 'world' | 'target'
+}
+
+/**
+ * Named surface identifiers for snapTo
+ */
+export type SurfaceName = 'top' | 'bottom' | 'left' | 'right' | 'front' | 'back'
+
+/**
+ * Options for snapTo operation
+ */
+export interface SnapToOptions {
+  /** Surface to snap to (named surface or normal vector) */
+  surface: SurfaceName
+  /** Position on the surface (2D coordinates in surface plane) */
+  at?: [number, number]
+  /** Penetration depth: negative = gap, positive = embed (default: 0) */
+  penetrate?: number
+}
+
+/**
  * Fluent wrapper around Manifold for chainable operations
  * Each operation returns a new Shape and auto-cleans up inputs
  */
@@ -38,11 +92,38 @@ export class Shape {
   private manifold: Manifold
   private M: ManifoldToplevel
   private attachPoints: Map<string, [number, number, number]>
+  private _name?: string
 
-  constructor(M: ManifoldToplevel, manifold: Manifold, attachPoints?: Map<string, [number, number, number]>) {
+  constructor(
+    M: ManifoldToplevel,
+    manifold: Manifold,
+    attachPoints?: Map<string, [number, number, number]>,
+    name?: string
+  ) {
     this.M = M
     this.manifold = manifold
     this.attachPoints = attachPoints ?? new Map()
+    this._name = name
+  }
+
+  // ============================================================
+  // Named Parts
+  // ============================================================
+
+  /**
+   * Set a name for this shape (for debugging and findDisconnected)
+   * @param name - Name to identify this shape
+   */
+  name(name: string): Shape {
+    return new Shape(this.M, this.manifold, this.attachPoints, name)
+  }
+
+  /**
+   * Get the name of this shape
+   * @returns Name or undefined if not named
+   */
+  getName(): string | undefined {
+    return this._name
   }
 
   // ============================================================
@@ -106,7 +187,7 @@ export class Shape {
     for (const [name, point] of this.attachPoints) {
       newPoints.set(name, [point[0] + x, point[1] + y, point[2] + z])
     }
-    return new Shape(this.M, result, newPoints)
+    return new Shape(this.M, result, newPoints, this._name)
   }
 
   /**
@@ -120,7 +201,7 @@ export class Shape {
     for (const [name, point] of this.attachPoints) {
       newPoints.set(name, rotatePoint(point, x, y, z))
     }
-    return new Shape(this.M, result, newPoints)
+    return new Shape(this.M, result, newPoints, this._name)
   }
 
   /**
@@ -140,7 +221,7 @@ export class Shape {
     for (const [name, point] of this.attachPoints) {
       newPoints.set(name, [point[0] * scaleVec[0], point[1] * scaleVec[1], point[2] * scaleVec[2]])
     }
-    return new Shape(this.M, result, newPoints)
+    return new Shape(this.M, result, newPoints, this._name)
   }
 
   /**
@@ -159,7 +240,7 @@ export class Shape {
     for (const [name, point] of this.attachPoints) {
       newPoints.set(name, [point[0] * scaleVec[0], point[1] * scaleVec[1], point[2] * scaleVec[2]])
     }
-    return new Shape(this.M, result, newPoints)
+    return new Shape(this.M, result, newPoints, this._name)
   }
 
   // ============================================================
@@ -363,7 +444,76 @@ export class Shape {
     }
 
     this.manifold.delete()
-    return new Shape(this.M, result, newPoints)
+    return new Shape(this.M, result, newPoints, this._name)
+  }
+
+  // ============================================================
+  // Polar/Cylindrical Positioning
+  // ============================================================
+
+  /**
+   * Position by angle and radius in a plane
+   * Natural for rotary assemblies (engines, gearboxes, turbines)
+   * @param angle - Angle in degrees
+   * @param radius - Distance from origin
+   * @param plane - Plane for polar coordinates (default: 'xz')
+   */
+  polar(angle: number, radius: number, plane: 'xy' | 'xz' | 'yz' = 'xz'): Shape {
+    const rad = angle * Math.PI / 180
+    const cos = Math.cos(rad)
+    const sin = Math.sin(rad)
+
+    let dx = 0, dy = 0, dz = 0
+    switch (plane) {
+      case 'xy':
+        dx = radius * cos
+        dy = radius * sin
+        break
+      case 'xz':
+        dx = radius * sin
+        dz = radius * cos
+        break
+      case 'yz':
+        dy = radius * cos
+        dz = radius * sin
+        break
+    }
+
+    return this.translate(dx, dy, dz)
+  }
+
+  /**
+   * Position by angle, radius, and height (cylindrical coordinates)
+   * Natural for engine geometry where positions are angle + radius + Y offset
+   * @param angle - Angle in degrees
+   * @param radius - Distance from axis
+   * @param height - Position along the axis
+   * @param options - Configuration options
+   */
+  cylindrical(angle: number, radius: number, height: number, options?: CylindricalOptions): Shape {
+    const axis = options?.axis ?? 'y'
+    const rad = angle * Math.PI / 180
+
+    let dx = 0, dy = 0, dz = 0
+    switch (axis) {
+      case 'x': // Height along X, radius in YZ plane
+        dx = height
+        dy = radius * Math.cos(rad)
+        dz = radius * Math.sin(rad)
+        break
+      case 'y': // Height along Y, radius in XZ plane
+        dx = radius * Math.sin(rad)
+        dy = height
+        dz = radius * Math.cos(rad)
+        break
+      case 'z': // Height along Z, radius in XY plane
+        dx = radius * Math.cos(rad)
+        dy = radius * Math.sin(rad)
+        dz = height
+        break
+    }
+
+    return this.translate(dx, dy, dz)
   }
 
   // ============================================================
@@ -416,6 +566,231 @@ export class Shape {
   }
 
   // ============================================================
+  // Assembly Positioning
+  // ============================================================
+
+  /**
+   * Connect this shape to a target with specified overlap
+   * Automatically positions the shape to overlap the target by the specified amount
+   * @param target - Shape to connect to (not consumed)
+   * @param options - Connection options
+   */
+  connectTo(target: Shape, options: ConnectToOptions): Shape {
+    const { overlap, direction, at = [0, 0, 0], alignAxis = 'length' } = options
+
+    // Get target bounding box to find surface positions
+    const targetBbox = target.getBoundingBox()
+
+    // Determine the axis and sign from direction
+    const axis = direction[1] as 'x' | 'y' | 'z'
+    const isNegative = direction[0] === '-'
+
+    // First, optionally rotate to align with direction
+    let shape: Shape = this
+    if (alignAxis === 'length') {
+      // Rotate to align Z axis (length) with the target direction
+      switch (axis) {
+        case 'x':
+          shape = this.rotate(0, isNegative ? -90 : 90, 0)
+          break
+        case 'y':
+          shape = this.rotate(isNegative ? 90 : -90, 0, 0)
+          break
+        case 'z':
+          // Z is already the length axis, just flip if needed
+          if (isNegative) {
+            shape = this.rotate(180, 0, 0)
+          } else {
+            // No rotation needed, but we need to consume the manifold consistently
+            shape = this.translate(0, 0, 0)
+          }
+          break
+      }
+    } else {
+      // No alignment, just consume the manifold consistently
+      shape = this.translate(0, 0, 0)
+    }
+
+    // Get our bounding box after rotation
+    const shapeBbox = shape.getBoundingBox()
+
+    // Calculate translation to position shape
+    let dx = at[0]
+    let dy = at[1]
+    let dz = at[2]
+
+    // Position based on direction
+    switch (direction) {
+      case '-x': {
+        // Position to the left of target, overlapping by `overlap`
+        const targetLeftFace = targetBbox.min[0]
+        const shapeRightFace = shapeBbox.max[0]
+        // We want shapeRightFace to be at targetLeftFace + overlap
+        dx += targetLeftFace + overlap - shapeRightFace
+        break
+      }
+      case '+x': {
+        // Position to the right of target, overlapping by `overlap`
+        const targetRightFace = targetBbox.max[0]
+        const shapeLeftFace = shapeBbox.min[0]
+        dx += targetRightFace - overlap - shapeLeftFace
+        break
+      }
+      case '-y': {
+        const targetFrontFace = targetBbox.min[1]
+        const shapeBackFace = shapeBbox.max[1]
+        dy += targetFrontFace + overlap - shapeBackFace
+        break
+      }
+      case '+y': {
+        const targetBackFace = targetBbox.max[1]
+        const shapeFrontFace = shapeBbox.min[1]
+        dy += targetBackFace - overlap - shapeFrontFace
+        break
+      }
+      case '-z': {
+        const targetBottomFace = targetBbox.min[2]
+        const shapeTopFace = shapeBbox.max[2]
+        dz += targetBottomFace + overlap - shapeTopFace
+        break
+      }
+      case '+z': {
+        const targetTopFace = targetBbox.max[2]
+        const shapeBottomFace = shapeBbox.min[2]
+        dz += targetTopFace - overlap - shapeBottomFace
+        break
+      }
+    }
+
+    return shape.translate(dx, dy, dz)
+  }
+
+  /**
+   * Snap this shape flush against a target's surface
+   * Used for fasteners, bosses, and surface-mounted features
+   * @param target - Shape to snap to (not consumed)
+   * @param options - Snap options
+   */
+  snapTo(target: Shape, options: SnapToOptions): Shape {
+    const { surface, at = [0, 0], penetrate = 0 } = options
+
+    // Get target bounding box
+    const targetBbox = target.getBoundingBox()
+
+    // Get our bounding box
+    const shapeBbox = this.getBoundingBox()
+
+    // Calculate translation based on surface
+    let dx = 0, dy = 0, dz = 0
+
+    switch (surface) {
+      case 'top': {
+        // Place on top surface (Z max)
+        const targetTop = targetBbox.max[2]
+        const shapeBottom = shapeBbox.min[2]
+        dx = at[0]
+        dy = at[1]
+        dz = targetTop - shapeBottom - penetrate
+        break
+      }
+      case 'bottom': {
+        // Place on bottom surface (Z min)
+        const targetBottom = targetBbox.min[2]
+        const shapeTop = shapeBbox.max[2]
+        dx = at[0]
+        dy = at[1]
+        dz = targetBottom - shapeTop + penetrate
+        break
+      }
+      case 'right': {
+        // Place on right surface (X max)
+        const targetRight = targetBbox.max[0]
+        const shapeLeft = shapeBbox.min[0]
+        dx = targetRight - shapeLeft - penetrate
+        dy = at[0]
+        dz = at[1]
+        break
+      }
+      case 'left': {
+        // Place on left surface (X min)
+        const targetLeft = targetBbox.min[0]
+        const shapeRight = shapeBbox.max[0]
+        dx = targetLeft - shapeRight + penetrate
+        dy = at[0]
+        dz = at[1]
+        break
+      }
+      case 'front': {
+        // Place on front surface (Y max)
+        const targetFront = targetBbox.max[1]
+        const shapeBack = shapeBbox.min[1]
+        dx = at[0]
+        dy = targetFront - shapeBack - penetrate
+        dz = at[1]
+        break
+      }
+      case 'back': {
+        // Place on back surface (Y min)
+        const targetBack = targetBbox.min[1]
+        const shapeFront = shapeBbox.max[1]
+        dx = at[0]
+        dy = targetBack - shapeFront + penetrate
+        dz = at[1]
+        break
+      }
+    }
+
+    return this.translate(dx, dy, dz)
+  }
+
+  // ============================================================
+  // Overlap Verification
+  // ============================================================
+
+  /**
+   * Check if this shape overlaps with another shape
+   * Does not consume either shape
+   * @param other - Shape to check overlap with
+   * @param options - Configuration options
+   * @returns true if shapes intersect with at least minVolume
+   */
+  overlaps(other: Shape, options?: OverlapOptions): boolean {
+    const minVolume = options?.minVolume ?? 0.001
+
+    // Clone both manifolds to avoid consuming them
+    const thisClone = this.manifold.translate(0, 0, 0)
+    const otherClone = other.manifold.translate(0, 0, 0)
+
+    try {
+      const intersection = thisClone.intersect(otherClone)
+      const volume = intersection.volume()
+      intersection.delete()
+      return volume >= minVolume
+    } finally {
+      thisClone.delete()
+      otherClone.delete()
+    }
+  }
+
+  /**
+   * Assert that this shape is a single connected body
+   * Throws if the shape has disconnected parts
+   * @returns this for chaining
+   */
+  assertConnected(): this {
+    // A connected shape has genus >= 0
+    // Disconnected shapes (multiple disjoint bodies) have negative genus
+    const genus = this.manifold.genus()
+
+    if (genus < 0) {
+      const name = this._name ? `"${this._name}"` : 'Shape'
+      throw new Error(`${name} has disconnected parts (genus: ${genus}). Ensure all components overlap.`)
+    }
+
+    return this
+  }
+
+  // ============================================================
   // Utilities
   // ============================================================
 
@@ -427,7 +802,7 @@ export class Shape {
     const copy = this.manifold.translate(0, 0, 0)
     // Clone attach points
     const newPoints = new Map(this.attachPoints)
-    return new Shape(this.M, copy, newPoints)
+    return new Shape(this.M, copy, newPoints, this._name)
   }
 
   /**

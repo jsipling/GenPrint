@@ -396,6 +396,587 @@ describe('Shape', () => {
     })
   })
 
+  describe('snapTo', () => {
+    it('places shape flush against top surface', () => {
+      const base = new Shape(M, M.Manifold.cube([20, 20, 10], true))
+      const bolt = new Shape(M, M.Manifold.cylinder(10, 3, 3, 16))
+
+      const snapped = bolt.snapTo(base, {
+        surface: 'top',
+        at: [0, 0]
+      })
+
+      // Bolt bottom should be at top of base (z=5)
+      const bbox = snapped.getBoundingBox()
+      expect(bbox.min[2]).toBeCloseTo(5, 1)
+
+      base.delete()
+      snapped.delete()
+    })
+
+    it('places shape flush against bottom surface', () => {
+      const base = new Shape(M, M.Manifold.cube([20, 20, 10], true))
+      const bolt = new Shape(M, M.Manifold.cylinder(10, 3, 3, 16))
+
+      const snapped = bolt.snapTo(base, {
+        surface: 'bottom',
+        at: [0, 0]
+      })
+
+      // Bolt top should be at bottom of base (z=-5)
+      const bbox = snapped.getBoundingBox()
+      expect(bbox.max[2]).toBeCloseTo(-5, 1)
+
+      base.delete()
+      snapped.delete()
+    })
+
+    it('places shape at specified position on surface', () => {
+      const base = new Shape(M, M.Manifold.cube([20, 20, 10], true))
+      const bolt = new Shape(M, M.Manifold.cylinder(10, 3, 3, 16))
+
+      const snapped = bolt.snapTo(base, {
+        surface: 'top',
+        at: [5, 5]
+      })
+
+      // Bolt should be centered at x=5, y=5
+      const bbox = snapped.getBoundingBox()
+      const centerX = (bbox.min[0] + bbox.max[0]) / 2
+      const centerY = (bbox.min[1] + bbox.max[1]) / 2
+      expect(centerX).toBeCloseTo(5, 1)
+      expect(centerY).toBeCloseTo(5, 1)
+
+      base.delete()
+      snapped.delete()
+    })
+
+    it('penetrate positive embeds shape into target', () => {
+      const base = new Shape(M, M.Manifold.cube([20, 20, 10], true))
+      const pin = new Shape(M, M.Manifold.cylinder(5, 2, 2, 16))
+
+      const snapped = pin.snapTo(base, {
+        surface: 'top',
+        at: [0, 0],
+        penetrate: 2
+      })
+
+      // Pin bottom should be 2mm into surface (z = 5 - 2 = 3)
+      const bbox = snapped.getBoundingBox()
+      expect(bbox.min[2]).toBeCloseTo(3, 1)
+
+      base.delete()
+      snapped.delete()
+    })
+
+    it('penetrate negative creates gap', () => {
+      const base = new Shape(M, M.Manifold.cube([20, 20, 10], true))
+      const washer = new Shape(M, M.Manifold.cylinder(1, 5, 5, 16))
+
+      const snapped = washer.snapTo(base, {
+        surface: 'top',
+        at: [0, 0],
+        penetrate: -0.5
+      })
+
+      // Washer bottom should be 0.5mm above surface (z = 5 + 0.5 = 5.5)
+      const bbox = snapped.getBoundingBox()
+      expect(bbox.min[2]).toBeCloseTo(5.5, 1)
+
+      base.delete()
+      snapped.delete()
+    })
+
+    it('snaps to right surface', () => {
+      const base = new Shape(M, M.Manifold.cube([20, 20, 10], true))
+      const post = new Shape(M, M.Manifold.cylinder(8, 2, 2, 16))
+
+      const snapped = post.snapTo(base, {
+        surface: 'right',
+        at: [0, 0]
+      })
+
+      // Post should be flush against right face (x=10)
+      const bbox = snapped.getBoundingBox()
+      expect(bbox.min[0]).toBeCloseTo(10, 1)
+
+      base.delete()
+      snapped.delete()
+    })
+
+    it('snaps to left surface', () => {
+      const base = new Shape(M, M.Manifold.cube([20, 20, 10], true))
+      const post = new Shape(M, M.Manifold.cylinder(8, 2, 2, 16))
+
+      const snapped = post.snapTo(base, {
+        surface: 'left',
+        at: [0, 0]
+      })
+
+      // Post should be flush against left face (x=-10)
+      const bbox = snapped.getBoundingBox()
+      expect(bbox.max[0]).toBeCloseTo(-10, 1)
+
+      base.delete()
+      snapped.delete()
+    })
+
+    it('preserves name through snapTo', () => {
+      const base = new Shape(M, M.Manifold.cube([20, 20, 10], true))
+      const bolt = new Shape(M, M.Manifold.cylinder(10, 3, 3, 16)).name('myBolt')
+
+      const snapped = bolt.snapTo(base, {
+        surface: 'top',
+        at: [0, 0]
+      })
+
+      expect(snapped.getName()).toBe('myBolt')
+
+      base.delete()
+      snapped.delete()
+    })
+
+    it('preserves attach points through snapTo', () => {
+      const base = new Shape(M, M.Manifold.cube([20, 20, 10], true))
+      const bolt = new Shape(M, M.Manifold.cylinder(10, 3, 3, 16))
+        .definePoint('tip', [0, 0, 5])
+
+      const snapped = bolt.snapTo(base, {
+        surface: 'top',
+        at: [0, 0]
+      })
+
+      const tipPoint = snapped.getPoint('tip')
+      expect(tipPoint).toBeDefined()
+
+      base.delete()
+      snapped.delete()
+    })
+  })
+
+  describe('connectTo', () => {
+    it('positions shape to overlap target from -x direction', () => {
+      const target = new Shape(M, M.Manifold.cube([20, 20, 20], true))
+      const pipe = new Shape(M, M.Manifold.cylinder(30, 5, 5, 16))
+
+      const connected = pipe.connectTo(target, {
+        overlap: 2,
+        direction: '-x'
+      })
+
+      // Cylinder should be positioned so its right end overlaps into target by 2mm
+      // Target's left face is at x=-10, so pipe's right end should be at x=-10+2=-8
+      const bbox = connected.getBoundingBox()
+      expect(bbox.max[0]).toBeCloseTo(-8, 1)
+      // Pipe length is 30, center is at z=15 for cylinder, so extends from -15 to 15 in Z when rotated
+      expect(bbox.max[0] - bbox.min[0]).toBeCloseTo(30, 1) // Length along X after align
+
+      target.delete()
+      connected.delete()
+    })
+
+    it('positions shape to overlap target from +x direction', () => {
+      const target = new Shape(M, M.Manifold.cube([20, 20, 20], true))
+      const pipe = new Shape(M, M.Manifold.cylinder(30, 5, 5, 16))
+
+      const connected = pipe.connectTo(target, {
+        overlap: 2,
+        direction: '+x'
+      })
+
+      // Pipe's left end should be at target's right face + overlap
+      // Target's right face is at x=10, so pipe's left end should be at x=10-2=8
+      const bbox = connected.getBoundingBox()
+      expect(bbox.min[0]).toBeCloseTo(8, 1)
+
+      target.delete()
+      connected.delete()
+    })
+
+    it('positions shape to overlap target from -z direction', () => {
+      const target = new Shape(M, M.Manifold.cube([20, 20, 20], true))
+      const pipe = new Shape(M, M.Manifold.cylinder(30, 5, 5, 16))
+
+      const connected = pipe.connectTo(target, {
+        overlap: 3,
+        direction: '-z'
+      })
+
+      // Pipe extends from target's bottom face (-10) with 3mm overlap
+      const bbox = connected.getBoundingBox()
+      // Cylinder is already aligned along Z, so top should be at -10+3=-7
+      expect(bbox.max[2]).toBeCloseTo(-7, 1)
+
+      target.delete()
+      connected.delete()
+    })
+
+    it('positions at specified location on target', () => {
+      const target = new Shape(M, M.Manifold.cube([20, 20, 20], true))
+      const pipe = new Shape(M, M.Manifold.cylinder(30, 5, 5, 16))
+
+      const connected = pipe.connectTo(target, {
+        overlap: 2,
+        direction: '-x',
+        at: [0, 5, 5] // Offset from center
+      })
+
+      // Pipe should be centered at y=5, z=5
+      const bbox = connected.getBoundingBox()
+      const centerY = (bbox.min[1] + bbox.max[1]) / 2
+      const centerZ = (bbox.min[2] + bbox.max[2]) / 2
+      expect(centerY).toBeCloseTo(5, 1)
+      expect(centerZ).toBeCloseTo(5, 1)
+
+      target.delete()
+      connected.delete()
+    })
+
+    it('connectTo without alignAxis keeps original orientation for Z direction', () => {
+      const target = new Shape(M, M.Manifold.cube([20, 20, 20], true))
+      const pipe = new Shape(M, M.Manifold.cylinder(30, 5, 5, 16)) // Z-oriented
+
+      const connected = pipe.connectTo(target, {
+        overlap: 2,
+        direction: '-z'
+      })
+
+      // Pipe should stay Z-oriented (height along Z)
+      const bbox = connected.getBoundingBox()
+      const zDim = bbox.max[2] - bbox.min[2]
+      expect(zDim).toBeCloseTo(30, 1) // Length is 30
+
+      target.delete()
+      connected.delete()
+    })
+
+    it('alignAxis rotates shape to align with direction', () => {
+      const target = new Shape(M, M.Manifold.cube([20, 20, 20], true))
+      // Cylinder starts with height along Z
+      const pipe = new Shape(M, M.Manifold.cylinder(30, 5, 5, 16))
+
+      const connected = pipe.connectTo(target, {
+        overlap: 2,
+        direction: '-x',
+        alignAxis: 'length' // Align length (Z) to be along X
+      })
+
+      // After alignment, X dimension should be ~30 (the length)
+      const bbox = connected.getBoundingBox()
+      const xDim = bbox.max[0] - bbox.min[0]
+      expect(xDim).toBeCloseTo(30, 1)
+
+      target.delete()
+      connected.delete()
+    })
+
+    it('preserves attach points through connectTo', () => {
+      const target = new Shape(M, M.Manifold.cube([20, 20, 20], true))
+      const pipe = new Shape(M, M.Manifold.cylinder(30, 5, 5, 16))
+        .definePoint('tip', [0, 0, 15])
+
+      const connected = pipe.connectTo(target, {
+        overlap: 2,
+        direction: '-z'
+      })
+
+      // Tip point should be transformed
+      const tipPoint = connected.getPoint('tip')
+      expect(tipPoint).toBeDefined()
+
+      target.delete()
+      connected.delete()
+    })
+
+    it('preserves name through connectTo', () => {
+      const target = new Shape(M, M.Manifold.cube([20, 20, 20], true))
+      const pipe = new Shape(M, M.Manifold.cylinder(30, 5, 5, 16)).name('myPipe')
+
+      const connected = pipe.connectTo(target, {
+        overlap: 2,
+        direction: '-x'
+      })
+
+      expect(connected.getName()).toBe('myPipe')
+
+      target.delete()
+      connected.delete()
+    })
+  })
+
+  describe('overlap verification', () => {
+    it('overlaps() returns true for intersecting shapes', () => {
+      const a = new Shape(M, M.Manifold.cube([10, 10, 10], true))
+      const b = new Shape(M, M.Manifold.cube([10, 10, 10], true).translate(5, 0, 0))
+      expect(a.clone().overlaps(b.clone())).toBe(true)
+      a.delete()
+      b.delete()
+    })
+
+    it('overlaps() returns false for disjoint shapes', () => {
+      const a = new Shape(M, M.Manifold.cube([10, 10, 10], true))
+      const b = new Shape(M, M.Manifold.cube([10, 10, 10], true).translate(20, 0, 0))
+      expect(a.clone().overlaps(b.clone())).toBe(false)
+      a.delete()
+      b.delete()
+    })
+
+    it('overlaps() respects minVolume threshold', () => {
+      // Two cubes with small overlap
+      const a = new Shape(M, M.Manifold.cube([10, 10, 10], true))
+      const b = new Shape(M, M.Manifold.cube([10, 10, 10], true).translate(9.5, 0, 0))
+      // Overlap is 0.5 * 10 * 10 = 50 mm³
+      expect(a.clone().overlaps(b.clone(), { minVolume: 10 })).toBe(true)
+      expect(a.clone().overlaps(b.clone(), { minVolume: 100 })).toBe(false)
+      a.delete()
+      b.delete()
+    })
+
+    it('overlaps() uses default minVolume of 0.001', () => {
+      const a = new Shape(M, M.Manifold.cube([10, 10, 10], true))
+      const b = new Shape(M, M.Manifold.cube([10, 10, 10], true).translate(5, 0, 0))
+      // With default threshold, should detect overlap
+      expect(a.clone().overlaps(b.clone())).toBe(true)
+      a.delete()
+      b.delete()
+    })
+
+    it('overlaps() does not consume input shapes', () => {
+      const a = new Shape(M, M.Manifold.cube([10, 10, 10], true))
+      const b = new Shape(M, M.Manifold.cube([10, 10, 10], true))
+      a.overlaps(b)
+      // Both shapes should still be usable
+      expect(a.getVolume()).toBeCloseTo(1000, 0)
+      expect(b.getVolume()).toBeCloseTo(1000, 0)
+      a.delete()
+      b.delete()
+    })
+
+    it('assertConnected() passes for single connected body', () => {
+      const shape = new Shape(M, M.Manifold.cube([10, 10, 10], true))
+      expect(() => shape.assertConnected()).not.toThrow()
+      shape.delete()
+    })
+
+    it('assertConnected() throws for disconnected geometry', () => {
+      // Create two disjoint cubes using union
+      const cube1 = M.Manifold.cube([5, 5, 5], true)
+      const cube2 = M.Manifold.cube([5, 5, 5], true).translate(20, 0, 0)
+      const disjoint = M.Manifold.union([cube1, cube2])
+      cube1.delete()
+      cube2.delete()
+
+      const shape = new Shape(M, disjoint)
+      expect(() => shape.assertConnected()).toThrow(/disconnected/i)
+      shape.delete()
+    })
+
+    it('assertConnected() returns self for chaining when connected', () => {
+      const shape = new Shape(M, M.Manifold.cube([10, 10, 10], true))
+      const result = shape.assertConnected()
+      expect(result).toBe(shape)
+      shape.delete()
+    })
+  })
+
+  describe('named parts', () => {
+    it('name() sets shape name', () => {
+      const shape = new Shape(M, M.Manifold.cube([10, 10, 10], true)).name('myPart')
+      expect(shape.getName()).toBe('myPart')
+      shape.delete()
+    })
+
+    it('getName() returns undefined for unnamed shapes', () => {
+      const shape = new Shape(M, M.Manifold.cube([10, 10, 10], true))
+      expect(shape.getName()).toBeUndefined()
+      shape.delete()
+    })
+
+    it('name is preserved through translate', () => {
+      const shape = new Shape(M, M.Manifold.cube([10, 10, 10], true))
+        .name('myPart')
+        .translate(5, 0, 0)
+      expect(shape.getName()).toBe('myPart')
+      shape.delete()
+    })
+
+    it('name is preserved through rotate', () => {
+      const shape = new Shape(M, M.Manifold.cube([10, 10, 10], true))
+        .name('myPart')
+        .rotate(45, 0, 0)
+      expect(shape.getName()).toBe('myPart')
+      shape.delete()
+    })
+
+    it('name is preserved through scale', () => {
+      const shape = new Shape(M, M.Manifold.cube([10, 10, 10], true))
+        .name('myPart')
+        .scale(2)
+      expect(shape.getName()).toBe('myPart')
+      shape.delete()
+    })
+
+    it('name is preserved through mirror', () => {
+      const shape = new Shape(M, M.Manifold.cube([10, 10, 10], true))
+        .name('myPart')
+        .mirror('x')
+      expect(shape.getName()).toBe('myPart')
+      shape.delete()
+    })
+
+    it('name is preserved through inFrame', () => {
+      const shape = new Shape(M, M.Manifold.cube([10, 10, 10], true))
+        .name('myPart')
+        .inFrame({ translate: [5, 0, 0] })
+      expect(shape.getName()).toBe('myPart')
+      shape.delete()
+    })
+
+    it('name is preserved through polar', () => {
+      const shape = new Shape(M, M.Manifold.cube([10, 10, 10], true))
+        .name('myPart')
+        .polar(45, 10)
+      expect(shape.getName()).toBe('myPart')
+      shape.delete()
+    })
+
+    it('name is preserved through cylindrical', () => {
+      const shape = new Shape(M, M.Manifold.cube([10, 10, 10], true))
+        .name('myPart')
+        .cylindrical(45, 10, 5)
+      expect(shape.getName()).toBe('myPart')
+      shape.delete()
+    })
+
+    it('name can be changed', () => {
+      const shape = new Shape(M, M.Manifold.cube([10, 10, 10], true))
+        .name('first')
+        .name('second')
+      expect(shape.getName()).toBe('second')
+      shape.delete()
+    })
+
+    it('clone preserves name', () => {
+      const original = new Shape(M, M.Manifold.cube([10, 10, 10], true)).name('myPart')
+      const cloned = original.clone()
+      expect(cloned.getName()).toBe('myPart')
+      original.delete()
+      cloned.delete()
+    })
+  })
+
+  describe('polar positioning', () => {
+    it('polar() positions in XZ plane by default', () => {
+      const part = new Shape(M, M.Manifold.cube([2, 2, 2], true)).polar(90, 10)
+      const bbox = part.getBoundingBox()
+      // At 90 degrees in XZ plane: x = 10*sin(90) = 10, z = 10*cos(90) = 0
+      expect(bbox.min[0] + bbox.max[0]).toBeCloseTo(20, 0) // Centered at x=10
+      expect(bbox.min[2] + bbox.max[2]).toBeCloseTo(0, 0)  // Centered at z=0
+      part.delete()
+    })
+
+    it('polar() at 0 degrees positions along Z axis', () => {
+      const part = new Shape(M, M.Manifold.cube([2, 2, 2], true)).polar(0, 10)
+      const bbox = part.getBoundingBox()
+      // At 0 degrees in XZ plane: x = 10*sin(0) = 0, z = 10*cos(0) = 10
+      expect(bbox.min[0] + bbox.max[0]).toBeCloseTo(0, 0)  // Centered at x=0
+      expect(bbox.min[2] + bbox.max[2]).toBeCloseTo(20, 0) // Centered at z=10
+      part.delete()
+    })
+
+    it('polar() positions in XY plane when specified', () => {
+      const part = new Shape(M, M.Manifold.cube([2, 2, 2], true)).polar(90, 10, 'xy')
+      const bbox = part.getBoundingBox()
+      // At 90 degrees in XY plane: x = 10*cos(90) = 0, y = 10*sin(90) = 10
+      expect(bbox.min[0] + bbox.max[0]).toBeCloseTo(0, 0)  // Centered at x=0
+      expect(bbox.min[1] + bbox.max[1]).toBeCloseTo(20, 0) // Centered at y=10
+      part.delete()
+    })
+
+    it('polar() positions in YZ plane when specified', () => {
+      const part = new Shape(M, M.Manifold.cube([2, 2, 2], true)).polar(90, 10, 'yz')
+      const bbox = part.getBoundingBox()
+      // At 90 degrees in YZ plane: y = 10*cos(90) = 0, z = 10*sin(90) = 10
+      expect(bbox.min[1] + bbox.max[1]).toBeCloseTo(0, 0)  // Centered at y=0
+      expect(bbox.min[2] + bbox.max[2]).toBeCloseTo(20, 0) // Centered at z=10
+      part.delete()
+    })
+
+    it('polar() preserves attach points', () => {
+      const part = new Shape(M, M.Manifold.cube([2, 2, 2], true))
+        .definePoint('center', [0, 0, 0])
+        .polar(90, 10)
+      // Point should be at x=10, z=0
+      const point = part.getPoint('center')!
+      expect(point[0]).toBeCloseTo(10, 1)
+      expect(point[2]).toBeCloseTo(0, 1)
+      part.delete()
+    })
+  })
+
+  describe('cylindrical positioning', () => {
+    it('cylindrical() positions with height along Y by default', () => {
+      const part = new Shape(M, M.Manifold.cube([2, 2, 2], true)).cylindrical(0, 10, 5)
+      const bbox = part.getBoundingBox()
+      // At 0 degrees, Y-axis cylindrical: x = 10*sin(0) = 0, y = 5, z = 10*cos(0) = 10
+      expect(bbox.min[0] + bbox.max[0]).toBeCloseTo(0, 0)  // Centered at x=0
+      expect(bbox.min[1] + bbox.max[1]).toBeCloseTo(10, 0) // Centered at y=5 (height)
+      expect(bbox.min[2] + bbox.max[2]).toBeCloseTo(20, 0) // Centered at z=10 (radius)
+      part.delete()
+    })
+
+    it('cylindrical() at 90 degrees positions in XZ plane', () => {
+      const part = new Shape(M, M.Manifold.cube([2, 2, 2], true)).cylindrical(90, 10, 5)
+      const bbox = part.getBoundingBox()
+      // At 90 degrees, Y-axis cylindrical: x = 10*sin(90) = 10, y = 5, z = 10*cos(90) = 0
+      expect(bbox.min[0] + bbox.max[0]).toBeCloseTo(20, 0) // Centered at x=10
+      expect(bbox.min[1] + bbox.max[1]).toBeCloseTo(10, 0) // Centered at y=5 (height)
+      expect(bbox.min[2] + bbox.max[2]).toBeCloseTo(0, 0)  // Centered at z=0
+      part.delete()
+    })
+
+    it('cylindrical() with axis z positions in XY plane', () => {
+      const part = new Shape(M, M.Manifold.cube([2, 2, 2], true)).cylindrical(0, 10, 5, { axis: 'z' })
+      const bbox = part.getBoundingBox()
+      // At 0 degrees, Z-axis cylindrical: x = 10*cos(0) = 10, y = 10*sin(0) = 0, z = 5
+      expect(bbox.min[0] + bbox.max[0]).toBeCloseTo(20, 0) // Centered at x=10
+      expect(bbox.min[1] + bbox.max[1]).toBeCloseTo(0, 0)  // Centered at y=0
+      expect(bbox.min[2] + bbox.max[2]).toBeCloseTo(10, 0) // Centered at z=5 (height)
+      part.delete()
+    })
+
+    it('cylindrical() with axis x positions in YZ plane', () => {
+      const part = new Shape(M, M.Manifold.cube([2, 2, 2], true)).cylindrical(0, 10, 5, { axis: 'x' })
+      const bbox = part.getBoundingBox()
+      // At 0 degrees, X-axis cylindrical: x = 5 (height), y = 10*cos(0) = 10, z = 10*sin(0) = 0
+      expect(bbox.min[0] + bbox.max[0]).toBeCloseTo(10, 0) // Centered at x=5 (height)
+      expect(bbox.min[1] + bbox.max[1]).toBeCloseTo(20, 0) // Centered at y=10
+      expect(bbox.min[2] + bbox.max[2]).toBeCloseTo(0, 0)  // Centered at z=0
+      part.delete()
+    })
+
+    it('cylindrical() chains with other transforms', () => {
+      const part = new Shape(M, M.Manifold.cube([2, 2, 2], true))
+        .cylindrical(45, 20, 10)
+        .rotate(0, 45, 0)
+
+      expectValid(part.build())
+      part.delete()
+    })
+
+    it('cylindrical() preserves attach points', () => {
+      const part = new Shape(M, M.Manifold.cube([2, 2, 2], true))
+        .definePoint('center', [0, 0, 0])
+        .cylindrical(90, 10, 5)
+      // Point should be at x=10, y=5, z=0
+      const point = part.getPoint('center')!
+      expect(point[0]).toBeCloseTo(10, 1)
+      expect(point[1]).toBeCloseTo(5, 1)
+      expect(point[2]).toBeCloseTo(0, 1)
+      part.delete()
+    })
+  })
+
   describe('attach points', () => {
     it('definePoint() stores named attachment point', () => {
       const cube = new Shape(M, M.Manifold.cube([10, 10, 10], true))
