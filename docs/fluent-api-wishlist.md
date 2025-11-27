@@ -13,6 +13,13 @@ The following features from the original wishlist have been implemented:
 - **Snap-to-Surface Positioning** - `snapTo()` method
 - **Polar/Cylindrical Positioning** - `polar()` and `cylindrical()` methods
 - **Named Parts** - `name()`, `getName()`, `getTrackedParts()`, `getTrackedPartClones()`
+- **2D Sketch Builder** - `Sketch` class with `rectangle()`, `circle()`, `polygon()`, `slot()`, booleans, `roundCorners()`, `extrude()`, `revolve()`
+- **Chamfers and Fillets** - `chamferTop()`, `chamferBottom()`, `chamferBoth()`, `filletTop()`, `filletBottom()`, `filletBoth()`, `chamferTopEdges()`
+- **Align Helper** - `align()` and `alignTo()` for bounding-box alignment
+- **Consumption Safety** - `isConsumed()` with clear error messages suggesting `.clone()`
+- **Colors** - `color()` and `getColor()` for visual debugging
+- **Debug/Inspect** - `inspect()` for console stats, `debug()` for STL export
+- **Hull Operation** - `hull()` for 3D convex hull, `Sketch.hull()` for 2D
 
 See [fluent-api.md](./fluent-api.md) for documentation.
 
@@ -130,38 +137,7 @@ const conduit = sweep(
 
 ---
 
-### 4. 2D Profile Operations
-
-**Problem:** Complex extrusion profiles need boolean operations before extruding.
-
-**Proposed:**
-```typescript
-// Basic CSG on 2D profiles
-const profile = union2d(
-  rectProfile(width, height),
-  circleProfile(radius).translate2d(x, y)
-)
-
-const holedPlate = difference2d(
-  rectProfile(50, 30),
-  circleProfile(5).translate2d(10, 10),
-  circleProfile(5).translate2d(40, 10)
-)
-
-extrude(holedPlate, depth)
-```
-
-**Benefits:**
-- Complex extrusions without 3D boolean overhead
-- Cleaner geometry (single extrusion vs. union of extrusions)
-
-**Implementation Notes:**
-- Start with basic CSG (union, difference, intersection)
-- Defer fillet/chamfer on 2D profiles (geometrically complex)
-
----
-
-### 5. Clearance/Interference Checking
+### 4. Clearance/Interference Checking
 
 **Problem:** Moving assemblies (pistons in bores) need clearance verification.
 
@@ -197,7 +173,6 @@ assembly.validateClearances({
 | Pattern Callback | ~20% | Medium | Medium | Variable patterns |
 | Loft | N/A | Medium | High | Transitions, rods |
 | Path Sweep | N/A | Medium | High | Curved parts, piping |
-| 2D Profiles | ~10% | Low | Medium | Complex extrusions |
 | Clearance Check | N/A | Medium | Medium | Moving assemblies |
 
 ---
@@ -207,10 +182,9 @@ assembly.validateClearances({
 | Phase | Features | Rationale |
 |-------|----------|-----------|
 | 1 | Pattern Callback | Builds on existing positioning helpers. |
-| 2 | 2D Profile Operations | Medium effort, cleaner extrusions. |
-| 3 | Loft | Higher effort, depends on Manifold capabilities. |
-| 4 | Path Sweep | Arc sweep first, then bezier/polyline. |
-| 5 | Clearance Checking | Useful but less critical than connectivity. |
+| 2 | Loft | Higher effort, depends on Manifold capabilities. |
+| 3 | Path Sweep | Arc sweep first, then bezier/polyline. |
+| 4 | Clearance Checking | Useful but less critical than connectivity. |
 
 ---
 
