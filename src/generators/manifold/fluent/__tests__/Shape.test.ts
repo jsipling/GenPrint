@@ -145,6 +145,33 @@ describe('Shape', () => {
       expect(pattern.getVolume()).toBeCloseTo(originalVolume, 0)
       pattern.delete()
     })
+
+    it('linearPattern() with count 0 returns original unchanged', () => {
+      const cube = new Shape(M, M.Manifold.cube([10, 10, 10], true))
+      const originalVolume = cube.getVolume()
+      const pattern = cube.linearPattern(0, 20, 'x')
+
+      expect(pattern.getVolume()).toBeCloseTo(originalVolume, 0)
+      pattern.delete()
+    })
+
+    it('circularPattern() with count 1 returns original', () => {
+      const cube = new Shape(M, M.Manifold.cube([5, 5, 5], false).translate(10, 0, 0))
+      const originalVolume = cube.getVolume()
+      const pattern = cube.circularPattern(1, 'z')
+
+      expect(pattern.getVolume()).toBeCloseTo(originalVolume, 0)
+      pattern.delete()
+    })
+
+    it('circularPattern() with count 0 returns original unchanged', () => {
+      const cube = new Shape(M, M.Manifold.cube([5, 5, 5], false).translate(10, 0, 0))
+      const originalVolume = cube.getVolume()
+      const pattern = cube.circularPattern(0, 'z')
+
+      expect(pattern.getVolume()).toBeCloseTo(originalVolume, 0)
+      pattern.delete()
+    })
   })
 
   describe('utilities', () => {
@@ -202,6 +229,30 @@ describe('Shape', () => {
 
       expectValid(result.build())
       result.delete()
+    })
+  })
+
+  describe('build() ownership contract', () => {
+    it('build() returns the raw Manifold for final output', () => {
+      const shape = new Shape(M, M.Manifold.cube([10, 10, 10], true))
+      const manifold = shape.build()
+
+      // build() returns a valid Manifold
+      expect(manifold).toBeDefined()
+      expect(manifold.volume()).toBeCloseTo(1000, 0)
+
+      // Cleanup - caller is responsible after build()
+      manifold.delete()
+    })
+
+    it('_getManifold() is an alias for build()', () => {
+      const shape = new Shape(M, M.Manifold.cube([10, 10, 10], true))
+      const manifold = shape._getManifold()
+
+      expect(manifold).toBeDefined()
+      expect(manifold.volume()).toBeCloseTo(1000, 0)
+
+      manifold.delete()
     })
   })
 })

@@ -21,7 +21,7 @@ export interface Operations {
 
   // Patterns
   linearArray(shape: Shape, count: number, spacing: [number, number, number]): Shape
-  polarArray(shape: Shape, count: number, axis?: 'x' | 'y' | 'z', centerOffset?: number): Shape
+  polarArray(shape: Shape, count: number, axis?: 'x' | 'y' | 'z'): Shape
   gridArray(shape: Shape, countX: number, countY: number, spacingX: number, spacingY: number): Shape
 
   // Printing constraint helpers
@@ -143,7 +143,12 @@ export function createOperations(M: ManifoldToplevel): Operations {
       // Use batch boolean which creates separate geometry
       const result = M.Manifold.union(copies)
 
-      // Don't delete anything - let GC handle it (memory leak but tests validity)
+      // Clean up all intermediate manifolds
+      for (const copy of copies) {
+        copy.delete()
+      }
+      baseManifold.delete()
+
       return new Shape(M, result)
     },
 
@@ -152,9 +157,8 @@ export function createOperations(M: ManifoldToplevel): Operations {
      * @param shape - Shape to duplicate
      * @param count - Number of copies
      * @param axis - Rotation axis (default: 'z')
-     * @param centerOffset - Optional offset from center before rotation
      */
-    polarArray(shape: Shape, count: number, axis: 'x' | 'y' | 'z' = 'z', _centerOffset: number = 0): Shape {
+    polarArray(shape: Shape, count: number, axis: 'x' | 'y' | 'z' = 'z'): Shape {
       if (count <= 0) {
         shape.delete()
         return new Shape(M, M.Manifold.cube([0, 0, 0]))

@@ -135,8 +135,8 @@ export class BuilderContext {
   }
 
   /** Create a polar array */
-  polarArray = (shape: Shape, count: number, axis?: 'x' | 'y' | 'z', centerOffset?: number): Shape => {
-    return this.ops.polarArray(shape, count, axis, centerOffset)
+  polarArray = (shape: Shape, count: number, axis?: 'x' | 'y' | 'z'): Shape => {
+    return this.ops.polarArray(shape, count, axis)
   }
 
   /** Create a grid array */
