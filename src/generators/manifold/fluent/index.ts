@@ -18,7 +18,7 @@
  */
 
 // Core Shape class
-export { Shape, type BoundingBox } from './Shape'
+export { Shape, type BoundingBox, type Frame, type MirrorUnionOptions } from './Shape'
 
 // Primitives factory
 export { createPrimitives, type Primitives } from './primitives'

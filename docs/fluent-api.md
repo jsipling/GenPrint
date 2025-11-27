@@ -224,6 +224,95 @@ Create a 2D grid of shapes.
 const holes = gridArray(hole(4, 10), 3, 4, 10, 10)
 ```
 
+## Mirror Union
+
+### .mirrorUnion(axis, options?)
+Create a symmetric copy by mirroring across a plane and unioning with the original.
+Useful for V-configurations, symmetric brackets, and mirrored assemblies.
+
+- `axis` - 'x' mirrors across YZ plane, 'y' across XZ, 'z' across XY
+- `options.offset` - Optional offset to create gap between halves
+
+```typescript
+// Build left side of bracket, mirror to create both
+const bracket = box(20, 10, 5)
+  .translate(15, 0, 0)
+  .mirrorUnion('x')
+
+// With offset for V-engine valley
+const engineBank = cylinder(50, 5)
+  .translate(20, 0, 0)
+  .mirrorUnion('x', { offset: 10 })
+```
+
+## Coordinate Frames
+
+Coordinate frames let you define a reference transform once and apply it to multiple shapes.
+Rotation is applied first, then translation.
+
+### .inFrame(frame)
+Apply a coordinate frame transform to a shape.
+
+```typescript
+// Define a frame (e.g., V-engine left bank)
+const leftBankFrame = {
+  rotate: [45, 0, 0],      // degrees around X, Y, Z
+  translate: [0, 0, 50]    // X, Y, Z offset
+}
+
+// Apply to multiple components
+const piston = cylinder(20, 5).inFrame(leftBankFrame)
+const rod = cylinder(30, 3).inFrame(leftBankFrame)
+const wristPin = cylinder(5, 2).inFrame(leftBankFrame)
+```
+
+## Attachment Points
+
+Define named points on shapes for automatic positioning.
+Points are preserved through transforms.
+
+### .definePoint(name, position)
+Define a named attachment point on a shape.
+
+```typescript
+const piston = cylinder(20, 5)
+  .definePoint('wristPin', [0, 0, -8])
+  .definePoint('crown', [0, 0, 10])
+```
+
+### .getPoint(name)
+Get a named attachment point. Returns `[x, y, z]` or `undefined`.
+
+```typescript
+const wristPinPos = piston.getPoint('wristPin')
+```
+
+### .alignTo(target, myPoint, targetPoint)
+Position this shape by aligning an attachment point to a target point.
+
+```typescript
+const piston = cylinder(20, 5)
+  .definePoint('wristPin', [0, 0, -8])
+
+const rod = cylinder(30, 3)
+  .definePoint('smallEnd', [0, 0, 15])
+  .definePoint('bigEnd', [0, 0, -15])
+
+// Align rod's smallEnd to piston's wristPin
+const alignedRod = rod.alignTo(piston, 'smallEnd', 'wristPin')
+```
+
+Points transform with the geometry:
+
+```typescript
+const piston = cylinder(20, 5)
+  .definePoint('wristPin', [0, 0, -8])
+  .translate(10, 0, 0)
+
+// Point is now at [10, 0, -8]
+console.log(piston.getPoint('wristPin'))
+```
+
 ## Utilities
 
 ### .clone()

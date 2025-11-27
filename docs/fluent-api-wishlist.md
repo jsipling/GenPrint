@@ -4,9 +4,9 @@ Feature requests based on building complex mechanical assemblies (V8 engine gene
 
 ---
 
-## High Priority
+## High Priority (Implemented ✅)
 
-### 1. Coordinate Frames / Reference Systems
+### 1. Coordinate Frames / Reference Systems ✅
 
 **Problem:** Building angled assemblies (V-engine banks, gearboxes) requires recalculating positions repeatedly with sin/cos.
 
@@ -37,7 +37,7 @@ rod.inFrame(leftBank).translate(0, yPos, rodOffset)
 
 ---
 
-### 2. Attach Points / Assembly Joints
+### 2. Attach Points / Assembly Joints ✅
 
 **Problem:** Mechanical parts connect at specific points (wrist pin, crankpin, bearing). Currently requires manual position math.
 
@@ -70,7 +70,7 @@ rod.attach('smallEnd').to(piston, 'wristPin')
 
 ---
 
-### 3. Mirror with Union
+### 3. Mirror with Union ✅
 
 **Problem:** V-configurations and symmetric parts require building both sides or duplicating logic.
 

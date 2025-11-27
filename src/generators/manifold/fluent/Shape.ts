@@ -14,16 +14,35 @@ export interface BoundingBox {
 }
 
 /**
+ * Coordinate frame for positioning shapes
+ * Rotation is applied first, then translation
+ */
+export interface Frame {
+  rotate?: [number, number, number]  // degrees around X, Y, Z
+  translate?: [number, number, number]
+}
+
+/**
+ * Options for mirrorUnion operation
+ */
+export interface MirrorUnionOptions {
+  /** Offset to apply before mirroring (creates gap between halves) */
+  offset?: number
+}
+
+/**
  * Fluent wrapper around Manifold for chainable operations
  * Each operation returns a new Shape and auto-cleans up inputs
  */
 export class Shape {
   private manifold: Manifold
   private M: ManifoldToplevel
+  private attachPoints: Map<string, [number, number, number]>
 
-  constructor(M: ManifoldToplevel, manifold: Manifold) {
+  constructor(M: ManifoldToplevel, manifold: Manifold, attachPoints?: Map<string, [number, number, number]>) {
     this.M = M
     this.manifold = manifold
+    this.attachPoints = attachPoints ?? new Map()
   }
 
   // ============================================================
@@ -82,7 +101,12 @@ export class Shape {
   translate(x: number, y: number, z: number): Shape {
     const result = this.manifold.translate(x, y, z)
     this.manifold.delete()
-    return new Shape(this.M, result)
+    // Transform attach points
+    const newPoints = new Map<string, [number, number, number]>()
+    for (const [name, point] of this.attachPoints) {
+      newPoints.set(name, [point[0] + x, point[1] + y, point[2] + z])
+    }
+    return new Shape(this.M, result, newPoints)
   }
 
   /**
@@ -91,7 +115,12 @@ export class Shape {
   rotate(x: number, y: number = 0, z: number = 0): Shape {
     const result = this.manifold.rotate([x, y, z])
     this.manifold.delete()
-    return new Shape(this.M, result)
+    // Transform attach points
+    const newPoints = new Map<string, [number, number, number]>()
+    for (const [name, point] of this.attachPoints) {
+      newPoints.set(name, rotatePoint(point, x, y, z))
+    }
+    return new Shape(this.M, result, newPoints)
   }
 
   /**
@@ -106,7 +135,12 @@ export class Shape {
     ]
     const result = this.manifold.scale(scaleVec)
     this.manifold.delete()
-    return new Shape(this.M, result)
+    // Transform attach points
+    const newPoints = new Map<string, [number, number, number]>()
+    for (const [name, point] of this.attachPoints) {
+      newPoints.set(name, [point[0] * scaleVec[0], point[1] * scaleVec[1], point[2] * scaleVec[2]])
+    }
+    return new Shape(this.M, result, newPoints)
   }
 
   /**
@@ -120,7 +154,12 @@ export class Shape {
     ]
     const result = this.manifold.scale(scaleVec)
     this.manifold.delete()
-    return new Shape(this.M, result)
+    // Transform attach points
+    const newPoints = new Map<string, [number, number, number]>()
+    for (const [name, point] of this.attachPoints) {
+      newPoints.set(name, [point[0] * scaleVec[0], point[1] * scaleVec[1], point[2] * scaleVec[2]])
+    }
+    return new Shape(this.M, result, newPoints)
   }
 
   // ============================================================
@@ -225,6 +264,158 @@ export class Shape {
   }
 
   // ============================================================
+  // Mirror Union - symmetric assemblies
+  // ============================================================
+
+  /**
+   * Create a symmetric union by mirroring across a plane
+   * Useful for V-configurations and symmetric parts
+   * @param axis - 'x' mirrors across YZ plane, 'y' across XZ, 'z' across XY
+   * @param options - Optional offset to create gap between halves
+   */
+  mirrorUnion(axis: 'x' | 'y' | 'z', options: MirrorUnionOptions = {}): Shape {
+    const { offset = 0 } = options
+
+    // If offset is specified, translate shape by offset/2 first
+    let workingManifold = this.manifold
+    if (offset !== 0) {
+      const halfOffset = offset / 2
+      const translation: [number, number, number] = [
+        axis === 'x' ? halfOffset : 0,
+        axis === 'y' ? halfOffset : 0,
+        axis === 'z' ? halfOffset : 0
+      ]
+      workingManifold = this.manifold.translate(...translation)
+      this.manifold.delete()
+    }
+
+    // Create mirrored copy
+    const scaleVec: [number, number, number] = [
+      axis === 'x' ? -1 : 1,
+      axis === 'y' ? -1 : 1,
+      axis === 'z' ? -1 : 1
+    ]
+    const mirrored = workingManifold.scale(scaleVec)
+
+    // Union original and mirrored
+    const result = this.M.Manifold.union([workingManifold, mirrored])
+
+    // Cleanup
+    workingManifold.delete()
+    mirrored.delete()
+
+    return new Shape(this.M, result)
+  }
+
+  // ============================================================
+  // Coordinate Frames - positioned assemblies
+  // ============================================================
+
+  /**
+   * Apply a coordinate frame transform to this shape
+   * Rotation is applied first, then translation
+   * @param frame - Frame with optional rotate and translate components
+   */
+  inFrame(frame: Frame): Shape {
+    let result = this.manifold
+    let wasTransformed = false
+
+    // Apply rotation first
+    if (frame.rotate) {
+      const rotated = result.rotate(frame.rotate)
+      if (wasTransformed) {
+        result.delete()
+      }
+      result = rotated
+      wasTransformed = true
+    }
+
+    // Then apply translation
+    if (frame.translate) {
+      const translated = result.translate(...frame.translate)
+      if (wasTransformed) {
+        result.delete()
+      }
+      result = translated
+      wasTransformed = true
+    }
+
+    // Transform attach points
+    const newPoints = new Map<string, [number, number, number]>()
+    for (const [name, point] of this.attachPoints) {
+      let transformedPoint = point
+      if (frame.rotate) {
+        transformedPoint = rotatePoint(transformedPoint, frame.rotate[0], frame.rotate[1], frame.rotate[2])
+      }
+      if (frame.translate) {
+        transformedPoint = [
+          transformedPoint[0] + frame.translate[0],
+          transformedPoint[1] + frame.translate[1],
+          transformedPoint[2] + frame.translate[2]
+        ]
+      }
+      newPoints.set(name, transformedPoint)
+    }
+
+    // If no transforms applied, clone to maintain ownership contract
+    if (!wasTransformed) {
+      result = this.manifold.translate(0, 0, 0)
+    }
+
+    this.manifold.delete()
+    return new Shape(this.M, result, newPoints)
+  }
+
+  // ============================================================
+  // Attach Points - assembly joints
+  // ============================================================
+
+  /**
+   * Define a named attachment point on this shape
+   * Points are preserved through transforms
+   * @param name - Name of the attachment point
+   * @param position - [x, y, z] coordinates relative to shape origin
+   */
+  definePoint(name: string, position: [number, number, number]): Shape {
+    const newPoints = new Map(this.attachPoints)
+    newPoints.set(name, [...position] as [number, number, number])
+    return new Shape(this.M, this.manifold, newPoints)
+  }
+
+  /**
+   * Get a named attachment point
+   * @param name - Name of the attachment point
+   * @returns [x, y, z] position or undefined if not found
+   */
+  getPoint(name: string): [number, number, number] | undefined {
+    const point = this.attachPoints.get(name)
+    return point ? [...point] as [number, number, number] : undefined
+  }
+
+  /**
+   * Position this shape by aligning an attachment point to a target point
+   * @param target - Target shape with attachment point
+   * @param myPoint - Name of attachment point on this shape
+   * @param targetPoint - Name of attachment point on target shape
+   */
+  alignTo(target: Shape, myPoint: string, targetPoint: string): Shape {
+    const myPointPos = this.getPoint(myPoint)
+    const targetPointPos = target.getPoint(targetPoint)
+
+    if (!myPointPos || !targetPointPos) {
+      // If points not found, return clone unchanged
+      return this.clone()
+    }
+
+    // Calculate translation to align points
+    const dx = targetPointPos[0] - myPointPos[0]
+    const dy = targetPointPos[1] - myPointPos[1]
+    const dz = targetPointPos[2] - myPointPos[2]
+
+    return this.translate(dx, dy, dz)
+  }
+
+  // ============================================================
   // Utilities
   // ============================================================
 
@@ -234,7 +425,9 @@ export class Shape {
   clone(): Shape {
     // Create a copy by translating 0,0,0 - returns new manifold
     const copy = this.manifold.translate(0, 0, 0)
-    return new Shape(this.M, copy)
+    // Clone attach points
+    const newPoints = new Map(this.attachPoints)
+    return new Shape(this.M, copy, newPoints)
   }
 
   /**
@@ -296,4 +489,52 @@ export class Shape {
   delete(): void {
     this.manifold.delete()
   }
+}
+
+// ============================================================
+// Helper functions
+// ============================================================
+
+/**
+ * Rotate a point around the origin by angles in degrees (X, Y, Z order)
+ */
+function rotatePoint(point: [number, number, number], xDeg: number, yDeg: number, zDeg: number): [number, number, number] {
+  const toRad = Math.PI / 180
+  const xRad = xDeg * toRad
+  const yRad = yDeg * toRad
+  const zRad = zDeg * toRad
+
+  let [x, y, z] = point
+
+  // Rotate around X axis
+  if (xRad !== 0) {
+    const cosX = Math.cos(xRad)
+    const sinX = Math.sin(xRad)
+    const newY = y * cosX - z * sinX
+    const newZ = y * sinX + z * cosX
+    y = newY
+    z = newZ
+  }
+
+  // Rotate around Y axis
+  if (yRad !== 0) {
+    const cosY = Math.cos(yRad)
+    const sinY = Math.sin(yRad)
+    const newX = x * cosY + z * sinY
+    const newZ = -x * sinY + z * cosY
+    x = newX
+    z = newZ
+  }
+
+  // Rotate around Z axis
+  if (zRad !== 0) {
+    const cosZ = Math.cos(zRad)
+    const sinZ = Math.sin(zRad)
+    const newX = x * cosZ - y * sinZ
+    const newY = x * sinZ + y * cosZ
+    x = newX
+    y = newY
+  }
+
+  return [x, y, z]
 }
