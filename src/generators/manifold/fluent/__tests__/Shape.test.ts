@@ -1098,12 +1098,13 @@ describe('Shape', () => {
       result.delete()
     })
 
-    it('assertConnected() error message includes genus', () => {
+    it('assertConnected() error message includes component count and disconnected parts', () => {
       const main = p.box(10, 10, 10).name('main')
       const disc = p.box(5, 5, 5).translate(50, 0, 0).name('floating')
       const result = ops.union(main, disc)
 
-      expect(() => result.assertConnected()).toThrow(/genus: -\d+/)
+      expect(() => result.assertConnected()).toThrow(/2 disconnected components/)
+      expect(() => result.assertConnected()).toThrow(/floating/)
       result.delete()
     })
   })
@@ -1362,12 +1363,12 @@ describe('Shape', () => {
       result.delete()
     })
 
-    it('build() error includes genus information', () => {
+    it('build() error includes component count', () => {
       const part1 = p.box(10, 10, 10)
       const part2 = p.box(10, 10, 10).translate(50, 0, 0)
 
       const result = part1.add(part2)
-      expect(() => result.build()).toThrow(/genus/i)
+      expect(() => result.build()).toThrow(/2 disconnected components/)
       result.delete()
     })
   })

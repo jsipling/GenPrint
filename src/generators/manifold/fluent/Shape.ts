@@ -956,27 +956,41 @@ export class Shape {
 
   /**
    * Assert that this shape forms a connected assembly
-   * Parts are considered connected if they touch (share a surface) or overlap.
-   * Throws if any parts are isolated (not touching any other part).
+   * Uses Manifold's decompose() to detect topologically disconnected components.
+   * Throws if the geometry contains multiple disconnected parts.
    * @returns this for chaining
    */
   assertConnected(): this {
-    // If we have tracked parts, verify they form a connected graph via touching
-    if (this.trackedParts.size > 0) {
-      const disconnectedNames = this.findDisconnectedFromTracked()
-      if (disconnectedNames.length > 0) {
-        const genus = this.manifold.genus()
-        throw new Error(`Disconnected parts: ${disconnectedNames.join(', ')} (genus: ${genus})`)
-      }
-      // All parts touch - assembly is connected
-      return this
+    // Use decompose() to find topologically disconnected components
+    // This is the authoritative check - if decompose returns > 1 component,
+    // the geometry is definitely disconnected
+    const components = this.manifold.decompose()
+    const numComponents = components.length
+
+    // Clean up the decomposed manifolds
+    for (const component of components) {
+      component.delete()
     }
 
-    // No tracked parts - fall back to genus check for single bodies
-    const genus = this.manifold.genus()
-    if (genus < 0) {
+    if (numComponents > 1) {
       const name = this._name ? `"${this._name}"` : 'Shape'
-      throw new Error(`${name} has disconnected parts (genus: ${genus}). Ensure all components touch.`)
+
+      // If we have tracked parts, try to identify which ones are disconnected
+      if (this.trackedParts.size > 0) {
+        const disconnectedNames = this.findDisconnectedFromTracked()
+        if (disconnectedNames.length > 0) {
+          throw new Error(
+            `${name} has ${numComponents} disconnected components. ` +
+            `Disconnected parts: ${disconnectedNames.join(', ')}. ` +
+            `Ensure all components touch.`
+          )
+        }
+      }
+
+      throw new Error(
+        `${name} has ${numComponents} disconnected components. ` +
+        `Ensure all parts touch or overlap.`
+      )
     }
 
     return this
