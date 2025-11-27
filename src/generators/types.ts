@@ -93,37 +93,25 @@ export interface MeshData {
 }
 
 /**
- * Manifold-based generator (builds geometry directly)
- * The build function runs in a web worker with the manifold-3d module.
+ * Generator definition with inline builder code.
+ * The builderCode runs in a web worker with access to the fluent geometry API.
  */
-export interface ManifoldGenerator {
+export interface Generator {
   id: string
-  type: 'manifold'
   name: string
   description: string
   parameters: ParameterDef[]
   /**
-   * Function ID that maps to a registered builder in the worker.
-   * This allows the worker to look up the correct build function.
+   * Builder code as a string that uses the fluent geometry API.
+   * Has access to: ctx methods (box, cylinder, etc.), params object.
+   * Must return a Shape or Manifold.
    */
-  builderId: string
+  builderCode: string
   /**
    * Optional list of parameters to display in the dimension overlay panel.
    * Generators without this field show only the bounding box dimensions.
    */
   displayDimensions?: DisplayDimension[]
-}
-
-/**
- * Generator type (all generators are now Manifold-based)
- */
-export type Generator = ManifoldGenerator
-
-/**
- * Type guard for ManifoldGenerator
- */
-export function isManifoldGenerator(gen: Generator): gen is ManifoldGenerator {
-  return gen.type === 'manifold'
 }
 
 /**

@@ -5,21 +5,13 @@
 
 import type { MeshData, ParameterValues, BoundingBox } from '../generators/types'
 
+/**
+ * Request to build geometry using builder code.
+ * All generators (built-in and user-created) use the same message type.
+ */
 export interface BuildRequest {
   type: 'build'
   id: number
-  generatorId: string
-  params: ParameterValues
-  circularSegments: number
-}
-
-/**
- * Request to build a user-created generator with dynamic code execution
- */
-export interface BuildUserGeneratorRequest {
-  type: 'build-user-generator'
-  id: number
-  generatorId: string
   builderCode: string
   params: ParameterValues
   circularSegments: number
@@ -45,4 +37,4 @@ export interface InitErrorMessage {
 }
 
 export type WorkerResponse = BuildResponse | ReadyMessage | InitErrorMessage
-export type WorkerMessage = BuildRequest | BuildUserGeneratorRequest
+export type WorkerMessage = BuildRequest

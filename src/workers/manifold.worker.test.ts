@@ -1,17 +1,11 @@
 /**
  * Tests for manifold worker functionality
- * Tests the mesh conversion logic and generator registry
+ * Tests the mesh conversion logic and bounding box calculation
  */
 import { describe, it, expect, beforeAll } from 'vitest'
 import type { ManifoldToplevel, Manifold, Mesh } from 'manifold-3d'
 import { getManifold, setCircularSegments } from '../test/manifoldSetup'
 import type { MeshData } from '../generators/types'
-
-// Import builders to test registry mapping
-import { buildSpacer } from '../generators/manifold/spacerBuilder'
-import { buildWasher } from '../generators/manifold/washerBuilder'
-import { buildBox } from '../generators/manifold/boxBuilder'
-import { buildGear } from '../generators/manifold/gearBuilder'
 
 /**
  * Recreate the manifoldToMeshData function for testing
@@ -148,16 +142,6 @@ describe('manifoldToMeshData', () => {
 
     sphere.delete()
   })
-
-  it('handles complex geometry from builders', () => {
-    const spacer = buildSpacer(M, { outer_diameter: 20, inner_hole: 5, height: 10 })
-    const meshData = manifoldToMeshData(spacer)
-
-    expect(meshData.positions.length).toBeGreaterThan(0)
-    expect(meshData.indices.length).toBeGreaterThan(0)
-
-    spacer.delete()
-  })
 })
 
 describe('bounding box calculation', () => {
@@ -212,21 +196,6 @@ describe('bounding box calculation', () => {
     cube.delete()
   })
 
-  it('computes correct bounding box for generated washer', () => {
-    const washer = buildWasher(M, { outer_diameter: 20, inner_diameter: 10, thickness: 3 })
-    const bbox = washer.boundingBox()
-
-    // Washer should be centered in X and Y, with Z from 0 to thickness
-    expect(bbox.min[0]).toBeCloseTo(-10, 1) // -outer_diameter/2
-    expect(bbox.max[0]).toBeCloseTo(10, 1)  // outer_diameter/2
-    expect(bbox.min[1]).toBeCloseTo(-10, 1)
-    expect(bbox.max[1]).toBeCloseTo(10, 1)
-    expect(bbox.min[2]).toBeCloseTo(0, 1)
-    expect(bbox.max[2]).toBeCloseTo(3, 1)   // thickness
-
-    washer.delete()
-  })
-
   it('returns BoundingBox-compatible structure', () => {
     const cube = M.Manifold.cube([10, 10, 10], false)
     const bbox = cube.boundingBox()
@@ -241,57 +210,4 @@ describe('bounding box calculation', () => {
 
     cube.delete()
   })
-})
-
-describe('generator registry coverage', () => {
-  let M: ManifoldToplevel
-
-  beforeAll(async () => {
-    M = await getManifold()
-    setCircularSegments(M, 32)
-  })
-
-  // Test that all registered generators produce valid mesh data
-  type BuilderFn = (M: ManifoldToplevel, params: Record<string, number | string | boolean>) => Manifold
-  const generatorTests: Array<{ name: string; builder: BuilderFn; params: Record<string, number | string | boolean> }> = [
-    {
-      name: 'spacer',
-      builder: buildSpacer,
-      params: { outer_diameter: 20, inner_hole: 5, height: 10 }
-    },
-    {
-      name: 'washer',
-      builder: buildWasher,
-      params: { outer_diameter: 12, inner_diameter: 6, thickness: 1.5 }
-    },
-    {
-      name: 'box',
-      builder: buildBox,
-      params: { width: 50, depth: 40, height: 30, wall_thickness: 2, corner_radius: 3, include_lid: false }
-    },
-    {
-      name: 'gear',
-      builder: buildGear,
-      params: { teeth: 20, module: 2, height: 10, bore_diameter: 6 }
-    }
-  ]
-
-  for (const { name, builder, params } of generatorTests) {
-    it(`${name} produces valid mesh data`, () => {
-      const manifold = builder(M, params)
-      const meshData = manifoldToMeshData(manifold)
-
-      expect(meshData.positions.length).toBeGreaterThan(0)
-      expect(meshData.normals.length).toBe(meshData.positions.length)
-      expect(meshData.indices.length).toBeGreaterThan(0)
-
-      // Verify indices are valid
-      const numVerts = meshData.positions.length / 3
-      for (let i = 0; i < meshData.indices.length; i++) {
-        expect(meshData.indices[i]).toBeLessThan(numVerts)
-      }
-
-      manifold.delete()
-    })
-  }
 })

@@ -6,7 +6,9 @@ import {
   type BooleanParameterDef
 } from './types'
 import { generators } from './index'
-import { bracketGenerator } from './bracket'
+
+// Find bracket generator from the auto-discovered generators
+const bracketGenerator = generators.find(g => g.id === 'bracket')!
 
 describe('flattenParameters', () => {
   it('should return flat array unchanged', () => {
@@ -131,11 +133,10 @@ describe('generators', () => {
   it('all generators have required fields', () => {
     for (const gen of generators) {
       expect(gen.id).toBeDefined()
-      expect(gen.type).toBe('manifold')
       expect(gen.name).toBeDefined()
       expect(gen.description).toBeDefined()
       expect(gen.parameters).toBeDefined()
-      expect(gen.builderId).toBeDefined()
+      expect(gen.builderCode).toBeDefined()
     }
   })
 

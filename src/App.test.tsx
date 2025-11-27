@@ -81,8 +81,9 @@ describe('App', () => {
     const App = (await import('./App')).default
     render(<App />)
 
+    // First generator alphabetically is Box
     const selectedGen = screen.getByTestId('selected-generator')
-    expect(selectedGen.textContent).toBe('Spacer')
+    expect(selectedGen.textContent).toBe('Box')
 
     const genCount = screen.getByTestId('generator-count')
     expect(genCount.textContent).toBe('10')
@@ -92,19 +93,20 @@ describe('App', () => {
     const App = (await import('./App')).default
     render(<App />)
 
+    // First generator (Box) has these defaults
     const paramsEl = screen.getByTestId('params')
     const params = JSON.parse(paramsEl.textContent || '{}')
-    expect(params.outer_diameter).toBe(20)
-    expect(params.inner_hole).toBe(5)
-    expect(params.height).toBe(5)
+    expect(params.width).toBe(50)
+    expect(params.depth).toBe(50)
+    expect(params.height).toBe(30)
   })
 
   it('switches generator and resets parameters', async () => {
     const App = (await import('./App')).default
     render(<App />)
 
-    // Initially shows spacer
-    expect(screen.getByTestId('selected-generator').textContent).toBe('Spacer')
+    // Initially shows Box (first alphabetically)
+    expect(screen.getByTestId('selected-generator').textContent).toBe('Box')
 
     // Click to change generator
     fireEvent.click(screen.getByTestId('change-generator'))
@@ -125,12 +127,12 @@ describe('App', () => {
     const App = (await import('./App')).default
     render(<App />)
 
-    // Get initial params
+    // Get initial params (Box generator)
     let paramsEl = screen.getByTestId('params')
     let params = JSON.parse(paramsEl.textContent || '{}')
-    expect(params.outer_diameter).toBe(20)
+    expect(params.width).toBe(50)
 
-    // Click to change param
+    // Click to change param (mock changes outer_diameter, but Box doesn't have this, so it just adds it)
     fireEvent.click(screen.getByTestId('change-param'))
 
     // Params should be updated
@@ -154,18 +156,18 @@ describe('App', () => {
 describe('App - getDefaultParams', () => {
   it('correctly generates default params from generator parameters', async () => {
     const { generators } = await import('./generators')
-    const spacer = generators[0]!
+    // First generator alphabetically is Box
+    const box = generators.find(g => g.id === 'box')!
 
     // Manually test the logic that would be in getDefaultParams
-    const defaults = spacer.parameters.reduce((acc, param) => {
+    const defaults = box.parameters.reduce((acc, param) => {
       acc[param.name] = param.default
       return acc
     }, {} as Record<string, unknown>)
 
-    expect(defaults).toEqual({
-      outer_diameter: 20,
-      inner_hole: 5,
-      height: 5
-    })
+    expect(defaults.width).toBe(50)
+    expect(defaults.depth).toBe(50)
+    expect(defaults.height).toBe(30)
+    expect(defaults.wall_thickness).toBe(2)
   })
 })

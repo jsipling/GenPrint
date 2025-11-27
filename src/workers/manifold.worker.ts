@@ -1,40 +1,15 @@
 import Module, { type ManifoldToplevel, type Manifold, type Mesh } from 'manifold-3d'
 // Import WASM file URL for proper loading in worker context
 import wasmUrl from 'manifold-3d/manifold.wasm?url'
-import { buildGridfinityBin } from '../generators/manifold/gridfinityBuilder'
-import { buildSpacer } from '../generators/manifold/spacerBuilder'
-import { buildWasher } from '../generators/manifold/washerBuilder'
-import { buildHook } from '../generators/manifold/hookBuilder'
-import { buildBracket } from '../generators/manifold/bracketBuilder'
-import { buildBox } from '../generators/manifold/boxBuilder'
-import { buildThumbKnob } from '../generators/manifold/thumbKnobBuilder'
-import { buildGear } from '../generators/manifold/gearBuilder'
-import { buildSign } from '../generators/manifold/signBuilder'
-import { buildCableClip } from '../generators/manifold/cableClipBuilder'
 import { BuilderContext } from '../generators/manifold/fluent/BuilderContext'
 import type { MeshData, BoundingBox } from '../generators/types'
 import type {
   BuildRequest,
-  BuildUserGeneratorRequest,
   BuildResponse,
   ReadyMessage,
   InitErrorMessage,
   WorkerMessage
 } from './types'
-
-// Generator registry - maps builder IDs to build functions
-const generatorRegistry = new Map<string, (M: ManifoldToplevel, params: Record<string, number | string | boolean>) => Manifold>([
-  ['spacer', buildSpacer],
-  ['washer', buildWasher],
-  ['hook', buildHook],
-  ['bracket', buildBracket],
-  ['box', buildBox],
-  ['thumb_knob', buildThumbKnob],
-  ['spur_gear', buildGear],
-  ['sign', buildSign],
-  ['gridfinity_bin', buildGridfinityBin],
-  ['cable_clip', buildCableClip]
-])
 
 let manifoldModule: ManifoldToplevel | null = null
 
@@ -170,7 +145,7 @@ onmessage = async (event: MessageEvent<WorkerMessage>) => {
   const { data } = event
 
   if (data.type === 'build') {
-    const { id, generatorId, params, circularSegments } = data
+    const { id, builderCode, params, circularSegments } = data
     const startTime = performance.now()
 
     if (!manifoldModule) {
@@ -188,21 +163,8 @@ onmessage = async (event: MessageEvent<WorkerMessage>) => {
       // Set quality
       manifoldModule.setCircularSegments(circularSegments)
 
-      // Get generator function
-      const generator = generatorRegistry.get(generatorId)
-      if (!generator) {
-        const response: BuildResponse = {
-          type: 'build-result',
-          id,
-          success: false,
-          error: `Unknown generator: ${generatorId}`
-        }
-        postMessage(response)
-        return
-      }
-
-      // Build the manifold
-      const manifold = generator(manifoldModule, params)
+      // Execute the builder code
+      const manifold = executeUserBuilder(manifoldModule, builderCode, params)
 
       // Get bounding box before cleanup
       const bbox = manifold.boundingBox()
@@ -246,74 +208,6 @@ onmessage = async (event: MessageEvent<WorkerMessage>) => {
         id,
         success: false,
         error: err instanceof Error ? err.message : 'Build failed'
-      }
-      postMessage(response)
-    }
-  } else if (data.type === 'build-user-generator') {
-    // Handle user-created generators with dynamic code execution
-    const { id, builderCode, params, circularSegments } = data as BuildUserGeneratorRequest
-    const startTime = performance.now()
-
-    if (!manifoldModule) {
-      const response: BuildResponse = {
-        type: 'build-result',
-        id,
-        success: false,
-        error: 'Manifold module not loaded'
-      }
-      postMessage(response)
-      return
-    }
-
-    try {
-      // Set quality
-      manifoldModule.setCircularSegments(circularSegments)
-
-      // Execute the user builder code
-      const manifold = executeUserBuilder(manifoldModule, builderCode, params)
-
-      // Get bounding box before cleanup
-      const bbox = manifold.boundingBox()
-      const boundingBox: BoundingBox = {
-        min: [bbox.min[0], bbox.min[1], bbox.min[2]],
-        max: [bbox.max[0], bbox.max[1], bbox.max[2]]
-      }
-
-      // Convert to mesh data
-      const meshData = manifoldToMeshData(manifold)
-
-      // Clean up WASM memory
-      manifold.delete()
-
-      const timing = performance.now() - startTime
-      if (import.meta.env.DEV) {
-        console.log(`[Manifold] User generator build time: ${timing.toFixed(1)}ms`)
-      }
-
-      const response: BuildResponse = {
-        type: 'build-result',
-        id,
-        success: true,
-        meshData,
-        boundingBox,
-        timing
-      }
-
-      // Transfer buffers to avoid copying
-      postMessage(response, {
-        transfer: [
-          meshData.positions.buffer,
-          meshData.normals.buffer,
-          meshData.indices.buffer
-        ]
-      })
-
-    } catch (err) {
-      const response: BuildResponse = {
-        type: 'build-result',
-        id,
-        success: false,
-        error: err instanceof Error ? err.message : 'User generator build failed'
       }
       postMessage(response)
     }

@@ -1,9 +1,7 @@
-import type { ManifoldGenerator } from './types'
+import type { Generator } from './types'
 
-export const washerGenerator: ManifoldGenerator = {
+export default {
   id: 'washer',
-  type: 'manifold',
-  builderId: 'washer',
   name: 'Washer',
   description: 'A flat ring washer with configurable dimensions.',
   displayDimensions: [
@@ -40,5 +38,17 @@ export const washerGenerator: ManifoldGenerator = {
       label: 'Thickness',
       min: 1.2, max: 10, default: 1.5, step: 0.1, unit: 'mm'
     }
-  ]
-}
+  ],
+  builderCode: `
+const outerDiameter = Number(params['outer_diameter']) || 12
+const innerDiameter = Number(params['inner_diameter']) || 6
+const thickness = Number(params['thickness']) || 1.5
+
+// Clamp to ensure minimum wall thickness
+const maxInner = outerDiameter - constants.MIN_WALL_THICKNESS * 2
+const safeInnerD = Math.min(innerDiameter, maxInner)
+
+// tube(height, outerRadius, innerRadius)
+return tube(thickness, outerDiameter / 2, safeInnerD / 2)
+`
+} satisfies Generator

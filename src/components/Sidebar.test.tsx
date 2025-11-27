@@ -7,13 +7,12 @@ import type { Generator } from '../generators'
 
 const mockGenerator: Generator = {
   id: 'test-generator',
-  type: 'manifold',
-  builderId: 'test',
   name: 'Test Generator',
   description: 'A test generator',
   parameters: [
     { type: 'number', name: 'size', label: 'Size', min: 1, max: 100, default: 50, unit: 'mm' }
-  ]
+  ],
+  builderCode: 'return box(10, 10, 10)'
 }
 
 const defaultProps = {
@@ -62,8 +61,6 @@ describe('Sidebar', () => {
   it('uses dynamicMax to constrain slider range', () => {
     const generatorWithDynamicMax: Generator = {
       id: 'dynamic-test',
-      type: 'manifold',
-      builderId: 'dynamic_test',
       name: 'Dynamic Test',
       description: 'Test dynamic max',
       parameters: [
@@ -77,7 +74,8 @@ describe('Sidebar', () => {
           default: 20,
           dynamicMax: (params) => Math.floor(Number(params['module']) * 15)
         }
-      ]
+      ],
+      builderCode: 'return box(10, 10, 10)'
     }
 
     // With module=2, dynamicMax should be 30

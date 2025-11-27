@@ -47,7 +47,7 @@ export interface UseManifoldReturn {
   meshData: MeshData | null
   boundingBox: BoundingBox | null
   timing: number | null
-  build: (generatorId: string, params: ParameterValues, options?: BuildOptions) => Promise<{ meshData: MeshData; boundingBox: BoundingBox } | null>
+  build: (builderCode: string, params: ParameterValues, options?: BuildOptions) => Promise<{ meshData: MeshData; boundingBox: BoundingBox } | null>
 }
 
 interface BuildResult {
@@ -255,7 +255,7 @@ export function useManifold(): UseManifoldReturn {
   }, [])
 
   const build = useCallback(async (
-    generatorId: string,
+    builderCode: string,
     params: ParameterValues,
     options?: BuildOptions
   ): Promise<BuildResult | null> => {
@@ -265,8 +265,8 @@ export function useManifold(): UseManifoldReturn {
     const buildId = manager.getNextBuildId()
     currentBuildIdRef.current = buildId
 
-    // Check cache first
-    const cacheKey = hashCode(`${generatorId}:${circularSegments}:${JSON.stringify(params)}`)
+    // Check cache first (hash the builderCode for cache key)
+    const cacheKey = hashCode(`${builderCode}:${circularSegments}:${JSON.stringify(params)}`)
     const cached = meshCache.get(cacheKey)
     if (cached) {
       if (import.meta.env.DEV) console.log('Manifold cache hit')
@@ -315,7 +315,7 @@ export function useManifold(): UseManifoldReturn {
         const request: BuildRequest = {
           type: 'build',
           id: buildId,
-          generatorId,
+          builderCode,
           params,
           circularSegments
         }

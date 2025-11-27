@@ -1,9 +1,7 @@
-import type { ManifoldGenerator } from './types'
+import type { Generator } from './types'
 
-export const spacerGenerator: ManifoldGenerator = {
+export default {
   id: 'spacer',
-  type: 'manifold',
-  builderId: 'spacer',
   name: 'Spacer',
   description: 'A simple cylindrical spacer with a center hole',
   parameters: [
@@ -35,5 +33,17 @@ export const spacerGenerator: ManifoldGenerator = {
       label: 'Height',
       min: 1.5, max: 50, default: 5, step: 0.5, unit: 'mm'
     }
-  ]
-}
+  ],
+  builderCode: `
+const outerDiameter = Number(params['outer_diameter']) || 20
+const innerHole = Number(params['inner_hole']) || 5
+const height = Number(params['height']) || 10
+
+// Clamp to ensure minimum wall thickness
+const maxInner = outerDiameter - constants.MIN_WALL_THICKNESS * 2
+const safeInnerHole = Math.min(innerHole, maxInner)
+
+// tube(height, outerRadius, innerRadius)
+return tube(height, outerDiameter / 2, safeInnerHole / 2)
+`
+} satisfies Generator

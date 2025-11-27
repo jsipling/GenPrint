@@ -129,7 +129,7 @@ export default function App() {
     // Progressive: draft uses fewer segments, final uses full quality
     const circularSegments = isFinalPass ? 64 : 24
 
-    manifoldBuildRef.current(generator.builderId, currentParams, {
+    manifoldBuildRef.current(generator.builderCode, currentParams, {
       silent: isFinalPass,
       circularSegments
     }).finally(() => {
