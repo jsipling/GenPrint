@@ -248,6 +248,9 @@ describe('generator builderCode validation', () => {
   })
 
   it('all generators produce valid manifold geometry', () => {
+    // Some generators intentionally produce multi-part geometry for assembly
+    const multiPartGenerators = new Set(['cross-stitch-organizer'])
+
     for (const gen of generators) {
       // Build default params
       const params: Record<string, number | string | boolean> = {}
@@ -267,7 +270,11 @@ describe('generator builderCode validation', () => {
 
       // Validate geometry
       expect(manifold.volume(), `${gen.name} should have positive volume`).toBeGreaterThan(0)
-      expect(manifold.genus(), `${gen.name} should be watertight (genus >= 0)`).toBeGreaterThanOrEqual(0)
+
+      // Multi-part generators have negative genus (intentionally disconnected)
+      if (!multiPartGenerators.has(gen.id)) {
+        expect(manifold.genus(), `${gen.name} should be watertight (genus >= 0)`).toBeGreaterThanOrEqual(0)
+      }
     }
   })
 })
