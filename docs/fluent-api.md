@@ -166,25 +166,61 @@ const mirrored = shape.mirror('x')
 
 ## Boolean Operations
 
-### difference(base, ...tools)
+Two styles are available: standalone operations and chainable methods.
+
+### Standalone Operations
+
+#### difference(base, ...tools)
 Subtract shapes from a base shape.
 
 ```typescript
 const withHoles = difference(plate, hole1, hole2, hole3)
 ```
 
-### union(...shapes)
+#### union(...shapes)
 Combine multiple shapes into one.
 
 ```typescript
 const assembly = union(base, boss1, boss2)
 ```
 
-### intersection(...shapes)
+#### intersection(...shapes)
 Keep only overlapping volume.
 
 ```typescript
 const overlap = intersection(shape1, shape2)
+```
+
+### Chainable Methods
+
+#### .add(other)
+Union with another shape. Both shapes are consumed.
+
+```typescript
+const combined = base.add(boss)
+```
+
+#### .subtract(other)
+Subtract another shape. Both shapes are consumed.
+
+```typescript
+const withHole = plate.subtract(hole)
+```
+
+#### .intersect(other)
+Keep only overlapping volume. Both shapes are consumed.
+
+```typescript
+const overlap = shape1.intersect(shape2)
+```
+
+Chainable style is useful for fluent construction:
+
+```typescript
+return box(30, 20, 5)
+  .add(cylinder(10, 6).translate(15, 10, 5))
+  .subtract(hole(4, 10).translate(15, 10, 0))
+  .build()
 ```
 
 ## Patterns
@@ -210,11 +246,11 @@ Create linear array with explicit spacing vector.
 const grid = linearArray(post, 4, [15, 0, 0])
 ```
 
-### polarArray(shape, count, axis?, centerOffset?)
+### polarArray(shape, count, axis?)
 Create polar array around an axis.
 
 ```typescript
-const ring = polarArray(boss, 6, 'z', 25)
+const ring = polarArray(boss.translate(25, 0, 0), 6, 'z')
 ```
 
 ### gridArray(shape, countX, countY, spacingX, spacingY)
@@ -342,6 +378,33 @@ Check if geometry is manifold (watertight).
 return finalShape.build()
 ```
 
+### .delete()
+Explicitly free WASM memory. Call this on shapes that won't be returned.
+
+```typescript
+temporaryShape.delete()
+```
+
+## Advanced Utilities
+
+For advanced use cases that need direct Manifold access.
+
+### ctx.fromManifold(manifold)
+Wrap an existing Manifold in a Shape for fluent operations.
+
+```typescript
+const rawManifold = M.Manifold.cube([10, 10, 10], true)
+const shape = ctx.fromManifold(rawManifold)
+```
+
+### ctx.getManifoldModule()
+Get the raw ManifoldToplevel module for operations not covered by the fluent API.
+
+```typescript
+const M = ctx.getManifoldModule()
+const customGeometry = M.Manifold.sphere(5, 32)
+```
+
 ## Printing Constants
 
 Access via `ctx.constants`:
@@ -357,11 +420,14 @@ const { MIN_WALL_THICKNESS, MIN_SMALL_FEATURE } = ctx.constants
 | `HOLE_CYLINDER_SEGMENTS` | 16 | Segments for holes |
 | `CORNER_SEGMENTS_PER_90` | 8 | Segments per 90° arc |
 | `MAX_PATTERN_COUNT` | 10000 | Maximum copies in pattern operations |
+| `VERTEX_PRECISION` | 0.001mm | Vertex precision |
+| `COMPARISON_TOLERANCE` | 0.01mm | Distance comparison epsilon |
 
 Helper functions:
 ```typescript
 const safeWall = ctx.ensureMinWall(requestedThickness)
 const safeFeature = ctx.ensureMinFeature(requestedSize)
+const clampedWall = ctx.safeWall(requested, maxByGeometry) // clamps between min and max
 ```
 
 ## Complete Example
