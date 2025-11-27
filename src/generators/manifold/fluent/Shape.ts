@@ -132,25 +132,27 @@ export class Shape {
 
     // Clamp spacing to minimum to prevent overlapping copies
     const safeSpacing = Math.max(spacing, MIN_SMALL_FEATURE)
+    const copies = []
 
-    // Build incrementally using add() to avoid batch union issues
-    let result = this.manifold.translate(0, 0, 0) // First copy at origin
-
-    for (let i = 1; i < count; i++) {
+    for (let i = 0; i < count; i++) {
       const offset = i * safeSpacing
       const translation: [number, number, number] = [
         axis === 'x' ? offset : 0,
         axis === 'y' ? offset : 0,
         axis === 'z' ? offset : 0
       ]
-      const copy = this.manifold.translate(...translation)
-      const newResult = result.add(copy)
-      result.delete()
-      copy.delete()
-      result = newResult
+      copies.push(this.manifold.translate(...translation))
     }
 
+    // Use batch union for O(1) performance
+    const result = this.M.Manifold.union(copies)
+
+    // Clean up all intermediate manifolds
+    for (const copy of copies) {
+      copy.delete()
+    }
     this.manifold.delete()
+
     return new Shape(this.M, result)
   }
 
@@ -167,25 +169,27 @@ export class Shape {
     }
 
     const angleStep = 360 / count
+    const copies = []
 
-    // Build incrementally using add() to avoid batch union issues
-    let result = this.manifold.rotate([0, 0, 0]) // First copy at 0 degrees
-
-    for (let i = 1; i < count; i++) {
+    for (let i = 0; i < count; i++) {
       const angle = i * angleStep
       const rotation: [number, number, number] = [
         axis === 'x' ? angle : 0,
         axis === 'y' ? angle : 0,
         axis === 'z' ? angle : 0
       ]
-      const copy = this.manifold.rotate(rotation)
-      const newResult = result.add(copy)
-      result.delete()
-      copy.delete()
-      result = newResult
+      copies.push(this.manifold.rotate(rotation))
     }
 
+    // Use batch union for O(1) performance
+    const result = this.M.Manifold.union(copies)
+
+    // Clean up all intermediate manifolds
+    for (const copy of copies) {
+      copy.delete()
+    }
     this.manifold.delete()
+
     return new Shape(this.M, result)
   }
 

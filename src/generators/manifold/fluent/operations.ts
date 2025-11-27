@@ -177,25 +177,27 @@ export function createOperations(M: ManifoldToplevel): Operations {
 
       const baseManifold = shape.build()
       const angleStep = 360 / count
+      const copies = []
 
-      // Build incrementally using add() to avoid batch union issues
-      let result = baseManifold.rotate([0, 0, 0]) // First copy at 0 degrees
-
-      for (let i = 1; i < count; i++) {
+      for (let i = 0; i < count; i++) {
         const angle = i * angleStep
         const rotation: [number, number, number] = [
           axis === 'x' ? angle : 0,
           axis === 'y' ? angle : 0,
           axis === 'z' ? angle : 0
         ]
-        const copy = baseManifold.rotate(rotation)
-        const newResult = result.add(copy)
-        result.delete()
-        copy.delete()
-        result = newResult
+        copies.push(baseManifold.rotate(rotation))
       }
 
+      // Use batch union for O(1) performance
+      const result = M.Manifold.union(copies)
+
+      // Clean up all intermediate manifolds
+      for (const copy of copies) {
+        copy.delete()
+      }
       baseManifold.delete()
+
       return new Shape(M, result)
     },
 
@@ -218,26 +220,23 @@ export function createOperations(M: ManifoldToplevel): Operations {
       const safeSpacingY = Math.max(spacingY, MIN_SMALL_FEATURE)
 
       const baseManifold = shape.build()
-
-      // Build incrementally using add() to avoid batch union issues
-      let result = baseManifold.translate(0, 0, 0) // First copy at origin
-      let isFirst = true
+      const copies = []
 
       for (let y = 0; y < countY; y++) {
         for (let x = 0; x < countX; x++) {
-          if (isFirst) {
-            isFirst = false
-            continue // Skip first since we already have it
-          }
-          const copy = baseManifold.translate(x * safeSpacingX, y * safeSpacingY, 0)
-          const newResult = result.add(copy)
-          result.delete()
-          copy.delete()
-          result = newResult
+          copies.push(baseManifold.translate(x * safeSpacingX, y * safeSpacingY, 0))
         }
       }
 
+      // Use batch union for O(1) performance
+      const result = M.Manifold.union(copies)
+
+      // Clean up all intermediate manifolds
+      for (const copy of copies) {
+        copy.delete()
+      }
       baseManifold.delete()
+
       return new Shape(M, result)
     },
 

@@ -154,6 +154,11 @@ export class BuilderContext {
     return this.ops.ensureMinFeature(size)
   }
 
+  /** Calculate safe wall thickness with optional geometry constraint */
+  safeWall = (requested: number, maxByGeometry?: number): number => {
+    return this.ops.safeWall(requested, maxByGeometry)
+  }
+
   // ============================================================
   // Utility methods
   // ============================================================
