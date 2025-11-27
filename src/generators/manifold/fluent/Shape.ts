@@ -1083,10 +1083,15 @@ export class Shape {
 
   /**
    * Get the raw Manifold for final build output
+   * By default, validates that the geometry is a single connected body.
    * WARNING: After calling this, the Shape should not be used further
    * The caller is responsible for cleanup
+   * @param options.skipConnectivityCheck - Set to true to allow disconnected geometry
    */
-  build(): Manifold {
+  build(options?: { skipConnectivityCheck?: boolean }): Manifold {
+    if (!options?.skipConnectivityCheck) {
+      this.assertConnected()
+    }
     return this.manifold
   }
 

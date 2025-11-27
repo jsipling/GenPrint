@@ -135,7 +135,8 @@ describe('Shape', () => {
       // For disjoint geometry, check volume instead of genus
       expect(pattern.getVolume()).toBeCloseTo(3 * 125, 0) // 3 cubes of 5x5x5
       // 3 cubes spaced 10mm apart: spans from -2.5 to 22.5 = 25mm
-      expectDimensions(pattern.build(), { width: 25 })
+      // Use skipConnectivityCheck since this pattern intentionally creates disjoint copies
+      expectDimensions(pattern.build({ skipConnectivityCheck: true }), { width: 25 })
       pattern.delete()
     })
 
@@ -305,7 +306,8 @@ describe('Shape', () => {
       // For disjoint geometry, check volume instead of genus (disjoint = genus -1)
       expect(result.getVolume()).toBeCloseTo(2000, 0)
       // Bounding box should span from -20 to 20 in X
-      expectBoundingBox(result.build(), { minX: -20, maxX: 20 })
+      // Use skipConnectivityCheck since shape doesn't cross mirror plane (intentionally disjoint)
+      expectBoundingBox(result.build({ skipConnectivityCheck: true }), { minX: -20, maxX: 20 })
       result.delete()
     })
 
@@ -315,7 +317,8 @@ describe('Shape', () => {
 
       // For disjoint geometry, check volume instead of genus
       expect(result.getVolume()).toBeCloseTo(2000, 0)
-      expectBoundingBox(result.build(), { minY: -20, maxY: 20 })
+      // Use skipConnectivityCheck since shape doesn't cross mirror plane (intentionally disjoint)
+      expectBoundingBox(result.build({ skipConnectivityCheck: true }), { minY: -20, maxY: 20 })
       result.delete()
     })
 
@@ -325,7 +328,8 @@ describe('Shape', () => {
 
       // For disjoint geometry, check volume instead of genus
       expect(result.getVolume()).toBeCloseTo(2000, 0)
-      expectBoundingBox(result.build(), { minZ: -20, maxZ: 20 })
+      // Use skipConnectivityCheck since shape doesn't cross mirror plane (intentionally disjoint)
+      expectBoundingBox(result.build({ skipConnectivityCheck: true }), { minZ: -20, maxZ: 20 })
       result.delete()
     })
 
@@ -1296,6 +1300,65 @@ describe('Shape', () => {
         target.delete()
         result.delete()
       })
+    })
+  })
+
+  describe('build() connectivity validation', () => {
+    it('build() succeeds for connected geometry', () => {
+      const part1 = p.box(10, 10, 10)
+      const part2 = p.box(10, 10, 10).translate(5, 0, 0) // overlapping
+
+      const result = part1.add(part2)
+      expect(() => result.build()).not.toThrow()
+      result.delete()
+    })
+
+    it('build() throws for disconnected geometry by default', () => {
+      const part1 = p.box(10, 10, 10)
+      const part2 = p.box(10, 10, 10).translate(50, 0, 0) // not touching
+
+      const result = part1.add(part2)
+      expect(() => result.build()).toThrow(/disconnected/i)
+      result.delete()
+    })
+
+    it('build() allows disconnected geometry with skipConnectivityCheck option', () => {
+      const part1 = p.box(10, 10, 10)
+      const part2 = p.box(10, 10, 10).translate(50, 0, 0) // not touching
+
+      const result = part1.add(part2)
+      expect(() => result.build({ skipConnectivityCheck: true })).not.toThrow()
+      result.delete()
+    })
+
+    it('build() returns the manifold when connected', () => {
+      const shape = p.box(10, 10, 10)
+      const manifold = shape.build()
+
+      expect(manifold).toBeDefined()
+      expect(manifold.volume()).toBeGreaterThan(0)
+      shape.delete()
+    })
+
+    it('build() returns the manifold when skip option used', () => {
+      const part1 = p.box(10, 10, 10)
+      const part2 = p.box(10, 10, 10).translate(50, 0, 0)
+
+      const result = part1.add(part2)
+      const manifold = result.build({ skipConnectivityCheck: true })
+
+      expect(manifold).toBeDefined()
+      expect(manifold.volume()).toBeGreaterThan(0)
+      result.delete()
+    })
+
+    it('build() error includes genus information', () => {
+      const part1 = p.box(10, 10, 10)
+      const part2 = p.box(10, 10, 10).translate(50, 0, 0)
+
+      const result = part1.add(part2)
+      expect(() => result.build()).toThrow(/genus/i)
+      result.delete()
     })
   })
 })

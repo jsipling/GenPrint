@@ -568,12 +568,23 @@ Get measurements.
 ### .isValid()
 Check if geometry is manifold (watertight).
 
-### .build()
+### .build(options?)
 **Required at the end.** Returns the raw Manifold for the worker.
+
+By default, validates that the geometry is a single connected body and throws an error if parts are disconnected. This prevents accidentally creating geometry with floating parts that won't print correctly.
 
 ```typescript
 return finalShape.build()
 ```
+
+For intentionally disconnected geometry (pattern arrays, exploded views, multi-body prints), use the skip option:
+
+```typescript
+return pattern.build({ skipConnectivityCheck: true })
+```
+
+Options:
+- `skipConnectivityCheck` - Set to `true` to allow disconnected geometry (default: `false`)
 
 ### .delete()
 Explicitly free WASM memory. Call this on shapes that won't be returned.
