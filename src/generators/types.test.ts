@@ -260,8 +260,9 @@ describe('generator builderCode validation', () => {
       const result = buildFn(ctx, params)
 
       // Get the manifold (handle both Shape and raw Manifold returns)
+      // Don't skip connectivity check - catch disconnected geometry
       const manifold = result.build
-        ? result.build({ skipConnectivityCheck: true })
+        ? result.build()
         : result
 
       // Validate geometry
