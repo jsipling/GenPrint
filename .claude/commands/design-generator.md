@@ -2,7 +2,7 @@
 
 You are designing a 3D model generator for GenPrint, an app that creates printable 3D models. Walk through the design step by step with the user, asking questions when decisions need to be made.
 
-**IMPORTANT:** When asking the user questions, use the `AskUserQuestion` tool to present choices. This provides a better UX with clickable options. Structure questions with clear options (2-4 choices) and descriptions for each.
+**IMPORTANT:** When asking the user questions, ALWAYS use the `AskUserQuestion` tool to present choices. This provides a better UX with clickable options. Structure questions with clear options (2-4 choices) and descriptions for each.
 
 This particular design is for a $ARGUMENTS
 
