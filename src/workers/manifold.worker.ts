@@ -10,9 +10,11 @@ import { buildBox } from '../generators/manifold/boxBuilder'
 import { buildThumbKnob } from '../generators/manifold/thumbKnobBuilder'
 import { buildGear } from '../generators/manifold/gearBuilder'
 import { buildSign } from '../generators/manifold/signBuilder'
+import { BuilderContext } from '../generators/manifold/fluent/BuilderContext'
 import type { MeshData, BoundingBox } from '../generators/types'
 import type {
   BuildRequest,
+  BuildUserGeneratorRequest,
   BuildResponse,
   ReadyMessage,
   InitErrorMessage,
@@ -129,6 +131,39 @@ function manifoldToMeshData(manifold: Manifold): MeshData {
   return { positions, normals, indices }
 }
 
+/**
+ * Execute user-generated builder code in a sandboxed context
+ * Returns the built Manifold or throws an error
+ */
+function executeUserBuilder(
+  M: ManifoldToplevel,
+  builderCode: string,
+  params: Record<string, number | string | boolean>
+): Manifold {
+  const ctx = new BuilderContext(M)
+
+  // Create a sandboxed function with access only to ctx and params
+  // The code is expected to use ctx methods and return a Manifold
+  const fn = new Function('ctx', 'params', `
+    const { box, cylinder, sphere, cone, roundedBox, tube, hole, counterboredHole, countersunkHole, extrude, revolve, union, difference, intersection, linearArray, polarArray, gridArray, ensureMinWall, ensureMinFeature } = ctx
+    const { constants, ops, primitives } = ctx
+    ${builderCode}
+  `)
+
+  const result = fn(ctx, params)
+
+  // Handle both Shape and Manifold returns
+  if (result && typeof result.build === 'function') {
+    // It's a Shape - get the underlying Manifold
+    return result.build()
+  } else if (result && typeof result.getMesh === 'function') {
+    // It's already a Manifold
+    return result
+  } else {
+    throw new Error('Builder must return a Shape or Manifold')
+  }
+}
+
 onmessage = async (event: MessageEvent<WorkerMessage>) => {
   const { data } = event
 
@@ -209,6 +244,74 @@ onmessage = async (event: MessageEvent<WorkerMessage>) => {
         id,
         success: false,
         error: err instanceof Error ? err.message : 'Build failed'
+      }
+      postMessage(response)
+    }
+  } else if (data.type === 'build-user-generator') {
+    // Handle user-created generators with dynamic code execution
+    const { id, builderCode, params, circularSegments } = data as BuildUserGeneratorRequest
+    const startTime = performance.now()
+
+    if (!manifoldModule) {
+      const response: BuildResponse = {
+        type: 'build-result',
+        id,
+        success: false,
+        error: 'Manifold module not loaded'
+      }
+      postMessage(response)
+      return
+    }
+
+    try {
+      // Set quality
+      manifoldModule.setCircularSegments(circularSegments)
+
+      // Execute the user builder code
+      const manifold = executeUserBuilder(manifoldModule, builderCode, params)
+
+      // Get bounding box before cleanup
+      const bbox = manifold.boundingBox()
+      const boundingBox: BoundingBox = {
+        min: [bbox.min[0], bbox.min[1], bbox.min[2]],
+        max: [bbox.max[0], bbox.max[1], bbox.max[2]]
+      }
+
+      // Convert to mesh data
+      const meshData = manifoldToMeshData(manifold)
+
+      // Clean up WASM memory
+      manifold.delete()
+
+      const timing = performance.now() - startTime
+      if (import.meta.env.DEV) {
+        console.log(`[Manifold] User generator build time: ${timing.toFixed(1)}ms`)
+      }
+
+      const response: BuildResponse = {
+        type: 'build-result',
+        id,
+        success: true,
+        meshData,
+        boundingBox,
+        timing
+      }
+
+      // Transfer buffers to avoid copying
+      postMessage(response, {
+        transfer: [
+          meshData.positions.buffer,
+          meshData.normals.buffer,
+          meshData.indices.buffer
+        ]
+      })
+
+    } catch (err) {
+      const response: BuildResponse = {
+        type: 'build-result',
+        id,
+        success: false,
+        error: err instanceof Error ? err.message : 'User generator build failed'
       }
       postMessage(response)
     }

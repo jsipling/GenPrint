@@ -13,6 +13,18 @@ export interface BuildRequest {
   circularSegments: number
 }
 
+/**
+ * Request to build a user-created generator with dynamic code execution
+ */
+export interface BuildUserGeneratorRequest {
+  type: 'build-user-generator'
+  id: number
+  generatorId: string
+  builderCode: string
+  params: ParameterValues
+  circularSegments: number
+}
+
 export interface BuildResponse {
   type: 'build-result'
   id: number
@@ -33,4 +45,4 @@ export interface InitErrorMessage {
 }
 
 export type WorkerResponse = BuildResponse | ReadyMessage | InitErrorMessage
-export type WorkerMessage = BuildRequest
+export type WorkerMessage = BuildRequest | BuildUserGeneratorRequest
