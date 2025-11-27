@@ -157,8 +157,8 @@ const doubled = box(10, 10, 10).scale(2)        // uniform
 const stretched = box(10, 10, 10).scale(2, 1, 1) // X only
 ```
 
-### .mirror(axis)
-Mirror across an axis ('x', 'y', or 'z').
+### .mirror(axis: 'x' | 'y' | 'z'): Shape
+Mirror across an axis.
 
 ```typescript
 const mirrored = shape.mirror('x')
@@ -237,15 +237,15 @@ return box(30, 20, 5)
 
 ## Patterns
 
-### .linearPattern(count, spacing, axis?)
-Create copies along an axis.
+### .linearPattern(count: number, spacing: number, axis?: 'x' | 'y' | 'z'): Shape
+Create copies along an axis. Default axis is `'x'`.
 
 ```typescript
 const row = hole(4, 10).linearPattern(5, 10, 'x')  // 5 holes, 10mm apart
 ```
 
-### .circularPattern(count, axis?)
-Create copies rotated around an axis.
+### .circularPattern(count: number, axis?: 'x' | 'y' | 'z'): Shape
+Create copies rotated around an axis. Default axis is `'z'`.
 
 ```typescript
 const ring = hole(4, 10).translate(20, 0, 0).circularPattern(6, 'z')
@@ -274,11 +274,11 @@ const holes = gridArray(hole(4, 10), 3, 4, 10, 10)
 
 ## Mirror Union
 
-### .mirrorUnion(axis, options?)
+### .mirrorUnion(axis: 'x' | 'y' | 'z', options?: { offset?: number }): Shape
 Create a symmetric copy by mirroring across a plane and unioning with the original.
 Useful for V-configurations, symmetric brackets, and mirrored assemblies.
 
-- `axis` - 'x' mirrors across YZ plane, 'y' across XZ, 'z' across XY
+- `axis` - `'x'` mirrors across YZ plane, `'y'` across XZ, `'z'` across XY
 - `options.offset` - Optional offset to create gap between halves
 
 ```typescript
@@ -318,21 +318,21 @@ const wristPin = cylinder(5, 2).inFrame(leftBankFrame)
 
 Name shapes for debugging and assembly validation.
 
-### .name(name)
+### .name(name: string): Shape
 Set a name for this shape (useful for debugging and `findDisconnected`).
 
 ```typescript
 const piston = cylinder(20, 5).name('piston_cyl1')
 ```
 
-### .getName()
-Get the name of this shape (returns `undefined` if not named).
+### .getName(): string | undefined
+Get the name of this shape.
 
 ```typescript
 const name = shape.getName() // 'piston_cyl1' or undefined
 ```
 
-### .getTrackedParts()
+### .getTrackedParts(): string[]
 Get names of all parts tracked from `union()` operations.
 Used internally by `assertConnected()` for diagnostics.
 
@@ -341,9 +341,8 @@ const assembly = union(part1.name('a'), part2.name('b'))
 console.log(assembly.getTrackedParts()) // ['a', 'b']
 ```
 
-### .getTrackedPartClones()
+### .getTrackedPartClones(): Map<string, Shape>
 Get cloned shapes of tracked parts for custom diagnostics.
-Returns a `Map<string, Shape>` of part name to cloned Shape.
 
 ```typescript
 const assembly = union(part1.name('a'), part2.name('b'))
@@ -355,11 +354,11 @@ const clones = assembly.getTrackedPartClones()
 
 Natural positioning for rotary assemblies (engines, gearboxes, turbines).
 
-### .polar(angle, radius, plane?)
+### .polar(angle: number, radius: number, plane?: 'xy' | 'xz' | 'yz'): Shape
 Position by angle and radius in a plane.
 - `angle` - Angle in degrees
 - `radius` - Distance from origin
-- `plane` - 'xy', 'xz' (default), or 'yz'
+- `plane` - `'xy'`, `'xz'` (default), or `'yz'`
 
 ```typescript
 // Position crankpin at 90 degrees, 20mm radius in XZ plane
@@ -369,12 +368,12 @@ const pin = cylinder(10, 3).polar(90, 20)
 const bolt = cylinder(5, 2).polar(45, 15, 'xy')
 ```
 
-### .cylindrical(angle, radius, height, options?)
+### .cylindrical(angle: number, radius: number, height: number, options?: { axis?: 'x' | 'y' | 'z' }): Shape
 Position by angle, radius, and height (cylindrical coordinates).
 - `angle` - Angle in degrees
 - `radius` - Distance from axis
 - `height` - Position along the axis
-- `options.axis` - 'x', 'y' (default), or 'z'
+- `options.axis` - `'x'`, `'y'` (default), or `'z'`
 
 ```typescript
 // Position with height along Y axis (default)
@@ -454,9 +453,11 @@ Options:
 
 Debug helpers for complex assemblies.
 
-### .overlaps(other, options?)
+### .overlaps(other: Shape, options?: { minVolume?: number }): boolean
 Check if this shape intersects with another shape.
 Does not consume either shape.
+
+Returns `true` if shapes share at least `minVolume` of intersection volume.
 
 ```typescript
 if (partA.overlaps(partB, { minVolume: 1 })) {
@@ -465,12 +466,14 @@ if (partA.overlaps(partB, { minVolume: 1 })) {
 ```
 
 Options:
-- `minVolume` - Minimum intersection volume (default: 0.001 mm³)
+- `minVolume` - Minimum intersection volume in mm³ (default: 0.001)
 
-### .assertConnected()
+### .assertConnected(): this
 Assert that this shape forms a connected assembly.
 Parts are considered connected if they **touch** (share a surface) or overlap.
-Throws if any parts are isolated (not touching any other part).
+
+**Throws** `Error` if any parts are isolated (not touching any other part).
+
 Returns `this` for chaining.
 
 When parts are tracked (via `union()`), the error message identifies which specific parts are disconnected:
@@ -491,10 +494,12 @@ const shape = someShape.assertConnected()
 // Throws: "Shape has disconnected parts (genus: -7)"
 ```
 
-### .touches(other, tolerance?)
+### .touches(other: Shape, tolerance?: number): boolean
 Check if this shape touches another shape (bounding boxes are adjacent or overlapping).
 Parts that share a surface/edge are considered touching.
 Does not consume either shape.
+
+Returns `true` if bounding boxes are within `tolerance` of each other.
 
 ```typescript
 if (partA.touches(partB)) {
@@ -521,7 +526,7 @@ const disconnected = ctx.findDisconnected(block, [piston, rod, sparkPlug])
 Define named points on shapes for automatic positioning.
 Points are preserved through transforms.
 
-### .definePoint(name, position)
+### .definePoint(name: string, position: [number, number, number]): Shape
 Define a named attachment point on a shape.
 
 ```typescript
@@ -530,15 +535,19 @@ const piston = cylinder(20, 5)
   .definePoint('crown', [0, 0, 10])
 ```
 
-### .getPoint(name)
-Get a named attachment point. Returns `[x, y, z]` or `undefined`.
+### .getPoint(name: string): [number, number, number] | undefined
+Get a named attachment point.
+
+Returns the `[x, y, z]` position, or `undefined` if the point doesn't exist.
 
 ```typescript
 const wristPinPos = piston.getPoint('wristPin')
 ```
 
-### .alignTo(target, myPoint, targetPoint)
+### .alignToPoint(target: Shape, myPoint: string, targetPoint: string): Shape
 Position this shape by aligning an attachment point to a target point.
+
+**Note:** If either point name doesn't exist, returns a clone of the shape unchanged (no error thrown).
 
 ```typescript
 const piston = cylinder(20, 5)
@@ -549,7 +558,7 @@ const rod = cylinder(30, 3)
   .definePoint('bigEnd', [0, 0, -15])
 
 // Align rod's smallEnd to piston's wristPin
-const alignedRod = rod.alignTo(piston, 'smallEnd', 'wristPin')
+const alignedRod = rod.alignToPoint(piston, 'smallEnd', 'wristPin')
 ```
 
 Points transform with the geometry:
@@ -565,25 +574,30 @@ console.log(piston.getPoint('wristPin'))
 
 ## Utilities
 
-### .clone()
+### .clone(): Shape
 Copy a shape without consuming the original.
 
 ```typescript
 const copy = original.clone()
 ```
 
-### .getBoundingBox()
-Get min/max coordinates.
+### .getBoundingBox(): { min: [number, number, number], max: [number, number, number] }
+Get min/max coordinates of the shape's bounding box.
 
 ```typescript
 const { min, max } = shape.getBoundingBox()
+// min = [xMin, yMin, zMin]
+// max = [xMax, yMax, zMax]
 ```
 
-### .getVolume() / .getSurfaceArea()
-Get measurements.
+### .getVolume(): number
+Get volume in mm³.
 
-### .isValid()
-Check if geometry is manifold (watertight).
+### .getSurfaceArea(): number
+Get surface area in mm².
+
+### .isValid(): boolean
+Check if geometry is manifold (watertight). Returns `true` if the shape has positive volume and valid topology.
 
 ### .build(options?)
 **Required at the end.** Returns the raw Manifold for the worker.
@@ -727,8 +741,8 @@ const c = union(a, b)
 a.translate(5, 0, 0)
 ```
 
-### .isConsumed()
-Check if a shape has been consumed.
+### .isConsumed(): boolean
+Check if a shape has been consumed by an operation.
 
 ```typescript
 const shape = box(10, 10, 10)
@@ -752,7 +766,7 @@ const scaled = copy.scale(2)               // Copy still usable
 
 Align shapes to the origin or to each other using bounding box faces.
 
-### .align(x, y, z)
+### .align(x: XAlign, y: YAlign, z: ZAlign): Shape
 Align this shape to the origin based on its bounding box.
 
 ```typescript
@@ -767,8 +781,10 @@ const aligned = box(10, 10, 10).align('center', 'center', 'bottom')
 const cornerAligned = box(10, 10, 10).align('left', 'front', 'bottom')
 ```
 
-### .alignTo(target, x, y, z)
-Align this shape's faces to a target shape's faces.
+### .alignTo(target: Shape, x: XAlign, y: YAlign, z: ZAlign): Shape
+Align this shape's bounding box faces to a target shape's faces.
+
+**Note:** This method has the same name as the attachment-point alignment method (`.alignToPoint()`), but uses different arguments. The bounding-box version takes `XAlign`, `YAlign`, `ZAlign` parameters, while the point-based version takes point name strings. For clarity, prefer `.alignToPoint()` for attachment-point alignment.
 
 ```typescript
 const target = box(20, 20, 10)
@@ -952,9 +968,28 @@ const transparent = shape.color([1, 0, 0, 0.5])
 const blue = shape.color('#0000ff')
 const green = shape.color('#00ff00ff')  // With alpha
 
-// Get color
-const c = shape.getColor()  // [r, g, b] or [r, g, b, a] or undefined
+// Get color (returns undefined if not set)
+const c = shape.getColor()  // [r, g, b] | [r, g, b, a] | undefined
 ```
+
+## Error Behavior
+
+Summary of how invalid inputs are handled:
+
+| Method | Invalid Input | Behavior |
+|--------|--------------|----------|
+| `.alignToPoint()` | Nonexistent point name | Returns clone unchanged (no error) |
+| `.assertConnected()` | Disconnected geometry | **Throws** `Error` with part names |
+| `.overlapWith()` | Ambiguous direction | **Throws** `Error` suggesting explicit direction |
+| `hole()` | Negative diameter | Passes to Manifold (may produce invalid geometry) |
+| `tube()` | Inner radius too large | Clamps to enforce minimum wall thickness |
+| `roundedBox()` | Radius > half width | Clamps to maximum possible radius |
+| `countersunkHole()` | Head diameter ≤ hole diameter | Falls back to regular hole |
+| `extrude()` / `revolve()` | Profile with < 3 points | Returns 1×1×1 fallback cube |
+| `linearPattern()` / `circularPattern()` | count ≤ 0 | Returns clone of original |
+| Any method | Called on consumed shape | **Throws** `Error` suggesting `.clone()` |
+
+**Design philosophy:** Most primitives silently clamp invalid values to safe defaults rather than throwing. This ensures builders always produce valid geometry. Use `console.warn` messages in dev mode to catch edge cases.
 
 ## Memory Management
 
