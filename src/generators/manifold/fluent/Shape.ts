@@ -689,7 +689,15 @@ export class Shape {
     const targetPointPos = target.getPoint(targetPoint)
 
     if (!myPointPos || !targetPointPos) {
-      // If points not found, return clone unchanged
+      // Warn in dev mode to help catch typos
+      if (process.env.NODE_ENV !== 'production') {
+        if (!myPointPos) {
+          console.warn(`alignToPoint: point '${myPoint}' not found on source shape`)
+        }
+        if (!targetPointPos) {
+          console.warn(`alignToPoint: point '${targetPoint}' not found on target shape`)
+        }
+      }
       return this.clone()
     }
 

@@ -978,7 +978,7 @@ Summary of how invalid inputs are handled:
 
 | Method | Invalid Input | Behavior |
 |--------|--------------|----------|
-| `.alignToPoint()` | Nonexistent point name | Returns clone unchanged (no error) |
+| `.alignToPoint()` | Nonexistent point name | Returns clone unchanged + `console.warn` in dev |
 | `.assertConnected()` | Disconnected geometry | **Throws** `Error` with part names |
 | `.overlapWith()` | Ambiguous direction | **Throws** `Error` suggesting explicit direction |
 | `hole()` | Negative diameter | Passes to Manifold (may produce invalid geometry) |
