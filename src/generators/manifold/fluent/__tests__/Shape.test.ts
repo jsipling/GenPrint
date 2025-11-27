@@ -3,13 +3,21 @@ import type { ManifoldToplevel } from 'manifold-3d'
 import { getManifold, setCircularSegments } from '../../../../test/manifoldSetup'
 import { expectValid, expectDimensions, expectBoundingBox } from '../../../../test/geometryHelpers'
 import { Shape } from '../Shape'
+import { createPrimitives } from '../primitives'
+import { createOperations } from '../operations'
+import type { Primitives } from '../primitives'
+import type { Operations } from '../operations'
 
 describe('Shape', () => {
   let M: ManifoldToplevel
+  let p: Primitives
+  let ops: Operations
 
   beforeAll(async () => {
     M = await getManifold()
     setCircularSegments(M, 16)
+    p = createPrimitives(M)
+    ops = createOperations(M)
   })
 
   describe('construction', () => {
@@ -1037,6 +1045,257 @@ describe('Shape', () => {
 
       base.delete()
       alignedPart.delete()
+    })
+  })
+
+  describe('assertConnected with part diagnostics', () => {
+    it('assertConnected() passes silently when all parts connected', () => {
+      const part1 = p.box(10, 10, 10).name('partA')
+      const part2 = p.box(10, 10, 10).translate(5, 0, 0).name('partB')
+      const result = ops.union(part1, part2)
+
+      expect(() => result.assertConnected()).not.toThrow()
+      result.delete()
+    })
+
+    it('assertConnected() lists single disconnected part by name', () => {
+      const connected = p.box(10, 10, 10).name('connected')
+      const disconnected = p.box(10, 10, 10).translate(50, 0, 0).name('disconnected')
+      const result = ops.union(connected, disconnected)
+
+      expect(() => result.assertConnected()).toThrow(/disconnected/i)
+      result.delete()
+    })
+
+    it('assertConnected() lists multiple disconnected parts', () => {
+      const main = p.box(10, 10, 10).name('main')
+      const disc1 = p.box(5, 5, 5).translate(50, 0, 0).name('floating1')
+      const disc2 = p.box(5, 5, 5).translate(-50, 0, 0).name('floating2')
+      const result = ops.union(main, disc1, disc2)
+
+      try {
+        result.assertConnected()
+        expect.fail('Should have thrown')
+      } catch (e) {
+        const message = (e as Error).message
+        expect(message).toContain('floating1')
+        expect(message).toContain('floating2')
+        expect(message).not.toContain('main')
+      }
+      result.delete()
+    })
+
+    it('assertConnected() shows placeholder for parts without names', () => {
+      const named = p.box(10, 10, 10).name('namedPart')
+      const unnamed = p.box(5, 5, 5).translate(50, 0, 0) // no name
+      const result = ops.union(named, unnamed)
+
+      expect(() => result.assertConnected()).toThrow(/<part \d+>/)
+      result.delete()
+    })
+
+    it('assertConnected() error message includes genus', () => {
+      const main = p.box(10, 10, 10).name('main')
+      const disc = p.box(5, 5, 5).translate(50, 0, 0).name('floating')
+      const result = ops.union(main, disc)
+
+      expect(() => result.assertConnected()).toThrow(/genus: -\d+/)
+      result.delete()
+    })
+  })
+
+  describe('overlapWith', () => {
+    describe('explicit direction', () => {
+      it('overlapWith shifts shape to achieve overlap in +x direction', () => {
+        const target = p.box(20, 20, 20) // centered at origin
+        const part = p.box(10, 10, 10).translate(20, 0, 0) // outside right face
+
+        const result = part.overlapWith(target, 2, '+x')
+
+        // Target right face at x=10, part left face should be at x=10-2=8
+        const bbox = result.getBoundingBox()
+        expect(bbox.min[0]).toBeCloseTo(8, 1)
+
+        target.delete()
+        result.delete()
+      })
+
+      it('overlapWith shifts shape to achieve overlap in -x direction', () => {
+        const target = p.box(20, 20, 20)
+        const part = p.box(10, 10, 10).translate(-20, 0, 0) // outside left face
+
+        const result = part.overlapWith(target, 2, '-x')
+
+        // Target left face at x=-10, part right face should be at x=-10+2=-8
+        const bbox = result.getBoundingBox()
+        expect(bbox.max[0]).toBeCloseTo(-8, 1)
+
+        target.delete()
+        result.delete()
+      })
+
+      it('overlapWith shifts shape to achieve overlap in +y direction', () => {
+        const target = p.box(20, 20, 20)
+        const part = p.box(10, 10, 10).translate(0, 20, 0) // outside front face
+
+        const result = part.overlapWith(target, 2, '+y')
+
+        // Target front face at y=10, part back face should be at y=10-2=8
+        const bbox = result.getBoundingBox()
+        expect(bbox.min[1]).toBeCloseTo(8, 1)
+
+        target.delete()
+        result.delete()
+      })
+
+      it('overlapWith shifts shape to achieve overlap in -z direction', () => {
+        const target = p.box(20, 20, 20)
+        const part = p.box(10, 10, 10).translate(0, 0, -20) // below target
+
+        const result = part.overlapWith(target, 2, '-z')
+
+        // Target bottom face at z=-10, part top face should be at z=-10+2=-8
+        const bbox = result.getBoundingBox()
+        expect(bbox.max[2]).toBeCloseTo(-8, 1)
+
+        target.delete()
+        result.delete()
+      })
+
+      it('overlapWith does not consume target', () => {
+        const target = p.box(20, 20, 20)
+        const part = p.box(10, 10, 10).translate(20, 0, 0)
+
+        part.overlapWith(target, 2, '+x')
+
+        // Target should still be usable
+        expect(target.getVolume()).toBeCloseTo(8000, 0)
+        target.delete()
+      })
+
+      it('overlapWith returns chainable Shape', () => {
+        const target = p.box(20, 20, 20)
+        const part = p.box(10, 10, 10).translate(20, 0, 0)
+
+        const result = part
+          .overlapWith(target, 2, '+x')
+          .name('overlappedPart')
+          .translate(0, 5, 0)
+
+        expect(result.getName()).toBe('overlappedPart')
+        target.delete()
+        result.delete()
+      })
+
+      it('overlapWith preserves existing shape name', () => {
+        const target = p.box(20, 20, 20)
+        const part = p.box(10, 10, 10).translate(20, 0, 0).name('myPart')
+
+        const result = part.overlapWith(target, 2, '+x')
+
+        expect(result.getName()).toBe('myPart')
+        target.delete()
+        result.delete()
+      })
+
+      it('overlapWith no shift when already overlapping enough', () => {
+        const target = p.box(20, 20, 20)
+        const part = p.box(10, 10, 10).translate(8, 0, 0) // already overlaps by 2mm
+
+        const partClone = part.clone()
+        const originalBbox = partClone.getBoundingBox()
+        partClone.delete()
+
+        const result = part.overlapWith(target, 2, '+x')
+
+        const bbox = result.getBoundingBox()
+        expect(bbox.min[0]).toBeCloseTo(originalBbox.min[0], 1)
+
+        target.delete()
+        result.delete()
+      })
+    })
+
+    describe('auto-direction', () => {
+      it('auto-detects +x direction when part is to the right of target', () => {
+        const target = p.box(20, 20, 20)
+        const part = p.box(10, 10, 10).translate(20, 0, 0) // clearly to the right
+
+        const result = part.overlapWith(target, 2) // no direction specified
+
+        const bbox = result.getBoundingBox()
+        expect(bbox.min[0]).toBeCloseTo(8, 1)
+
+        target.delete()
+        result.delete()
+      })
+
+      it('auto-detects -z direction when part is below target', () => {
+        const target = p.box(20, 20, 20)
+        const part = p.box(10, 10, 10).translate(0, 0, -20) // clearly below
+
+        const result = part.overlapWith(target, 2)
+
+        const bbox = result.getBoundingBox()
+        expect(bbox.max[2]).toBeCloseTo(-8, 1)
+
+        target.delete()
+        result.delete()
+      })
+
+      it('auto-detects -y direction when part is behind target', () => {
+        const target = p.box(20, 20, 20)
+        const part = p.box(10, 10, 10).translate(0, -20, 0) // clearly behind
+
+        const result = part.overlapWith(target, 2)
+
+        const bbox = result.getBoundingBox()
+        expect(bbox.max[1]).toBeCloseTo(-8, 1)
+
+        target.delete()
+        result.delete()
+      })
+
+      it('throws on ambiguous position (equidistant faces)', () => {
+        const target = p.box(20, 20, 20)
+        // Part positioned at corner - equidistant from right and front faces
+        const part = p.box(10, 10, 10).translate(15, 15, 0)
+
+        expect(() => part.overlapWith(target, 2)).toThrow(/ambiguous/i)
+
+        target.delete()
+        part.delete()
+      })
+
+      it('ambiguous error suggests explicit directions', () => {
+        const target = p.box(20, 20, 20)
+        const part = p.box(10, 10, 10).translate(15, 15, 0)
+
+        try {
+          part.overlapWith(target, 2)
+          expect.fail('Should have thrown')
+        } catch (e) {
+          const message = (e as Error).message
+          expect(message).toMatch(/\+x|\-x|\+y|\-y|\+z|\-z/)
+        }
+
+        target.delete()
+        part.delete()
+      })
+
+      it('explicit direction overrides auto-detection', () => {
+        const target = p.box(20, 20, 20)
+        // Part clearly to the right, but we force -y
+        const part = p.box(10, 10, 10).translate(20, -20, 0)
+
+        const result = part.overlapWith(target, 2, '-y')
+
+        const bbox = result.getBoundingBox()
+        expect(bbox.max[1]).toBeCloseTo(-8, 1)
+
+        target.delete()
+        result.delete()
+      })
     })
   })
 })

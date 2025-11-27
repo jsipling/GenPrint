@@ -395,6 +395,30 @@ Options:
 - `at` - Position on surface (2D coordinates in surface plane)
 - `penetrate` - Offset from surface (default: 0)
 
+### .overlapWith(target, amount, direction?)
+Position this shape to achieve a specified overlap with target.
+Simpler than `connectTo` - you position the shape near the target, and the API adjusts for exact overlap.
+
+```typescript
+const exhaustPipe = cylinder(30, 5)
+  .translate(40, 0, 0)  // Position roughly to the right of engine
+  .overlapWith(engine, 2, '+x')  // Adjust to overlap by 2mm from right
+```
+
+Direction is auto-detected if not specified:
+
+```typescript
+const part = cylinder(10, 3)
+  .translate(20, 0, 0)  // Clearly to the right
+  .overlapWith(target, 2)  // Auto-detects '+x' direction
+```
+
+If the shape is equidistant from multiple faces, an error will suggest explicit directions.
+
+Options:
+- `amount` - How much to overlap (mm)
+- `direction` - '+x', '-x', '+y', '-y', '+z', or '-z' (optional, auto-detected if omitted)
+
 ## Overlap Verification
 
 Debug helpers for complex assemblies.
@@ -417,8 +441,21 @@ Assert that this shape is a single connected body.
 Throws if the shape has disconnected parts.
 Returns `this` for chaining.
 
+When parts are tracked (via `union()`), the error message identifies which specific parts are disconnected:
+
 ```typescript
-const engine = union(...parts).assertConnected()
+const engine = union(
+  block.name('block'),
+  piston.name('piston'),
+  sparkPlug.name('sparkPlug')  // Oops, not overlapping!
+).assertConnected()
+// Throws: "Disconnected parts: sparkPlug (genus: -1)"
+```
+
+For shapes without part tracking, a generic error is thrown:
+
+```typescript
+const shape = someShape.assertConnected()
 // Throws: "Shape has disconnected parts (genus: -7)"
 ```
 

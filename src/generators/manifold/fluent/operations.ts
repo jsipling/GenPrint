@@ -49,7 +49,7 @@ export function createOperations(M: ManifoldToplevel): Operations {
   return {
     /**
      * Union multiple shapes into one
-     * - For 2+ shapes: All input shapes are consumed and cleaned up
+     * - For 2+ shapes: All input shapes are consumed and cleaned up, parts are tracked
      * - For 1 shape: Returns input unchanged (optimization, not consumed)
      * - For 0 shapes: Returns empty geometry
      */
@@ -63,6 +63,14 @@ export function createOperations(M: ManifoldToplevel): Operations {
         return shapes[0]!
       }
 
+      // Clone parts for tracking before we consume them
+      const trackedParts = new Map<string, Shape>()
+      for (let i = 0; i < shapes.length; i++) {
+        const shape = shapes[i]!
+        const name = shape.getName() ?? `<part ${i}>`
+        trackedParts.set(name, shape.clone())
+      }
+
       // Extract raw manifolds for batch union
       const manifolds = shapes.map(s => s.build())
       const result = M.Manifold.union(manifolds)
@@ -72,7 +80,7 @@ export function createOperations(M: ManifoldToplevel): Operations {
         manifold.delete()
       }
 
-      return new Shape(M, result)
+      return new Shape(M, result, undefined, undefined, trackedParts)
     },
 
     /**

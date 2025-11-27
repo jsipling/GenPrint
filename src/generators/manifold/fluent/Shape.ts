@@ -88,22 +88,35 @@ export interface SnapToOptions {
  * Fluent wrapper around Manifold for chainable operations
  * Each operation returns a new Shape and auto-cleans up inputs
  */
+/**
+ * Options for Shape constructor
+ */
+export interface ShapeOptions {
+  attachPoints?: Map<string, [number, number, number]>
+  name?: string
+  /** Tracked parts for assembly diagnostics (set by union()) */
+  trackedParts?: Map<string, Shape>
+}
+
 export class Shape {
   private manifold: Manifold
   private M: ManifoldToplevel
   private attachPoints: Map<string, [number, number, number]>
   private _name?: string
+  private trackedParts: Map<string, Shape>
 
   constructor(
     M: ManifoldToplevel,
     manifold: Manifold,
     attachPoints?: Map<string, [number, number, number]>,
-    name?: string
+    name?: string,
+    trackedParts?: Map<string, Shape>
   ) {
     this.M = M
     this.manifold = manifold
     this.attachPoints = attachPoints ?? new Map()
     this._name = name
+    this.trackedParts = trackedParts ?? new Map()
   }
 
   // ============================================================
@@ -124,6 +137,24 @@ export class Shape {
    */
   getName(): string | undefined {
     return this._name
+  }
+
+  /**
+   * Get names of all tracked parts (from union operations)
+   * Used for assembly diagnostics in assertConnected()
+   * @returns Array of part names
+   */
+  getTrackedParts(): string[] {
+    return Array.from(this.trackedParts.keys())
+  }
+
+  /**
+   * Get cloned parts for diagnostics (from union operations)
+   * Each clone can be used to check overlap with the merged body
+   * @returns Map of part name to cloned Shape
+   */
+  getTrackedPartClones(): Map<string, Shape> {
+    return this.trackedParts
   }
 
   // ============================================================
@@ -743,6 +774,131 @@ export class Shape {
     return this.translate(dx, dy, dz)
   }
 
+  /**
+   * Position this shape to overlap with target by a specified amount
+   * Simpler alternative to connectTo - user positions shape near target, API adjusts for overlap
+   * @param target - Shape to overlap with (not consumed)
+   * @param amount - How much to overlap (in mm)
+   * @param direction - Direction to approach from ('+x', '-x', '+y', '-y', '+z', '-z')
+   *                   If not specified, auto-detects based on shape positions
+   */
+  overlapWith(target: Shape, amount: number, direction?: Direction): Shape {
+    const targetBbox = target.getBoundingBox()
+    const shapeBbox = this.getBoundingBox()
+
+    // Auto-detect direction if not specified
+    if (!direction) {
+      direction = this.detectOverlapDirection(target)
+    }
+
+    let dx = 0, dy = 0, dz = 0
+
+    switch (direction) {
+      case '+x': {
+        // Shape is to the right of target, move left to overlap
+        const targetRightFace = targetBbox.max[0]
+        const shapeLeftFace = shapeBbox.min[0]
+        // Desired position: shapeLeftFace = targetRightFace - amount
+        const desiredPosition = targetRightFace - amount
+        dx = desiredPosition - shapeLeftFace
+        // Only move if there's a gap to close
+        if (dx > 0) dx = 0
+        break
+      }
+      case '-x': {
+        // Shape is to the left of target, move right to overlap
+        const targetLeftFace = targetBbox.min[0]
+        const shapeRightFace = shapeBbox.max[0]
+        // Desired position: shapeRightFace = targetLeftFace + amount
+        const desiredPosition = targetLeftFace + amount
+        dx = desiredPosition - shapeRightFace
+        // Only move if there's a gap to close
+        if (dx < 0) dx = 0
+        break
+      }
+      case '+y': {
+        // Shape is in front of target (positive Y), move back to overlap
+        const targetFrontFace = targetBbox.max[1]
+        const shapeBackFace = shapeBbox.min[1]
+        const desiredPosition = targetFrontFace - amount
+        dy = desiredPosition - shapeBackFace
+        if (dy > 0) dy = 0
+        break
+      }
+      case '-y': {
+        // Shape is behind target (negative Y), move forward to overlap
+        const targetBackFace = targetBbox.min[1]
+        const shapeFrontFace = shapeBbox.max[1]
+        const desiredPosition = targetBackFace + amount
+        dy = desiredPosition - shapeFrontFace
+        if (dy < 0) dy = 0
+        break
+      }
+      case '+z': {
+        // Shape is above target, move down to overlap
+        const targetTopFace = targetBbox.max[2]
+        const shapeBottomFace = shapeBbox.min[2]
+        const desiredPosition = targetTopFace - amount
+        dz = desiredPosition - shapeBottomFace
+        if (dz > 0) dz = 0
+        break
+      }
+      case '-z': {
+        // Shape is below target, move up to overlap
+        const targetBottomFace = targetBbox.min[2]
+        const shapeTopFace = shapeBbox.max[2]
+        const desiredPosition = targetBottomFace + amount
+        dz = desiredPosition - shapeTopFace
+        if (dz < 0) dz = 0
+        break
+      }
+    }
+
+    return this.translate(dx, dy, dz)
+  }
+
+  /**
+   * Auto-detect the direction for overlapWith based on shape positions
+   * @param target - Target shape
+   * @returns Detected direction
+   * @throws Error if direction is ambiguous
+   */
+  private detectOverlapDirection(target: Shape): Direction {
+    const targetBbox = target.getBoundingBox()
+    const shapeBbox = this.getBoundingBox()
+
+    // Calculate distance from each shape face to corresponding target face
+    // Positive distance = gap, negative = overlap
+    const distances: { direction: Direction; distance: number }[] = [
+      { direction: '+x', distance: shapeBbox.min[0] - targetBbox.max[0] }, // shape left face to target right face
+      { direction: '-x', distance: targetBbox.min[0] - shapeBbox.max[0] }, // target left face to shape right face
+      { direction: '+y', distance: shapeBbox.min[1] - targetBbox.max[1] }, // shape back face to target front face
+      { direction: '-y', distance: targetBbox.min[1] - shapeBbox.max[1] }, // target back face to shape front face
+      { direction: '+z', distance: shapeBbox.min[2] - targetBbox.max[2] }, // shape bottom face to target top face
+      { direction: '-z', distance: targetBbox.min[2] - shapeBbox.max[2] }, // target bottom face to shape top face
+    ]
+
+    // Find the direction with the smallest positive distance (closest gap)
+    // or largest overlap (negative, meaning already overlapping)
+    // We want the direction that represents "this shape is positioned in that direction from target"
+    const sortedByDistance = [...distances].sort((a, b) => b.distance - a.distance)
+
+    // The direction with the largest distance indicates where the shape is relative to target
+    const best = sortedByDistance[0]!
+    const secondBest = sortedByDistance[1]!
+
+    // Check for ambiguity - if two directions have similar distances (within 1mm tolerance)
+    const tolerance = 1.0
+    if (Math.abs(best.distance - secondBest.distance) < tolerance) {
+      throw new Error(
+        `Ambiguous direction for overlapWith. Shape is equidistant from multiple faces. ` +
+        `Please specify direction explicitly: ${distances.map(d => d.direction).join(', ')}`
+      )
+    }
+
+    return best.direction
+  }
+
   // ============================================================
   // Overlap Verification
   // ============================================================
@@ -774,7 +930,7 @@ export class Shape {
 
   /**
    * Assert that this shape is a single connected body
-   * Throws if the shape has disconnected parts
+   * Throws if the shape has disconnected parts, listing which parts are disconnected
    * @returns this for chaining
    */
   assertConnected(): this {
@@ -783,11 +939,95 @@ export class Shape {
     const genus = this.manifold.genus()
 
     if (genus < 0) {
+      // If we have tracked parts, identify which ones are disconnected
+      if (this.trackedParts.size > 0) {
+        const disconnectedNames = this.findDisconnectedFromTracked()
+        if (disconnectedNames.length > 0) {
+          throw new Error(`Disconnected parts: ${disconnectedNames.join(', ')} (genus: ${genus})`)
+        }
+      }
+      // Fallback to generic message if no tracked parts or couldn't identify disconnected
       const name = this._name ? `"${this._name}"` : 'Shape'
       throw new Error(`${name} has disconnected parts (genus: ${genus}). Ensure all components overlap.`)
     }
 
     return this
+  }
+
+  /**
+   * Find which tracked parts are disconnected from the main body
+   * Uses overlap detection between parts to determine connectivity
+   * @returns Array of disconnected part names
+   */
+  private findDisconnectedFromTracked(): string[] {
+    const partNames = Array.from(this.trackedParts.keys())
+    if (partNames.length === 0) return []
+
+    // Build adjacency list for parts that overlap each other
+    const overlaps = new Map<string, Set<string>>()
+    for (const name of partNames) {
+      overlaps.set(name, new Set())
+    }
+
+    // Check each pair of parts for overlap
+    for (let i = 0; i < partNames.length; i++) {
+      for (let j = i + 1; j < partNames.length; j++) {
+        const nameA = partNames[i]!
+        const nameB = partNames[j]!
+        const partA = this.trackedParts.get(nameA)!
+        const partB = this.trackedParts.get(nameB)!
+
+        if (partA.overlaps(partB)) {
+          overlaps.get(nameA)!.add(nameB)
+          overlaps.get(nameB)!.add(nameA)
+        }
+      }
+    }
+
+    // Find connected components using BFS
+    const visited = new Set<string>()
+    const components: string[][] = []
+
+    for (const name of partNames) {
+      if (visited.has(name)) continue
+
+      const component: string[] = []
+      const queue = [name]
+
+      while (queue.length > 0) {
+        const current = queue.shift()!
+        if (visited.has(current)) continue
+
+        visited.add(current)
+        component.push(current)
+
+        for (const neighbor of overlaps.get(current)!) {
+          if (!visited.has(neighbor)) {
+            queue.push(neighbor)
+          }
+        }
+      }
+
+      components.push(component)
+    }
+
+    // Find the largest component (main body)
+    let largestComponent: string[] = []
+    for (const component of components) {
+      if (component.length > largestComponent.length) {
+        largestComponent = component
+      }
+    }
+
+    // Parts not in the largest component are disconnected
+    const disconnected: string[] = []
+    for (const name of partNames) {
+      if (!largestComponent.includes(name)) {
+        disconnected.push(name)
+      }
+    }
+
+    return disconnected
   }
 
   // ============================================================
