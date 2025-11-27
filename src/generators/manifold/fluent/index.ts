@@ -18,7 +18,10 @@
  */
 
 // Core Shape class
-export { Shape, type BoundingBox, type Frame, type MirrorUnionOptions } from './Shape'
+export { Shape, type BoundingBox, type Frame, type MirrorUnionOptions, type XAlign, type YAlign, type ZAlign, type ShapeColor } from './Shape'
+
+// 2D Sketch builder
+export { Sketch, type ExtrudeOptions } from './Sketch'
 
 // Primitives factory
 export { createPrimitives, type Primitives } from './primitives'

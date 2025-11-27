@@ -714,6 +714,248 @@ export function buildCableClip(
 | `difference(a, b)` | `a.subtract(b)` + manual delete both |
 | Automatic cleanup | Must call `.delete()` on every intermediate |
 
+## Consumption Safety
+
+Shapes are consumed by operations and cannot be reused. Attempting to use a consumed shape throws a clear error:
+
+```typescript
+const a = box(10, 10, 10)
+const b = box(10, 10, 10)
+const c = union(a, b)
+
+// ERROR: Shape has already been consumed by 'union()'. Use .clone() if you need to reuse this geometry.
+a.translate(5, 0, 0)
+```
+
+### .isConsumed()
+Check if a shape has been consumed.
+
+```typescript
+const shape = box(10, 10, 10)
+console.log(shape.isConsumed()) // false
+
+shape.translate(1, 0, 0)
+console.log(shape.isConsumed()) // true
+```
+
+Use `.clone()` to reuse geometry:
+
+```typescript
+const original = box(10, 10, 10)
+const copy = original.clone()  // Does not consume original
+
+const moved = original.translate(5, 0, 0)  // Consumes original
+const scaled = copy.scale(2)               // Copy still usable
+```
+
+## Bounding Box Alignment
+
+Align shapes to the origin or to each other using bounding box faces.
+
+### .align(x, y, z)
+Align this shape to the origin based on its bounding box.
+
+```typescript
+type XAlign = 'left' | 'center' | 'right' | 'none'
+type YAlign = 'front' | 'center' | 'back' | 'none'
+type ZAlign = 'bottom' | 'center' | 'top' | 'none'
+
+// Center XY, bottom at Z=0 (common for 3D printing)
+const aligned = box(10, 10, 10).align('center', 'center', 'bottom')
+
+// Place at origin corner
+const cornerAligned = box(10, 10, 10).align('left', 'front', 'bottom')
+```
+
+### .alignTo(target, x, y, z)
+Align this shape's faces to a target shape's faces.
+
+```typescript
+const target = box(20, 20, 10)
+const part = box(10, 10, 5)
+
+// Align part's bottom to target's bottom (same Z level)
+const aligned = part.alignTo(target, 'center', 'center', 'bottom')
+
+// Only align Z, keep X and Y unchanged
+const zAligned = part.alignTo(target, 'none', 'none', 'bottom')
+```
+
+**Coordinate System:**
+- X axis: Left (-) / Right (+)
+- Y axis: Front (-) / Back (+)
+- Z axis: Bottom (-) / Top (+)
+
+## Hull Operation
+
+Create convex hulls for organic transitions and mounts.
+
+### ctx.hull(...shapes)
+Create convex hull of multiple shapes. Consumes all inputs.
+
+```typescript
+const { hull, cylinder } = ctx
+
+// Smooth mount between two cylinders
+const mount = hull(
+  cylinder(5, 10),
+  cylinder(5, 10).translate(20, 0, 10)
+)
+
+// Fill concave corner of L-shape
+const lShape = box(10, 10, 5).add(box(10, 10, 5).translate(0, 10, 0))
+const filled = hull(lShape)
+```
+
+## 2D Sketch Builder
+
+Build 2D profiles with a fluent API, then extrude or revolve to 3D.
+
+```typescript
+import { Sketch } from './fluent'
+
+// Create a 2D sketch
+const profile = Sketch.rectangle(M, 20, 10)
+  .subtract(Sketch.circle(M, 3, 32).at(0, 0))
+  .roundCorners(2)
+
+// Convert to 3D
+const shape = profile.extrude(5)
+```
+
+### Sketch Primitives
+
+```typescript
+Sketch.rectangle(M, width, height)  // Centered rectangle
+Sketch.circle(M, radius, segments?) // Circle
+Sketch.polygon(M, points)           // From [x,y] array
+Sketch.slot(M, length, width, segments?) // Stadium shape
+```
+
+### Sketch Transforms
+
+```typescript
+sketch.at(x, y)          // Alias for translate
+sketch.translate(x, y)   // Move
+sketch.rotate(degrees)   // Rotate around origin
+sketch.scale(factor)     // Uniform scale
+sketch.scale(x, y)       // Per-axis scale
+sketch.mirror('x' | 'y') // Mirror across axis
+```
+
+### Sketch Booleans
+
+```typescript
+sketch.add(other)              // Union
+sketch.subtract(...others)     // Difference (multiple)
+sketch.intersect(other)        // Intersection
+Sketch.hull(M, ...sketches)    // Convex hull
+```
+
+### Sketch Modifiers
+
+```typescript
+sketch.roundCorners(radius)  // Round all corners
+sketch.offset(delta)         // Expand (positive) or contract (negative)
+```
+
+### 3D Conversion
+
+```typescript
+sketch.extrude(height)                   // Simple extrusion
+sketch.extrude(height, {                 // With options
+  twist: 90,      // Degrees to twist top
+  scale: 0.5,     // Scale factor for top
+  divisions: 10   // Intermediate slices
+})
+
+sketch.revolve(degrees?, segments?)      // Revolve around Y axis
+```
+
+### Sketch Example
+
+```typescript
+// Create a bracket cross-section
+const bracket = Sketch.rectangle(M, 30, 20)
+  .subtract(
+    Sketch.circle(M, 3, 16).at(-10, 0),
+    Sketch.circle(M, 3, 16).at(10, 0)
+  )
+  .roundCorners(2)
+  .extrude(5)
+```
+
+## Chamfers and Fillets
+
+Add beveled or rounded edges to cylinders and boxes.
+
+### Cylinder Chamfers
+
+```typescript
+cylinder(20, 10).chamferTop(2)      // Angled top edge
+cylinder(20, 10).chamferBottom(2)   // Angled bottom edge
+cylinder(20, 10).chamferBoth(2)     // Both edges
+```
+
+### Cylinder Fillets
+
+```typescript
+cylinder(20, 10).filletTop(2)           // Rounded top edge
+cylinder(20, 10).filletTop(2, 16)       // With custom segments
+cylinder(20, 10).filletBottom(2)        // Rounded bottom edge
+cylinder(20, 10).filletBoth(2)          // Both edges
+```
+
+### Box Chamfers
+
+```typescript
+box(20, 20, 10).chamferTopEdges(2)  // Chamfer all top edges
+```
+
+## Debug and Inspection
+
+Tools for debugging geometry during development.
+
+### .inspect(label?)
+Log shape statistics to console. Returns `this` for chaining.
+
+```typescript
+const shape = box(10, 10, 10)
+  .inspect('base')                    // Logs: [base] Volume: 1000.00 mm³ | BBox: ... | Valid: true
+  .add(cylinder(5, 3).translate(0, 0, 10))
+  .inspect('with boss')
+  .build()
+```
+
+### .debug(filename)
+Export shape to STL file for visual debugging. Creates `./debug/` directory.
+
+```typescript
+const shape = box(10, 10, 10)
+  .debug('step1')          // Writes ./debug/step1.stl, logs stats
+  .add(cylinder(5, 3))
+  .debug('step2')          // Writes ./debug/step2.stl
+  .build()
+```
+
+### .color(color)
+Set color metadata for visual debugging or 3MF export.
+
+```typescript
+// RGB tuple (0-1 range)
+const red = shape.color([1, 0, 0])
+
+// RGBA tuple
+const transparent = shape.color([1, 0, 0, 0.5])
+
+// Hex string
+const blue = shape.color('#0000ff')
+const green = shape.color('#00ff00ff')  // With alpha
+
+// Get color
+const c = shape.getColor()  // [r, g, b] or [r, g, b, a] or undefined
+```
+
 ## Memory Management
 
 The fluent API handles WASM memory automatically:
@@ -721,3 +963,4 @@ The fluent API handles WASM memory automatically:
 - Boolean operations consume all inputs
 - Only call `.build()` at the end - the returned Manifold is owned by the caller
 - Use `.clone()` if you need to reuse a shape
+- Attempting to use a consumed shape throws a clear error with `.clone()` suggestion

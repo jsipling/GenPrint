@@ -98,12 +98,35 @@ export interface ShapeOptions {
   trackedParts?: Map<string, Shape>
 }
 
+/**
+ * Alignment options for X axis
+ */
+export type XAlign = 'left' | 'center' | 'right' | 'none'
+
+/**
+ * Alignment options for Y axis
+ */
+export type YAlign = 'front' | 'center' | 'back' | 'none'
+
+/**
+ * Alignment options for Z axis
+ */
+export type ZAlign = 'bottom' | 'center' | 'top' | 'none'
+
+/**
+ * Color as RGB or RGBA tuple (0-1 range)
+ */
+export type ShapeColor = [number, number, number] | [number, number, number, number]
+
 export class Shape {
   private manifold: Manifold
   private M: ManifoldToplevel
   private attachPoints: Map<string, [number, number, number]>
   private _name?: string
   private trackedParts: Map<string, Shape>
+  private consumed = false
+  private consumedBy = ''
+  private _color?: ShapeColor
 
   constructor(
     M: ManifoldToplevel,
@@ -117,6 +140,50 @@ export class Shape {
     this.attachPoints = attachPoints ?? new Map()
     this._name = name
     this.trackedParts = trackedParts ?? new Map()
+  }
+
+  // ============================================================
+  // Consumption Safety
+  // ============================================================
+
+  /**
+   * Mark this shape as consumed by an operation
+   * @param operationName - Name of the operation that consumed this shape
+   */
+  private markConsumed(operationName: string): void {
+    this.consumed = true
+    this.consumedBy = operationName
+  }
+
+  /**
+   * Assert that this shape has not been consumed
+   * @throws Error if the shape has been consumed
+   */
+  private assertNotConsumed(): void {
+    if (this.consumed) {
+      const name = this._name ? `Shape '${this._name}'` : 'Shape'
+      throw new Error(
+        `${name} has already been consumed by '${this.consumedBy}'. ` +
+        `Use .clone() if you need to reuse this geometry.`
+      )
+    }
+  }
+
+  /**
+   * Check if this shape has been consumed
+   * @returns true if the shape has been consumed
+   */
+  isConsumed(): boolean {
+    return this.consumed
+  }
+
+  /**
+   * Mark this shape as consumed (for use by operations that consume shapes)
+   * @internal
+   */
+  _markConsumed(operationName: string): void {
+    this.consumed = true
+    this.consumedBy = operationName
   }
 
   // ============================================================
@@ -166,12 +233,16 @@ export class Shape {
    * Both input shapes are consumed and cleaned up
    */
   add(other: Shape): Shape {
+    this.assertNotConsumed()
+    other.assertNotConsumed()
     try {
       const result = this.manifold.add(other.manifold)
       return new Shape(this.M, result)
     } finally {
       this.manifold.delete()
+      this.markConsumed('add()')
       other.manifold.delete()
+      other.markConsumed('add()')
     }
   }
 
@@ -180,12 +251,16 @@ export class Shape {
    * Both input shapes are consumed and cleaned up
    */
   subtract(other: Shape): Shape {
+    this.assertNotConsumed()
+    other.assertNotConsumed()
     try {
       const result = this.manifold.subtract(other.manifold)
       return new Shape(this.M, result)
     } finally {
       this.manifold.delete()
+      this.markConsumed('subtract()')
       other.manifold.delete()
+      other.markConsumed('subtract()')
     }
   }
 
@@ -194,12 +269,16 @@ export class Shape {
    * Both input shapes are consumed and cleaned up
    */
   intersect(other: Shape): Shape {
+    this.assertNotConsumed()
+    other.assertNotConsumed()
     try {
       const result = this.manifold.intersect(other.manifold)
       return new Shape(this.M, result)
     } finally {
       this.manifold.delete()
+      this.markConsumed('intersect()')
       other.manifold.delete()
+      other.markConsumed('intersect()')
     }
   }
 
@@ -211,8 +290,10 @@ export class Shape {
    * Translate (move) the shape
    */
   translate(x: number, y: number, z: number): Shape {
+    this.assertNotConsumed()
     const result = this.manifold.translate(x, y, z)
     this.manifold.delete()
+    this.markConsumed('translate()')
     // Transform attach points
     const newPoints = new Map<string, [number, number, number]>()
     for (const [name, point] of this.attachPoints) {
@@ -230,8 +311,10 @@ export class Shape {
    * Rotate the shape (angles in degrees)
    */
   rotate(x: number, y: number = 0, z: number = 0): Shape {
+    this.assertNotConsumed()
     const result = this.manifold.rotate([x, y, z])
     this.manifold.delete()
+    this.markConsumed('rotate()')
     // Transform attach points
     const newPoints = new Map<string, [number, number, number]>()
     for (const [name, point] of this.attachPoints) {
@@ -245,6 +328,7 @@ export class Shape {
    * If only x is provided, scales uniformly
    */
   scale(x: number, y?: number, z?: number): Shape {
+    this.assertNotConsumed()
     const scaleVec: [number, number, number] = [
       x,
       y !== undefined ? y : x,
@@ -252,6 +336,7 @@ export class Shape {
     ]
     const result = this.manifold.scale(scaleVec)
     this.manifold.delete()
+    this.markConsumed('scale()')
     // Transform attach points
     const newPoints = new Map<string, [number, number, number]>()
     for (const [name, point] of this.attachPoints) {
@@ -264,6 +349,7 @@ export class Shape {
    * Mirror the shape across an axis
    */
   mirror(axis: 'x' | 'y' | 'z'): Shape {
+    this.assertNotConsumed()
     const scaleVec: [number, number, number] = [
       axis === 'x' ? -1 : 1,
       axis === 'y' ? -1 : 1,
@@ -271,6 +357,7 @@ export class Shape {
     ]
     const result = this.manifold.scale(scaleVec)
     this.manifold.delete()
+    this.markConsumed('mirror()')
     // Transform attach points
     const newPoints = new Map<string, [number, number, number]>()
     for (const [name, point] of this.attachPoints) {
@@ -289,6 +376,7 @@ export class Shape {
    * @param count - Number of copies (clamped to MAX_PATTERN_COUNT)
    */
   linearPattern(count: number, spacing: number, axis: 'x' | 'y' | 'z' = 'x'): Shape {
+    this.assertNotConsumed()
     // Clamp count to prevent memory exhaustion
     const safeCount = Math.min(count, MAX_PATTERN_COUNT)
 
@@ -296,12 +384,14 @@ export class Shape {
       // Return clone to maintain consistent "original is consumed" contract
       const result = this.clone()
       this.manifold.delete()
+      this.markConsumed('linearPattern()')
       return result
     }
     if (safeCount === 1) {
       // Return clone to maintain consistent "original is consumed" contract
       const result = this.clone()
       this.manifold.delete()
+      this.markConsumed('linearPattern()')
       return result
     }
 
@@ -329,6 +419,7 @@ export class Shape {
         copy.delete()
       }
       this.manifold.delete()
+      this.markConsumed('linearPattern()')
     }
   }
 
@@ -338,6 +429,7 @@ export class Shape {
    * @param count - Number of copies (clamped to MAX_PATTERN_COUNT)
    */
   circularPattern(count: number, axis: 'x' | 'y' | 'z' = 'z'): Shape {
+    this.assertNotConsumed()
     // Clamp count to prevent memory exhaustion
     const safeCount = Math.min(count, MAX_PATTERN_COUNT)
 
@@ -345,12 +437,14 @@ export class Shape {
       // Return clone to maintain consistent "original is consumed" contract
       const result = this.clone()
       this.manifold.delete()
+      this.markConsumed('circularPattern()')
       return result
     }
     if (safeCount === 1) {
       // Return clone to maintain consistent "original is consumed" contract
       const result = this.clone()
       this.manifold.delete()
+      this.markConsumed('circularPattern()')
       return result
     }
 
@@ -377,6 +471,7 @@ export class Shape {
         copy.delete()
       }
       this.manifold.delete()
+      this.markConsumed('circularPattern()')
     }
   }
 
@@ -391,6 +486,7 @@ export class Shape {
    * @param options - Optional offset to create gap between halves
    */
   mirrorUnion(axis: 'x' | 'y' | 'z', options: MirrorUnionOptions = {}): Shape {
+    this.assertNotConsumed()
     const { offset = 0 } = options
 
     // If offset is specified, translate shape by offset/2 first
@@ -420,6 +516,7 @@ export class Shape {
     // Cleanup
     workingManifold.delete()
     mirrored.delete()
+    this.markConsumed('mirrorUnion()')
 
     return new Shape(this.M, result)
   }
@@ -434,6 +531,7 @@ export class Shape {
    * @param frame - Frame with optional rotate and translate components
    */
   inFrame(frame: Frame): Shape {
+    this.assertNotConsumed()
     let result = this.manifold
     let wasTransformed = false
 
@@ -480,6 +578,7 @@ export class Shape {
     }
 
     this.manifold.delete()
+    this.markConsumed('inFrame()')
     return new Shape(this.M, result, newPoints, this._name)
   }
 
@@ -584,7 +683,8 @@ export class Shape {
    * @param myPoint - Name of attachment point on this shape
    * @param targetPoint - Name of attachment point on target shape
    */
-  alignTo(target: Shape, myPoint: string, targetPoint: string): Shape {
+  alignToPoint(target: Shape, myPoint: string, targetPoint: string): Shape {
+    this.assertNotConsumed()
     const myPointPos = this.getPoint(myPoint)
     const targetPointPos = target.getPoint(targetPoint)
 
@@ -597,6 +697,86 @@ export class Shape {
     const dx = targetPointPos[0] - myPointPos[0]
     const dy = targetPointPos[1] - myPointPos[1]
     const dz = targetPointPos[2] - myPointPos[2]
+
+    return this.translate(dx, dy, dz)
+  }
+
+  /**
+   * @deprecated Use alignToPoint() for point-based alignment
+   */
+  alignTo(target: Shape, myPoint: string, targetPoint: string): Shape
+  /**
+   * Align this shape relative to another shape (face-to-face alignment)
+   */
+  alignTo(target: Shape, x: XAlign, y: YAlign, z: ZAlign): Shape
+  alignTo(target: Shape, arg2: string | XAlign, arg3: string | YAlign, arg4?: string | ZAlign): Shape {
+    this.assertNotConsumed()
+
+    // Detect which overload is being used
+    // If arg4 is undefined, it's the old 3-arg point-based alignment
+    // If arg4 is defined and is a ZAlign, it's the new face-to-face alignment
+    if (arg4 === undefined) {
+      // Old point-based alignment: alignTo(target, myPoint, targetPoint)
+      return this.alignToPoint(target, arg2 as string, arg3 as string)
+    }
+
+    // New face-to-face alignment: alignTo(target, x, y, z)
+    const x = arg2 as XAlign
+    const y = arg3 as YAlign
+    const z = arg4 as ZAlign
+
+    const thisBbox = this.getBoundingBox()
+    const targetBbox = target.getBoundingBox()
+
+    let dx = 0, dy = 0, dz = 0
+
+    // Calculate X offset
+    switch (x) {
+      case 'left':
+        dx = targetBbox.min[0] - thisBbox.min[0]
+        break
+      case 'center':
+        dx = ((targetBbox.min[0] + targetBbox.max[0]) / 2) - ((thisBbox.min[0] + thisBbox.max[0]) / 2)
+        break
+      case 'right':
+        dx = targetBbox.max[0] - thisBbox.max[0]
+        break
+      case 'none':
+        dx = 0
+        break
+    }
+
+    // Calculate Y offset
+    switch (y) {
+      case 'front':
+        dy = targetBbox.min[1] - thisBbox.min[1]
+        break
+      case 'center':
+        dy = ((targetBbox.min[1] + targetBbox.max[1]) / 2) - ((thisBbox.min[1] + thisBbox.max[1]) / 2)
+        break
+      case 'back':
+        dy = targetBbox.max[1] - thisBbox.max[1]
+        break
+      case 'none':
+        dy = 0
+        break
+    }
+
+    // Calculate Z offset
+    switch (z) {
+      case 'bottom':
+        dz = targetBbox.min[2] - thisBbox.min[2]
+        break
+      case 'center':
+        dz = ((targetBbox.min[2] + targetBbox.max[2]) / 2) - ((thisBbox.min[2] + thisBbox.max[2]) / 2)
+        break
+      case 'top':
+        dz = targetBbox.max[2] - thisBbox.max[2]
+        break
+      case 'none':
+        dz = 0
+        break
+    }
 
     return this.translate(dx, dy, dz)
   }
@@ -1074,6 +1254,411 @@ export class Shape {
   }
 
   // ============================================================
+  // Alignment
+  // ============================================================
+
+  /**
+   * Align this shape to the origin based on bounding box
+   * Uses standard 3D printing coordinate system:
+   * - X: left (-) / right (+)
+   * - Y: front (-) / back (+)
+   * - Z: bottom (-) / top (+)
+   * @param x - X alignment: 'left', 'center', 'right', or 'none'
+   * @param y - Y alignment: 'front', 'center', 'back', or 'none'
+   * @param z - Z alignment: 'bottom', 'center', 'top', or 'none'
+   */
+  align(x: XAlign, y: YAlign, z: ZAlign): Shape {
+    this.assertNotConsumed()
+    const bbox = this.getBoundingBox()
+
+    let dx = 0, dy = 0, dz = 0
+
+    // Calculate X offset
+    switch (x) {
+      case 'left':
+        dx = -bbox.min[0]
+        break
+      case 'center':
+        dx = -(bbox.min[0] + bbox.max[0]) / 2
+        break
+      case 'right':
+        dx = -bbox.max[0]
+        break
+      case 'none':
+        dx = 0
+        break
+    }
+
+    // Calculate Y offset
+    switch (y) {
+      case 'front':
+        dy = -bbox.min[1]
+        break
+      case 'center':
+        dy = -(bbox.min[1] + bbox.max[1]) / 2
+        break
+      case 'back':
+        dy = -bbox.max[1]
+        break
+      case 'none':
+        dy = 0
+        break
+    }
+
+    // Calculate Z offset
+    switch (z) {
+      case 'bottom':
+        dz = -bbox.min[2]
+        break
+      case 'center':
+        dz = -(bbox.min[2] + bbox.max[2]) / 2
+        break
+      case 'top':
+        dz = -bbox.max[2]
+        break
+      case 'none':
+        dz = 0
+        break
+    }
+
+    return this.translate(dx, dy, dz)
+  }
+
+  // ============================================================
+  // Chamfers and Fillets (for cylinder-like shapes)
+  // ============================================================
+
+  /**
+   * Add a chamfer (angled cut) to the top edge
+   * Best used on cylinders or shapes with circular cross-section
+   * @param size - Chamfer size (45° cut)
+   */
+  chamferTop(size: number): Shape {
+    this.assertNotConsumed()
+    if (size <= 0) {
+      return this.clone()
+    }
+
+    const bbox = this.getBoundingBox()
+    const radius = Math.max(bbox.max[0], bbox.max[1]) // Assume centered
+    const height = bbox.max[2] - bbox.min[2]
+    const zBase = bbox.min[2]
+
+    // Clamp size to not exceed radius or height
+    const safeSize = Math.min(size, radius, height)
+
+    // Create chamfer as truncated cone on top
+    const baseHeight = height - safeSize
+    const baseCylinder = this.M.Manifold.cylinder(baseHeight, radius, radius, 0)
+      .translate(0, 0, zBase)
+
+    const chamferCone = this.M.Manifold.cylinder(safeSize, radius, radius - safeSize, 0)
+      .translate(0, 0, zBase + baseHeight)
+
+    const result = baseCylinder.add(chamferCone)
+
+    // Intersect with original to preserve any holes/features
+    const intersected = this.manifold.intersect(result)
+
+    // Cleanup
+    baseCylinder.delete()
+    chamferCone.delete()
+    result.delete()
+    this.manifold.delete()
+    this.markConsumed('chamferTop()')
+
+    return new Shape(this.M, intersected, this.attachPoints, this._name)
+  }
+
+  /**
+   * Add a chamfer (angled cut) to the bottom edge
+   * Best used on cylinders or shapes with circular cross-section
+   * @param size - Chamfer size (45° cut)
+   */
+  chamferBottom(size: number): Shape {
+    this.assertNotConsumed()
+    if (size <= 0) {
+      return this.clone()
+    }
+
+    const bbox = this.getBoundingBox()
+    const radius = Math.max(bbox.max[0], bbox.max[1])
+    const height = bbox.max[2] - bbox.min[2]
+    const zBase = bbox.min[2]
+
+    const safeSize = Math.min(size, radius, height)
+
+    // Create chamfer as truncated cone on bottom
+    const chamferCone = this.M.Manifold.cylinder(safeSize, radius - safeSize, radius, 0)
+      .translate(0, 0, zBase)
+
+    const topCylinder = this.M.Manifold.cylinder(height - safeSize, radius, radius, 0)
+      .translate(0, 0, zBase + safeSize)
+
+    const result = chamferCone.add(topCylinder)
+    const intersected = this.manifold.intersect(result)
+
+    chamferCone.delete()
+    topCylinder.delete()
+    result.delete()
+    this.manifold.delete()
+    this.markConsumed('chamferBottom()')
+
+    return new Shape(this.M, intersected, this.attachPoints, this._name)
+  }
+
+  /**
+   * Add chamfers to both top and bottom edges
+   * @param size - Chamfer size for both ends
+   */
+  chamferBoth(size: number): Shape {
+    this.assertNotConsumed()
+    if (size <= 0) {
+      return this.clone()
+    }
+
+    const bbox = this.getBoundingBox()
+    const radius = Math.max(bbox.max[0], bbox.max[1])
+    const height = bbox.max[2] - bbox.min[2]
+    const zBase = bbox.min[2]
+
+    const safeSize = Math.min(size, radius, height / 2)
+
+    // Bottom chamfer cone
+    const bottomCone = this.M.Manifold.cylinder(safeSize, radius - safeSize, radius, 0)
+      .translate(0, 0, zBase)
+
+    // Middle cylinder
+    const middleCylinder = this.M.Manifold.cylinder(height - 2 * safeSize, radius, radius, 0)
+      .translate(0, 0, zBase + safeSize)
+
+    // Top chamfer cone
+    const topCone = this.M.Manifold.cylinder(safeSize, radius, radius - safeSize, 0)
+      .translate(0, 0, zBase + height - safeSize)
+
+    const combined = this.M.Manifold.union([bottomCone, middleCylinder, topCone])
+    const intersected = this.manifold.intersect(combined)
+
+    bottomCone.delete()
+    middleCylinder.delete()
+    topCone.delete()
+    combined.delete()
+    this.manifold.delete()
+    this.markConsumed('chamferBoth()')
+
+    return new Shape(this.M, intersected, this.attachPoints, this._name)
+  }
+
+  /**
+   * Add a fillet (rounded edge) to the top
+   * Best used on cylinders or shapes with circular cross-section
+   * @param radius - Fillet radius
+   * @param segments - Segments for quarter-circle (default: 8)
+   */
+  filletTop(radius: number, segments: number = 8): Shape {
+    this.assertNotConsumed()
+    if (radius <= 0) {
+      return this.clone()
+    }
+
+    const bbox = this.getBoundingBox()
+    const cylinderRadius = Math.max(bbox.max[0], bbox.max[1])
+    const height = bbox.max[2] - bbox.min[2]
+    const zBase = bbox.min[2]
+
+    const safeRadius = Math.min(radius, cylinderRadius, height)
+
+    // Create a complete cylinder profile with rounded top corner
+    // Profile starts at center and goes around clockwise
+    const profile: [number, number][] = []
+
+    // Start at origin
+    profile.push([0, 0])
+    // Go to outer edge at bottom
+    profile.push([cylinderRadius, 0])
+    // Go up to where fillet starts
+    profile.push([cylinderRadius, height - safeRadius])
+    // Quarter circle for fillet (going from outer edge inward and up)
+    for (let i = 1; i <= segments; i++) {
+      const angle = (Math.PI / 2) * (i / segments)
+      const x = cylinderRadius - safeRadius + safeRadius * Math.cos(angle)
+      const y = height - safeRadius + safeRadius * Math.sin(angle)
+      profile.push([x, y])
+    }
+    // Go back to center at top
+    profile.push([0, height])
+
+    // Create the filleted cylinder via revolution
+    const crossSection = new this.M.CrossSection([profile])
+    const filleted = crossSection.revolve(0, 360)
+      .translate(0, 0, zBase)
+    crossSection.delete()
+
+    // Intersect with original to preserve holes/features
+    const intersected = this.manifold.intersect(filleted)
+
+    filleted.delete()
+    this.manifold.delete()
+    this.markConsumed('filletTop()')
+
+    return new Shape(this.M, intersected, this.attachPoints, this._name)
+  }
+
+  /**
+   * Add a fillet (rounded edge) to the bottom
+   * Best used on cylinders or shapes with circular cross-section
+   * @param radius - Fillet radius
+   * @param segments - Segments for quarter-circle (default: 8)
+   */
+  filletBottom(radius: number, segments: number = 8): Shape {
+    this.assertNotConsumed()
+    if (radius <= 0) {
+      return this.clone()
+    }
+
+    const bbox = this.getBoundingBox()
+    const cylinderRadius = Math.max(bbox.max[0], bbox.max[1])
+    const height = bbox.max[2] - bbox.min[2]
+    const zBase = bbox.min[2]
+
+    const safeRadius = Math.min(radius, cylinderRadius, height)
+
+    // Create a complete cylinder profile with rounded bottom corner
+    const profile: [number, number][] = []
+
+    // Start at center bottom
+    profile.push([0, 0])
+    // Go to start of fillet
+    profile.push([cylinderRadius - safeRadius, 0])
+    // Quarter circle for fillet (going from inward to outer edge and up)
+    for (let i = 1; i <= segments; i++) {
+      const angle = -Math.PI / 2 + (Math.PI / 2) * (i / segments)
+      const x = cylinderRadius - safeRadius + safeRadius * Math.cos(angle)
+      const y = safeRadius + safeRadius * Math.sin(angle)
+      profile.push([x, y])
+    }
+    // Go up to top
+    profile.push([cylinderRadius, height])
+    // Go back to center at top
+    profile.push([0, height])
+
+    const crossSection = new this.M.CrossSection([profile])
+    const filleted = crossSection.revolve(0, 360)
+      .translate(0, 0, zBase)
+    crossSection.delete()
+
+    const intersected = this.manifold.intersect(filleted)
+
+    filleted.delete()
+    this.manifold.delete()
+    this.markConsumed('filletBottom()')
+
+    return new Shape(this.M, intersected, this.attachPoints, this._name)
+  }
+
+  /**
+   * Add fillets to both top and bottom edges
+   * @param radius - Fillet radius for both ends
+   * @param segments - Segments for quarter-circle (default: 8)
+   */
+  filletBoth(radius: number, segments: number = 8): Shape {
+    this.assertNotConsumed()
+    if (radius <= 0) {
+      return this.clone()
+    }
+
+    // Apply bottom fillet first, then top fillet to result
+    // This works because fillet operations intersect with the shape
+    const bottomFilleted = this.filletBottom(radius, segments)
+    return bottomFilleted.filletTop(radius, segments)
+  }
+
+  /**
+   * Add chamfers to top edges of a box-like shape (subtractive)
+   * @param size - Chamfer size (45° cuts along top edges)
+   */
+  chamferTopEdges(size: number): Shape {
+    this.assertNotConsumed()
+    if (size <= 0) {
+      return this.clone()
+    }
+
+    const bbox = this.getBoundingBox()
+    const width = bbox.max[0] - bbox.min[0]
+    const depth = bbox.max[1] - bbox.min[1]
+    const height = bbox.max[2] - bbox.min[2]
+
+    // Clamp size
+    const safeSize = Math.min(size, width / 2, depth / 2, height)
+
+    const prisms: ReturnType<typeof this.manifold.translate>[] = []
+
+    // Create wedge profiles for each edge direction
+
+    // For edges along X axis (front and back edges):
+    // Profile in YZ plane, extrude along X
+    const xEdgeProfile: [number, number][] = [
+      [0, 0],
+      [safeSize, 0],
+      [0, safeSize]
+    ]
+    const xCrossSection = new this.M.CrossSection([xEdgeProfile])
+
+    // Front edge (at Y min, Z max)
+    const frontPrism = xCrossSection.extrude(width + 2)
+      .rotate([90, 0, 90])
+      .translate(bbox.min[0] - 1, bbox.min[1], bbox.max[2] - safeSize)
+    prisms.push(frontPrism)
+
+    // Back edge (at Y max, Z max) - rotated 180 around X
+    const backPrism = xCrossSection.extrude(width + 2)
+      .rotate([90, 0, 90])
+      .scale([1, -1, 1])
+      .translate(bbox.min[0] - 1, bbox.max[1], bbox.max[2] - safeSize)
+    prisms.push(backPrism)
+
+    xCrossSection.delete()
+
+    // For edges along Y axis (left and right edges):
+    // Profile in XZ plane, extrude along Y
+    const yEdgeProfile: [number, number][] = [
+      [0, 0],
+      [safeSize, 0],
+      [0, safeSize]
+    ]
+    const yCrossSection = new this.M.CrossSection([yEdgeProfile])
+
+    // Left edge (at X min, Z max)
+    const leftPrism = yCrossSection.extrude(depth + 2)
+      .rotate([90, 0, 0])
+      .translate(bbox.min[0], bbox.min[1] - 1, bbox.max[2] - safeSize)
+    prisms.push(leftPrism)
+
+    // Right edge (at X max, Z max) - mirrored
+    const rightPrism = yCrossSection.extrude(depth + 2)
+      .rotate([90, 0, 0])
+      .scale([-1, 1, 1])
+      .translate(bbox.max[0], bbox.min[1] - 1, bbox.max[2] - safeSize)
+    prisms.push(rightPrism)
+
+    yCrossSection.delete()
+
+    // Subtract all prisms
+    const unionedPrisms = this.M.Manifold.union(prisms)
+    const result = this.manifold.subtract(unionedPrisms)
+
+    // Cleanup
+    for (const prism of prisms) {
+      prism.delete()
+    }
+    unionedPrisms.delete()
+    this.manifold.delete()
+    this.markConsumed('chamferTopEdges()')
+
+    return new Shape(this.M, result, this.attachPoints, this._name)
+  }
+
+  // ============================================================
   // Utilities
   // ============================================================
 
@@ -1081,6 +1666,7 @@ export class Shape {
    * Clone this shape (does not consume the original)
    */
   clone(): Shape {
+    this.assertNotConsumed()
     // Create a copy by translating 0,0,0 - returns new manifold
     const copy = this.manifold.translate(0, 0, 0)
     // Clone attach points
@@ -1092,6 +1678,7 @@ export class Shape {
    * Get the bounding box of this shape
    */
   getBoundingBox(): BoundingBox {
+    this.assertNotConsumed()
     const bbox = this.manifold.boundingBox()
     return {
       min: [bbox.min[0], bbox.min[1], bbox.min[2]],
@@ -1103,6 +1690,7 @@ export class Shape {
    * Get the volume of this shape
    */
   getVolume(): number {
+    this.assertNotConsumed()
     return this.manifold.volume()
   }
 
@@ -1110,6 +1698,7 @@ export class Shape {
    * Get the surface area of this shape
    */
   getSurfaceArea(): number {
+    this.assertNotConsumed()
     return this.manifold.surfaceArea()
   }
 
@@ -1117,7 +1706,185 @@ export class Shape {
    * Check if the shape is valid (watertight manifold)
    */
   isValid(): boolean {
+    this.assertNotConsumed()
     return this.manifold.volume() > 0 && this.manifold.genus() >= 0
+  }
+
+  // ============================================================
+  // Debug and Inspection
+  // ============================================================
+
+  /**
+   * Log shape statistics to console and return this for chaining
+   * @param label - Optional label for identifying the shape in output
+   */
+  inspect(label?: string): this {
+    this.assertNotConsumed()
+    const bbox = this.getBoundingBox()
+    const volume = this.manifold.volume()
+    const valid = volume > 0 && this.manifold.genus() >= 0
+
+    const prefix = label ? `[${label}]` : '[Shape]'
+    const bboxStr = `[${bbox.min[0].toFixed(2)},${bbox.min[1].toFixed(2)},${bbox.min[2].toFixed(2)}] → [${bbox.max[0].toFixed(2)},${bbox.max[1].toFixed(2)},${bbox.max[2].toFixed(2)}]`
+
+    console.log(`${prefix} Volume: ${volume.toFixed(2)} mm³ | BBox: ${bboxStr} | Valid: ${valid}`)
+
+    return this
+  }
+
+  /**
+   * Export shape to STL file for debugging and log stats
+   * Creates ./debug/ directory if it doesn't exist
+   * @param filename - Filename without extension (e.g., 'step1' creates ./debug/step1.stl)
+   */
+  debug(filename: string): this {
+    this.assertNotConsumed()
+
+    // Log stats first
+    this.inspect(filename)
+
+    // Get mesh data for STL export
+    const mesh = this.manifold.getMesh()
+
+    // Build binary STL content
+    const numTriangles = mesh.triVerts.length / 3
+    const buffer = new ArrayBuffer(84 + numTriangles * 50)
+    const view = new DataView(buffer)
+
+    // 80-byte header
+    const header = `GenPrint Debug: ${filename}`
+    for (let i = 0; i < 80; i++) {
+      view.setUint8(i, i < header.length ? header.charCodeAt(i) : 0)
+    }
+
+    // Number of triangles
+    view.setUint32(80, numTriangles, true)
+
+    // Write triangles
+    let offset = 84
+    for (let i = 0; i < numTriangles; i++) {
+      const i0 = mesh.triVerts[i * 3] ?? 0
+      const i1 = mesh.triVerts[i * 3 + 1] ?? 0
+      const i2 = mesh.triVerts[i * 3 + 2] ?? 0
+
+      const v0: [number, number, number] = [
+        mesh.vertProperties[i0 * 3] ?? 0,
+        mesh.vertProperties[i0 * 3 + 1] ?? 0,
+        mesh.vertProperties[i0 * 3 + 2] ?? 0
+      ]
+      const v1: [number, number, number] = [
+        mesh.vertProperties[i1 * 3] ?? 0,
+        mesh.vertProperties[i1 * 3 + 1] ?? 0,
+        mesh.vertProperties[i1 * 3 + 2] ?? 0
+      ]
+      const v2: [number, number, number] = [
+        mesh.vertProperties[i2 * 3] ?? 0,
+        mesh.vertProperties[i2 * 3 + 1] ?? 0,
+        mesh.vertProperties[i2 * 3 + 2] ?? 0
+      ]
+
+      // Calculate normal
+      const e1 = [v1[0] - v0[0], v1[1] - v0[1], v1[2] - v0[2]]
+      const e2 = [v2[0] - v0[0], v2[1] - v0[1], v2[2] - v0[2]]
+      const normal = [
+        e1[1]! * e2[2]! - e1[2]! * e2[1]!,
+        e1[2]! * e2[0]! - e1[0]! * e2[2]!,
+        e1[0]! * e2[1]! - e1[1]! * e2[0]!
+      ]
+      const len = Math.sqrt(normal[0]! ** 2 + normal[1]! ** 2 + normal[2]! ** 2)
+      if (len > 0) {
+        normal[0]! /= len
+        normal[1]! /= len
+        normal[2]! /= len
+      }
+
+      // Write normal
+      view.setFloat32(offset, normal[0]!, true)
+      view.setFloat32(offset + 4, normal[1]!, true)
+      view.setFloat32(offset + 8, normal[2]!, true)
+      offset += 12
+
+      // Write vertices
+      for (const v of [v0, v1, v2]) {
+        view.setFloat32(offset, v[0], true)
+        view.setFloat32(offset + 4, v[1], true)
+        view.setFloat32(offset + 8, v[2], true)
+        offset += 12
+      }
+
+      // Attribute byte count
+      view.setUint16(offset, 0, true)
+      offset += 2
+    }
+
+    // Write to file (using Node.js fs - only works in Node.js environment)
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-implied-eval
+      const fs = new Function('return require("fs")')()
+      // eslint-disable-next-line @typescript-eslint/no-implied-eval
+      const path = new Function('return require("path")')()
+      // eslint-disable-next-line @typescript-eslint/no-implied-eval
+      const cwd = new Function('return process.cwd()')()
+      const debugDir = path.join(cwd, 'debug')
+      if (!fs.existsSync(debugDir)) {
+        fs.mkdirSync(debugDir, { recursive: true })
+      }
+      const filepath = path.join(debugDir, `${filename}.stl`)
+      fs.writeFileSync(filepath, new Uint8Array(buffer))
+      console.log(`  → Wrote ${filepath}`)
+    } catch (e) {
+      console.warn(`  → Could not write STL file: ${(e as Error).message}`)
+    }
+
+    return this
+  }
+
+  /**
+   * Set color metadata for visual debugging or 3MF export
+   * @param color - RGB or RGBA tuple (0-1 range) or hex string like '#ff0000'
+   */
+  color(color: ShapeColor | string): Shape {
+    this.assertNotConsumed()
+
+    let colorValue: ShapeColor
+    if (typeof color === 'string') {
+      // Parse hex string
+      const hex = color.replace('#', '')
+      if (hex.length === 6) {
+        colorValue = [
+          parseInt(hex.substring(0, 2), 16) / 255,
+          parseInt(hex.substring(2, 4), 16) / 255,
+          parseInt(hex.substring(4, 6), 16) / 255
+        ]
+      } else if (hex.length === 8) {
+        colorValue = [
+          parseInt(hex.substring(0, 2), 16) / 255,
+          parseInt(hex.substring(2, 4), 16) / 255,
+          parseInt(hex.substring(4, 6), 16) / 255,
+          parseInt(hex.substring(6, 8), 16) / 255
+        ]
+      } else {
+        throw new Error(`Invalid hex color: ${color}`)
+      }
+    } else {
+      colorValue = color
+    }
+
+    // Clone with new color
+    const copy = this.manifold.translate(0, 0, 0)
+    this.manifold.delete()
+    this.markConsumed('color()')
+
+    const newShape = new Shape(this.M, copy, this.attachPoints, this._name)
+    newShape._color = colorValue
+    return newShape
+  }
+
+  /**
+   * Get the color of this shape
+   */
+  getColor(): ShapeColor | undefined {
+    return this._color
   }
 
   // ============================================================
@@ -1132,6 +1899,7 @@ export class Shape {
    * @param options.skipConnectivityCheck - Set to true to allow disconnected geometry
    */
   build(options?: { skipConnectivityCheck?: boolean }): Manifold {
+    this.assertNotConsumed()
     if (!options?.skipConnectivityCheck) {
       this.assertConnected()
     }

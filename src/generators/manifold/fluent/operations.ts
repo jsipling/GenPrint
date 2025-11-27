@@ -28,6 +28,9 @@ export interface Operations {
   difference(base: Shape, ...tools: Shape[]): Shape
   intersection(...shapes: Shape[]): Shape
 
+  // Hull operation
+  hull(...shapes: Shape[]): Shape
+
   // Patterns
   linearArray(shape: Shape, count: number, spacing: [number, number, number]): Shape
   polarArray(shape: Shape, count: number, axis?: 'x' | 'y' | 'z'): Shape
@@ -138,6 +141,31 @@ export function createOperations(M: ManifoldToplevel): Operations {
       // Clean up all inputs
       for (const manifold of manifolds) {
         manifold.delete()
+      }
+
+      return new Shape(M, result)
+    },
+
+    /**
+     * Create convex hull of multiple shapes
+     * Consumes all input shapes
+     * @param shapes - Shapes to hull together
+     */
+    hull(...shapes: Shape[]): Shape {
+      if (shapes.length === 0) {
+        return new Shape(M, M.Manifold.cube([0, 0, 0]))
+      }
+
+      // Extract raw manifolds
+      const manifolds = shapes.map(s => s.build({ skipConnectivityCheck: true }))
+
+      // Manifold.hull expects an array (even for single shape)
+      const result = M.Manifold.hull(manifolds)
+
+      // Clean up all inputs and mark shapes as consumed
+      for (let i = 0; i < manifolds.length; i++) {
+        manifolds[i]!.delete()
+        shapes[i]!._markConsumed('hull()')
       }
 
       return new Shape(M, result)

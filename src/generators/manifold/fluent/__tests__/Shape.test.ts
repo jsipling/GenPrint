@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from 'vitest'
+import { describe, it, expect, beforeAll, vi } from 'vitest'
 import type { ManifoldToplevel } from 'manifold-3d'
 import { getManifold, setCircularSegments } from '../../../../test/manifoldSetup'
 import { expectValid, expectDimensions, expectBoundingBox } from '../../../../test/geometryHelpers'
@@ -1370,6 +1370,553 @@ describe('Shape', () => {
       const result = part1.add(part2)
       expect(() => result.build()).toThrow(/2 disconnected components/)
       result.delete()
+    })
+  })
+
+  describe('consumption safety', () => {
+    it('throws when accessing consumed shape after add()', () => {
+      const a = p.box(10, 10, 10)
+      const b = p.box(10, 10, 10)
+      a.add(b) // consumes both a and b
+
+      expect(() => a.translate(1, 0, 0)).toThrow(/consumed.*add/i)
+    })
+
+    it('throws when accessing consumed shape after subtract()', () => {
+      const a = p.box(10, 10, 10)
+      const b = p.box(5, 5, 5)
+      a.subtract(b)
+
+      expect(() => b.translate(1, 0, 0)).toThrow(/consumed.*subtract/i)
+    })
+
+    it('throws when accessing consumed shape after translate()', () => {
+      const a = p.box(10, 10, 10)
+      a.translate(1, 0, 0)
+
+      expect(() => a.translate(2, 0, 0)).toThrow(/consumed.*translate/i)
+    })
+
+    it('error message includes shape name when named', () => {
+      const named = p.box(10, 10, 10).name('myBlock')
+      named.translate(1, 0, 0)
+
+      expect(() => named.getVolume()).toThrow(/myBlock.*consumed/i)
+    })
+
+    it('error message includes consumedBy operation', () => {
+      const a = p.box(10, 10, 10)
+      const b = p.box(10, 10, 10)
+      a.add(b)
+
+      try {
+        a.getBoundingBox()
+        expect.fail('Should have thrown')
+      } catch (e) {
+        expect((e as Error).message).toContain('add()')
+      }
+    })
+
+    it('clone() creates non-consumed copy', () => {
+      const a = p.box(10, 10, 10)
+      const cloned = a.clone()
+      a.translate(1, 0, 0) // consumes a
+
+      // Clone should still be usable
+      expect(cloned.getVolume()).toBeCloseTo(1000, 0)
+      cloned.delete()
+    })
+
+    it('clone() does not consume original', () => {
+      const a = p.box(10, 10, 10)
+      a.clone()
+
+      // Original should still be usable
+      expect(a.getVolume()).toBeCloseTo(1000, 0)
+      a.delete()
+    })
+
+    it('error message suggests clone() for reuse', () => {
+      const a = p.box(10, 10, 10)
+      a.translate(1, 0, 0)
+
+      expect(() => a.getVolume()).toThrow(/clone\(\)/i)
+    })
+
+    it('isConsumed() returns false for fresh shape', () => {
+      const a = p.box(10, 10, 10)
+      expect(a.isConsumed()).toBe(false)
+      a.delete()
+    })
+
+    it('isConsumed() returns true after operation', () => {
+      const a = p.box(10, 10, 10)
+      a.translate(1, 0, 0)
+      expect(a.isConsumed()).toBe(true)
+    })
+
+    it('all transforms check consumed state', () => {
+      const shape = p.box(10, 10, 10)
+      shape.translate(1, 0, 0) // consume
+
+      expect(() => shape.rotate(45)).toThrow(/consumed/i)
+      expect(() => shape.scale(2)).toThrow(/consumed/i)
+      expect(() => shape.mirror('x')).toThrow(/consumed/i)
+      expect(() => shape.inFrame({ translate: [1, 0, 0] })).toThrow(/consumed/i)
+      expect(() => shape.polar(45, 10)).toThrow(/consumed/i)
+      expect(() => shape.cylindrical(45, 10, 5)).toThrow(/consumed/i)
+    })
+
+    it('CSG operations check consumed state', () => {
+      const a = p.box(10, 10, 10)
+      const b = p.box(10, 10, 10)
+      a.translate(1, 0, 0) // consume a
+
+      expect(() => a.add(b)).toThrow(/consumed/i)
+      b.delete()
+    })
+
+    it('utility methods check consumed state', () => {
+      const shape = p.box(10, 10, 10)
+      shape.translate(1, 0, 0)
+
+      expect(() => shape.getVolume()).toThrow(/consumed/i)
+      expect(() => shape.getSurfaceArea()).toThrow(/consumed/i)
+      expect(() => shape.getBoundingBox()).toThrow(/consumed/i)
+      expect(() => shape.isValid()).toThrow(/consumed/i)
+      expect(() => shape.build()).toThrow(/consumed/i)
+    })
+
+    it('pattern operations check consumed state', () => {
+      const shape = p.box(10, 10, 10)
+      shape.translate(1, 0, 0)
+
+      expect(() => shape.linearPattern(3, 20)).toThrow(/consumed/i)
+      expect(() => shape.circularPattern(4)).toThrow(/consumed/i)
+    })
+  })
+
+  describe('align helper', () => {
+    it('align("center", "center", "bottom") centers XY and places bottom at Z=0', () => {
+      // Create a box that starts at a random position
+      const box = p.box(10, 20, 30, false).translate(5, 5, 5) // not centered
+      const aligned = box.align('center', 'center', 'bottom')
+
+      const bbox = aligned.getBoundingBox()
+      expect(bbox.min[0]).toBeCloseTo(-5, 1)  // centered in X
+      expect(bbox.max[0]).toBeCloseTo(5, 1)
+      expect(bbox.min[1]).toBeCloseTo(-10, 1) // centered in Y
+      expect(bbox.max[1]).toBeCloseTo(10, 1)
+      expect(bbox.min[2]).toBeCloseTo(0, 1)   // bottom at Z=0
+      expect(bbox.max[2]).toBeCloseTo(30, 1)
+
+      aligned.delete()
+    })
+
+    it('align("left", "front", "bottom") places at origin corner', () => {
+      const box = p.box(10, 20, 30) // centered
+      const aligned = box.align('left', 'front', 'bottom')
+
+      const bbox = aligned.getBoundingBox()
+      expect(bbox.min[0]).toBeCloseTo(0, 1)   // left at X=0
+      expect(bbox.min[1]).toBeCloseTo(0, 1)   // front at Y=0
+      expect(bbox.min[2]).toBeCloseTo(0, 1)   // bottom at Z=0
+
+      aligned.delete()
+    })
+
+    it('align("right", "back", "top") places at opposite corner', () => {
+      const box = p.box(10, 20, 30) // centered
+      const aligned = box.align('right', 'back', 'top')
+
+      const bbox = aligned.getBoundingBox()
+      expect(bbox.max[0]).toBeCloseTo(0, 1)   // right at X=0
+      expect(bbox.max[1]).toBeCloseTo(0, 1)   // back at Y=0
+      expect(bbox.max[2]).toBeCloseTo(0, 1)   // top at Z=0
+
+      aligned.delete()
+    })
+
+    it('align("none", "none", "none") returns unchanged shape', () => {
+      const box = p.box(10, 20, 30) // centered at origin
+      const originalBbox = box.clone().getBoundingBox()
+      const aligned = box.align('none', 'none', 'none')
+
+      const bbox = aligned.getBoundingBox()
+      expect(bbox.min[0]).toBeCloseTo(originalBbox.min[0], 1)
+      expect(bbox.max[0]).toBeCloseTo(originalBbox.max[0], 1)
+      expect(bbox.min[1]).toBeCloseTo(originalBbox.min[1], 1)
+      expect(bbox.max[1]).toBeCloseTo(originalBbox.max[1], 1)
+      expect(bbox.min[2]).toBeCloseTo(originalBbox.min[2], 1)
+      expect(bbox.max[2]).toBeCloseTo(originalBbox.max[2], 1)
+
+      aligned.delete()
+    })
+
+    it('align preserves name', () => {
+      const box = p.box(10, 10, 10).name('myBox')
+      const aligned = box.align('center', 'center', 'bottom')
+
+      expect(aligned.getName()).toBe('myBox')
+      aligned.delete()
+    })
+
+    it('alignTo aligns face-to-face with target', () => {
+      const target = p.box(20, 20, 10) // centered at origin, Z from -5 to 5
+      const part = p.box(10, 10, 5)    // centered at origin, Z from -2.5 to 2.5
+
+      // Align part's bottom face to target's bottom face (same Z level)
+      const aligned = part.alignTo(target, 'center', 'center', 'bottom')
+
+      const bbox = aligned.getBoundingBox()
+      expect(bbox.min[2]).toBeCloseTo(-5, 1) // part bottom at target bottom
+
+      target.delete()
+      aligned.delete()
+    })
+
+    it('alignTo with none keeps that axis unchanged', () => {
+      const target = p.box(20, 20, 10).translate(50, 50, 0)
+      const part = p.box(10, 10, 5)
+
+      const aligned = part.alignTo(target, 'none', 'none', 'bottom')
+
+      const bbox = aligned.getBoundingBox()
+      // X and Y unchanged (centered at origin)
+      expect(bbox.min[0]).toBeCloseTo(-5, 1)
+      expect(bbox.min[1]).toBeCloseTo(-5, 1)
+      // Z aligned to target's bottom
+      expect(bbox.min[2]).toBeCloseTo(-5, 1)
+
+      target.delete()
+      aligned.delete()
+    })
+
+    it('alignTo does not consume target', () => {
+      const target = p.box(20, 20, 10)
+      const part = p.box(10, 10, 5)
+
+      part.alignTo(target, 'center', 'center', 'bottom')
+
+      expect(target.getVolume()).toBeCloseTo(4000, 0)
+      target.delete()
+    })
+  })
+
+  describe('hull operation', () => {
+    it('hull() creates convex hull of two shapes', () => {
+      // Two small spheres separated by distance
+      const sphere1 = p.sphere(5).translate(0, 0, 0)
+      const sphere2 = p.sphere(5).translate(20, 0, 0)
+
+      const hulled = ops.hull(sphere1, sphere2)
+
+      expectValid(hulled.build())
+      // Hull should span from -5 to 25 in X (sphere centers + radii)
+      const bbox = hulled.getBoundingBox()
+      expect(bbox.min[0]).toBeCloseTo(-5, 1)
+      expect(bbox.max[0]).toBeCloseTo(25, 1)
+
+      hulled.delete()
+    })
+
+    it('hull() of overlapping shapes creates single body', () => {
+      const box1 = p.box(10, 10, 10)
+      const box2 = p.box(10, 10, 10).translate(5, 0, 0)
+
+      const hulled = ops.hull(box1, box2)
+
+      expectValid(hulled.build())
+      hulled.delete()
+    })
+
+    it('hull() consumes input shapes', () => {
+      const a = p.box(10, 10, 10)
+      const b = p.box(10, 10, 10).translate(20, 0, 0)
+
+      ops.hull(a, b)
+
+      expect(a.isConsumed()).toBe(true)
+      expect(b.isConsumed()).toBe(true)
+    })
+
+    it('hull() with single shape returns convex hull of that shape', () => {
+      // L-shape has concave corner
+      const lShape = p.box(10, 10, 5).add(p.box(10, 10, 5).translate(0, 10, 0))
+
+      const hulled = ops.hull(lShape)
+
+      expectValid(hulled.build())
+      // Hull should fill in the concave corner
+      hulled.delete()
+    })
+
+    it('hull() creates smooth transition for mount', () => {
+      const base = p.cylinder(5, 10)
+      const top = p.cylinder(5, 10).translate(20, 0, 10)
+
+      const mount = ops.hull(base, top)
+
+      expectValid(mount.build())
+      mount.delete()
+    })
+  })
+
+  describe('chamfer operations', () => {
+    it('chamferTop() creates cylinder with angled top edge', () => {
+      const cyl = p.cylinder(20, 10)
+      const chamfered = cyl.chamferTop(2)
+
+      expectValid(chamfered.build())
+      // Volume should be less than original cylinder
+      expect(chamfered.getVolume()).toBeLessThan(Math.PI * 100 * 20)
+      chamfered.delete()
+    })
+
+    it('chamferBottom() creates cylinder with angled bottom edge', () => {
+      const cyl = p.cylinder(20, 10)
+      const chamfered = cyl.chamferBottom(2)
+
+      expectValid(chamfered.build())
+      expect(chamfered.getVolume()).toBeLessThan(Math.PI * 100 * 20)
+      chamfered.delete()
+    })
+
+    it('chamferBoth() creates cylinder with both edges angled', () => {
+      const cyl = p.cylinder(20, 10)
+      const chamfered = cyl.chamferBoth(2)
+
+      expectValid(chamfered.build())
+      // Should lose more volume than single chamfer
+      expect(chamfered.getVolume()).toBeLessThan(Math.PI * 100 * 20)
+      chamfered.delete()
+    })
+
+    it('chamfer(0) returns unchanged shape', () => {
+      const cyl = p.cylinder(20, 10)
+      const originalVolume = cyl.clone().getVolume()
+      const chamfered = cyl.chamferTop(0)
+
+      expect(chamfered.getVolume()).toBeCloseTo(originalVolume, 0)
+      chamfered.delete()
+    })
+
+    it('chamfer consumes original shape', () => {
+      const cyl = p.cylinder(20, 10)
+      cyl.chamferTop(2)
+
+      expect(cyl.isConsumed()).toBe(true)
+    })
+
+    it('chamferTopEdges() chamfers box top edges', () => {
+      const box = p.box(20, 20, 10)
+      const chamfered = box.chamferTopEdges(2)
+
+      expectValid(chamfered.build())
+      // Volume should be less than original box
+      expect(chamfered.getVolume()).toBeLessThan(20 * 20 * 10)
+      chamfered.delete()
+    })
+
+    it('chamferTopEdges(0) returns unchanged shape', () => {
+      const box = p.box(20, 20, 10)
+      const originalVolume = box.clone().getVolume()
+      const chamfered = box.chamferTopEdges(0)
+
+      expect(chamfered.getVolume()).toBeCloseTo(originalVolume, 0)
+      chamfered.delete()
+    })
+  })
+
+  describe('fillet operations', () => {
+    it('filletTop() creates cylinder with rounded top edge', () => {
+      const cyl = p.cylinder(20, 10)
+      const filleted = cyl.filletTop(2)
+
+      expectValid(filleted.build())
+      // Volume should be less than original (fillet removes material)
+      expect(filleted.getVolume()).toBeLessThan(Math.PI * 100 * 20)
+      filleted.delete()
+    })
+
+    it('filletBottom() creates cylinder with rounded bottom edge', () => {
+      const cyl = p.cylinder(20, 10)
+      const filleted = cyl.filletBottom(2)
+
+      expectValid(filleted.build())
+      expect(filleted.getVolume()).toBeLessThan(Math.PI * 100 * 20)
+      filleted.delete()
+    })
+
+    it('filletBoth() creates cylinder with both edges rounded', () => {
+      const cyl = p.cylinder(20, 10)
+      const filleted = cyl.filletBoth(2)
+
+      expectValid(filleted.build())
+      filleted.delete()
+    })
+
+    it('fillet(0) returns unchanged shape', () => {
+      const cyl = p.cylinder(20, 10)
+      const originalVolume = cyl.clone().getVolume()
+      const filleted = cyl.filletTop(0)
+
+      expect(filleted.getVolume()).toBeCloseTo(originalVolume, 0)
+      filleted.delete()
+    })
+
+    it('fillet consumes original shape', () => {
+      const cyl = p.cylinder(20, 10)
+      cyl.filletTop(2)
+
+      expect(cyl.isConsumed()).toBe(true)
+    })
+
+    it('fillet with custom segments', () => {
+      const cyl = p.cylinder(20, 10)
+      const filleted = cyl.filletTop(2, 16)
+
+      expectValid(filleted.build())
+      filleted.delete()
+    })
+  })
+
+  describe('inspect and debug', () => {
+    it('inspect() returns this for chaining', () => {
+      const shape = p.box(10, 10, 10)
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+      const result = shape.inspect('testBox')
+
+      expect(result).toBe(shape)
+      expect(consoleSpy).toHaveBeenCalled()
+
+      consoleSpy.mockRestore()
+      shape.delete()
+    })
+
+    it('inspect() logs volume and bounding box', () => {
+      const shape = p.box(10, 10, 10)
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+      shape.inspect('myBox')
+
+      const logCall = consoleSpy.mock.calls[0]?.[0] as string
+      expect(logCall).toContain('[myBox]')
+      expect(logCall).toContain('Volume:')
+      expect(logCall).toContain('BBox:')
+      expect(logCall).toContain('Valid:')
+
+      consoleSpy.mockRestore()
+      shape.delete()
+    })
+
+    it('inspect() without label uses [Shape]', () => {
+      const shape = p.box(10, 10, 10)
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+      shape.inspect()
+
+      const logCall = consoleSpy.mock.calls[0]?.[0] as string
+      expect(logCall).toContain('[Shape]')
+
+      consoleSpy.mockRestore()
+      shape.delete()
+    })
+
+    it('debug() returns this for chaining', () => {
+      const shape = p.box(10, 10, 10)
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+      vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+      const result = shape.debug('test-debug')
+
+      expect(result).toBe(shape)
+
+      consoleSpy.mockRestore()
+      shape.delete()
+    })
+
+    it('inspect() checks consumed state', () => {
+      const shape = p.box(10, 10, 10)
+      shape.translate(1, 0, 0)
+
+      expect(() => shape.inspect()).toThrow(/consumed/i)
+    })
+
+    it('debug() checks consumed state', () => {
+      const shape = p.box(10, 10, 10)
+      shape.translate(1, 0, 0)
+
+      expect(() => shape.debug('test')).toThrow(/consumed/i)
+    })
+  })
+
+  describe('color', () => {
+    it('color() sets RGB color from tuple', () => {
+      const shape = p.box(10, 10, 10)
+      const colored = shape.color([1, 0, 0])
+
+      expect(colored.getColor()).toEqual([1, 0, 0])
+      colored.delete()
+    })
+
+    it('color() sets RGBA color from tuple', () => {
+      const shape = p.box(10, 10, 10)
+      const colored = shape.color([1, 0, 0, 0.5])
+
+      expect(colored.getColor()).toEqual([1, 0, 0, 0.5])
+      colored.delete()
+    })
+
+    it('color() parses hex string', () => {
+      const shape = p.box(10, 10, 10)
+      const colored = shape.color('#ff0000')
+
+      const c = colored.getColor()!
+      expect(c[0]).toBeCloseTo(1, 2)
+      expect(c[1]).toBeCloseTo(0, 2)
+      expect(c[2]).toBeCloseTo(0, 2)
+      colored.delete()
+    })
+
+    it('color() parses hex string with alpha', () => {
+      const shape = p.box(10, 10, 10)
+      const colored = shape.color('#ff000080')
+
+      const c = colored.getColor()!
+      expect(c.length).toBe(4)
+      expect(c[0]).toBeCloseTo(1, 2)
+      expect(c[3]).toBeCloseTo(0.5, 1)
+      colored.delete()
+    })
+
+    it('color() throws on invalid hex', () => {
+      const shape = p.box(10, 10, 10)
+      expect(() => shape.color('#fff')).toThrow(/Invalid hex/)
+      shape.delete()
+    })
+
+    it('color() consumes original shape', () => {
+      const shape = p.box(10, 10, 10)
+      shape.color([1, 0, 0])
+
+      expect(shape.isConsumed()).toBe(true)
+    })
+
+    it('getColor() returns undefined for uncolored shape', () => {
+      const shape = p.box(10, 10, 10)
+      expect(shape.getColor()).toBeUndefined()
+      shape.delete()
+    })
+
+    it('color preserves geometry', () => {
+      const original = p.box(10, 10, 10)
+      const originalVolume = original.clone().getVolume()
+      const colored = original.color([1, 0, 0])
+
+      expect(colored.getVolume()).toBeCloseTo(originalVolume, 0)
+      colored.delete()
     })
   })
 })
