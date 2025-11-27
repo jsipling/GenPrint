@@ -7,6 +7,7 @@ import { Shape } from './Shape'
 import {
   MIN_WALL_THICKNESS,
   MIN_SMALL_FEATURE,
+  MAX_PATTERN_COUNT,
   safeWallThickness
 } from '../printingConstants'
 
@@ -128,16 +129,19 @@ export function createOperations(M: ManifoldToplevel): Operations {
      * - For count === 1: Returns input unchanged (optimization, not consumed)
      * - For count <= 0: Shape is consumed, returns empty geometry
      * @param shape - Shape to duplicate
-     * @param count - Number of copies
+     * @param count - Number of copies (clamped to MAX_PATTERN_COUNT)
      * @param spacing - Spacing as [x, y, z] offset between copies
      */
     linearArray(shape: Shape, count: number, spacing: [number, number, number]): Shape {
-      if (count <= 0) {
+      // Clamp count to prevent memory exhaustion
+      const safeCount = Math.min(count, MAX_PATTERN_COUNT)
+
+      if (safeCount <= 0) {
         shape.delete()
         return new Shape(M, M.Manifold.cube([0, 0, 0]))
       }
 
-      if (count === 1) {
+      if (safeCount === 1) {
         return shape
       }
 
@@ -152,7 +156,7 @@ export function createOperations(M: ManifoldToplevel): Operations {
       const copies: Manifold[] = []
 
       try {
-        for (let i = 0; i < count; i++) {
+        for (let i = 0; i < safeCount; i++) {
           copies.push(baseManifold.translate(safeSpacing[0] * i, safeSpacing[1] * i, safeSpacing[2] * i))
         }
 
@@ -174,25 +178,28 @@ export function createOperations(M: ManifoldToplevel): Operations {
      * - For count === 1: Returns input unchanged (optimization, not consumed)
      * - For count <= 0: Shape is consumed, returns empty geometry
      * @param shape - Shape to duplicate
-     * @param count - Number of copies
+     * @param count - Number of copies (clamped to MAX_PATTERN_COUNT)
      * @param axis - Rotation axis (default: 'z')
      */
     polarArray(shape: Shape, count: number, axis: 'x' | 'y' | 'z' = 'z'): Shape {
-      if (count <= 0) {
+      // Clamp count to prevent memory exhaustion
+      const safeCount = Math.min(count, MAX_PATTERN_COUNT)
+
+      if (safeCount <= 0) {
         shape.delete()
         return new Shape(M, M.Manifold.cube([0, 0, 0]))
       }
 
-      if (count === 1) {
+      if (safeCount === 1) {
         return shape
       }
 
       const baseManifold = shape.build()
-      const angleStep = 360 / count
+      const angleStep = 360 / safeCount
       const copies: Manifold[] = []
 
       try {
-        for (let i = 0; i < count; i++) {
+        for (let i = 0; i < safeCount; i++) {
           const angle = i * angleStep
           const rotation: [number, number, number] = [
             axis === 'x' ? angle : 0,
@@ -218,8 +225,8 @@ export function createOperations(M: ManifoldToplevel): Operations {
      * Create a 2D grid array of shapes
      * Shape is always consumed and cleaned up
      * @param shape - Shape to duplicate (consumed)
-     * @param countX - Number of copies in X direction
-     * @param countY - Number of copies in Y direction
+     * @param countX - Number of copies in X direction (total clamped to MAX_PATTERN_COUNT)
+     * @param countY - Number of copies in Y direction (total clamped to MAX_PATTERN_COUNT)
      * @param spacingX - Spacing in X direction
      * @param spacingY - Spacing in Y direction
      */
@@ -227,6 +234,17 @@ export function createOperations(M: ManifoldToplevel): Operations {
       if (countX <= 0 || countY <= 0) {
         shape.delete()
         return new Shape(M, M.Manifold.cube([0, 0, 0]))
+      }
+
+      // Clamp total count to prevent memory exhaustion
+      const totalCount = countX * countY
+      let safeCountX = countX
+      let safeCountY = countY
+      if (totalCount > MAX_PATTERN_COUNT) {
+        // Scale both dimensions proportionally to stay under limit
+        const scale = Math.sqrt(MAX_PATTERN_COUNT / totalCount)
+        safeCountX = Math.max(1, Math.floor(countX * scale))
+        safeCountY = Math.max(1, Math.floor(countY * scale))
       }
 
       // Clamp spacing to minimum to prevent overlapping copies
@@ -237,8 +255,8 @@ export function createOperations(M: ManifoldToplevel): Operations {
       const copies: Manifold[] = []
 
       try {
-        for (let y = 0; y < countY; y++) {
-          for (let x = 0; x < countX; x++) {
+        for (let y = 0; y < safeCountY; y++) {
+          for (let x = 0; x < safeCountX; x++) {
             copies.push(baseManifold.translate(x * safeSpacingX, y * safeSpacingY, 0))
           }
         }

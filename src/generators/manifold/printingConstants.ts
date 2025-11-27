@@ -40,6 +40,12 @@ export const VERTEX_PRECISION = 0.001
 export const COMPARISON_TOLERANCE = 0.01
 
 /**
+ * Maximum number of copies allowed in pattern operations.
+ * Prevents memory exhaustion from extremely large arrays.
+ */
+export const MAX_PATTERN_COUNT = 10000
+
+/**
  * Calculate safe wall thickness ensuring minimum printability
  * @param requested - Requested wall thickness
  * @param maxByGeometry - Maximum allowed by geometry constraints

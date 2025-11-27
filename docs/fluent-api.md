@@ -267,6 +267,7 @@ const { MIN_WALL_THICKNESS, MIN_SMALL_FEATURE } = ctx.constants
 | `MIN_SMALL_FEATURE` | 1.5mm | Minimum reliable feature |
 | `HOLE_CYLINDER_SEGMENTS` | 16 | Segments for holes |
 | `CORNER_SEGMENTS_PER_90` | 8 | Segments per 90° arc |
+| `MAX_PATTERN_COUNT` | 10000 | Maximum copies in pattern operations |
 
 Helper functions:
 ```typescript

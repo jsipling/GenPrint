@@ -3,7 +3,7 @@
  * Wraps Manifold with automatic memory management
  */
 import type { ManifoldToplevel, Manifold } from 'manifold-3d'
-import { MIN_SMALL_FEATURE } from '../printingConstants'
+import { MIN_SMALL_FEATURE, MAX_PATTERN_COUNT } from '../printingConstants'
 
 /**
  * Bounding box representation
@@ -35,10 +35,13 @@ export class Shape {
    * Both input shapes are consumed and cleaned up
    */
   add(other: Shape): Shape {
-    const result = this.manifold.add(other.manifold)
-    this.manifold.delete()
-    other.manifold.delete()
-    return new Shape(this.M, result)
+    try {
+      const result = this.manifold.add(other.manifold)
+      return new Shape(this.M, result)
+    } finally {
+      this.manifold.delete()
+      other.manifold.delete()
+    }
   }
 
   /**
@@ -46,10 +49,13 @@ export class Shape {
    * Both input shapes are consumed and cleaned up
    */
   subtract(other: Shape): Shape {
-    const result = this.manifold.subtract(other.manifold)
-    this.manifold.delete()
-    other.manifold.delete()
-    return new Shape(this.M, result)
+    try {
+      const result = this.manifold.subtract(other.manifold)
+      return new Shape(this.M, result)
+    } finally {
+      this.manifold.delete()
+      other.manifold.delete()
+    }
   }
 
   /**
@@ -57,10 +63,13 @@ export class Shape {
    * Both input shapes are consumed and cleaned up
    */
   intersect(other: Shape): Shape {
-    const result = this.manifold.intersect(other.manifold)
-    this.manifold.delete()
-    other.manifold.delete()
-    return new Shape(this.M, result)
+    try {
+      const result = this.manifold.intersect(other.manifold)
+      return new Shape(this.M, result)
+    } finally {
+      this.manifold.delete()
+      other.manifold.delete()
+    }
   }
 
   // ============================================================
@@ -121,15 +130,19 @@ export class Shape {
   /**
    * Create a linear pattern of this shape
    * Returns union of count copies spaced along an axis
+   * @param count - Number of copies (clamped to MAX_PATTERN_COUNT)
    */
   linearPattern(count: number, spacing: number, axis: 'x' | 'y' | 'z' = 'x'): Shape {
-    if (count <= 0) {
+    // Clamp count to prevent memory exhaustion
+    const safeCount = Math.min(count, MAX_PATTERN_COUNT)
+
+    if (safeCount <= 0) {
       // Return clone to maintain consistent "original is consumed" contract
       const result = this.clone()
       this.manifold.delete()
       return result
     }
-    if (count === 1) {
+    if (safeCount === 1) {
       // Return clone to maintain consistent "original is consumed" contract
       const result = this.clone()
       this.manifold.delete()
@@ -138,71 +151,77 @@ export class Shape {
 
     // Clamp spacing to minimum to prevent overlapping copies
     const safeSpacing = Math.max(spacing, MIN_SMALL_FEATURE)
-    const copies = []
+    const copies: Manifold[] = []
 
-    for (let i = 0; i < count; i++) {
-      const offset = i * safeSpacing
-      const translation: [number, number, number] = [
-        axis === 'x' ? offset : 0,
-        axis === 'y' ? offset : 0,
-        axis === 'z' ? offset : 0
-      ]
-      copies.push(this.manifold.translate(...translation))
+    try {
+      for (let i = 0; i < safeCount; i++) {
+        const offset = i * safeSpacing
+        const translation: [number, number, number] = [
+          axis === 'x' ? offset : 0,
+          axis === 'y' ? offset : 0,
+          axis === 'z' ? offset : 0
+        ]
+        copies.push(this.manifold.translate(...translation))
+      }
+
+      // Use batch union for O(1) performance
+      const result = this.M.Manifold.union(copies)
+      return new Shape(this.M, result)
+    } finally {
+      // Clean up all intermediate manifolds (even on exception)
+      for (const copy of copies) {
+        copy.delete()
+      }
+      this.manifold.delete()
     }
-
-    // Use batch union for O(1) performance
-    const result = this.M.Manifold.union(copies)
-
-    // Clean up all intermediate manifolds
-    for (const copy of copies) {
-      copy.delete()
-    }
-    this.manifold.delete()
-
-    return new Shape(this.M, result)
   }
 
   /**
    * Create a circular pattern of this shape
    * Returns union of count copies rotated around an axis
+   * @param count - Number of copies (clamped to MAX_PATTERN_COUNT)
    */
   circularPattern(count: number, axis: 'x' | 'y' | 'z' = 'z'): Shape {
-    if (count <= 0) {
+    // Clamp count to prevent memory exhaustion
+    const safeCount = Math.min(count, MAX_PATTERN_COUNT)
+
+    if (safeCount <= 0) {
       // Return clone to maintain consistent "original is consumed" contract
       const result = this.clone()
       this.manifold.delete()
       return result
     }
-    if (count === 1) {
+    if (safeCount === 1) {
       // Return clone to maintain consistent "original is consumed" contract
       const result = this.clone()
       this.manifold.delete()
       return result
     }
 
-    const angleStep = 360 / count
-    const copies = []
+    const angleStep = 360 / safeCount
+    const copies: Manifold[] = []
 
-    for (let i = 0; i < count; i++) {
-      const angle = i * angleStep
-      const rotation: [number, number, number] = [
-        axis === 'x' ? angle : 0,
-        axis === 'y' ? angle : 0,
-        axis === 'z' ? angle : 0
-      ]
-      copies.push(this.manifold.rotate(rotation))
+    try {
+      for (let i = 0; i < safeCount; i++) {
+        const angle = i * angleStep
+        const rotation: [number, number, number] = [
+          axis === 'x' ? angle : 0,
+          axis === 'y' ? angle : 0,
+          axis === 'z' ? angle : 0
+        ]
+        copies.push(this.manifold.rotate(rotation))
+      }
+
+      // Use batch union for O(1) performance
+      const result = this.M.Manifold.union(copies)
+      return new Shape(this.M, result)
+    } finally {
+      // Clean up all intermediate manifolds (even on exception)
+      for (const copy of copies) {
+        copy.delete()
+      }
+      this.manifold.delete()
     }
-
-    // Use batch union for O(1) performance
-    const result = this.M.Manifold.union(copies)
-
-    // Clean up all intermediate manifolds
-    for (const copy of copies) {
-      copy.delete()
-    }
-    this.manifold.delete()
-
-    return new Shape(this.M, result)
   }
 
   // ============================================================
@@ -275,13 +294,6 @@ export class Shape {
    * Call this when you're done with a Shape that won't be returned
    */
   delete(): void {
-    this.manifold.delete()
-  }
-
-  /**
-   * Alias for delete() for compatibility
-   */
-  _cleanup(): void {
     this.manifold.delete()
   }
 }
