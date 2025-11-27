@@ -41,9 +41,32 @@ This app generates models for 3D printing. **Only create geometry that is visibl
 ### Code Constraints
 
 - `builderCode` runs as JavaScript at runtime - NO TypeScript syntax (no type annotations like `: boolean`)
-- Overlap geometry by 1-2mm to ensure parts connect
 - Always validate parameters with fallback defaults
 - Use `dynamicMin`/`dynamicMax` when parameters depend on each other
+
+### Connectivity Strategy (Critical)
+
+**Build from solid to hollow.** Internal features (posts, bosses, ribs) must be unioned with the main body BEFORE subtracting cavities.
+
+**Wrong approach** (creates disconnected parts):
+```javascript
+// 1. Create shell by subtracting cavity
+var shell = outerBox.subtract(innerCavity)
+// 2. Add internal features - FAILS: features float in empty space
+shell = shell.add(post)
+```
+
+**Correct approach** (ensures connectivity):
+```javascript
+// 1. Start with solid outer shape
+var solid = outerBox
+// 2. Add internal features while still solid
+solid = solid.add(post1).add(post2).add(rib)
+// 3. THEN carve out the hollow
+var shell = solid.subtract(innerCavity)
+```
+
+**Why this matters:** When you subtract a cavity first, internal features added later sit in empty space with no volumetric overlap to the shell walls or floor.
 
 ## Update Process
 
