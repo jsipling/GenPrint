@@ -2,7 +2,7 @@
  * Operation helpers for the fluent geometry API
  * Provides batch operations, patterns, and printing constraint helpers
  */
-import type { ManifoldToplevel } from 'manifold-3d'
+import type { ManifoldToplevel, Manifold } from 'manifold-3d'
 import { Shape } from './Shape'
 import {
   MIN_WALL_THICKNESS,
@@ -37,7 +37,9 @@ export function createOperations(M: ManifoldToplevel): Operations {
   return {
     /**
      * Union multiple shapes into one
-     * All input shapes are consumed and cleaned up
+     * - For 2+ shapes: All input shapes are consumed and cleaned up
+     * - For 1 shape: Returns input unchanged (optimization, not consumed)
+     * - For 0 shapes: Returns empty geometry
      */
     union(...shapes: Shape[]): Shape {
       if (shapes.length === 0) {
@@ -63,7 +65,8 @@ export function createOperations(M: ManifoldToplevel): Operations {
 
     /**
      * Subtract multiple tools from a base shape
-     * All input shapes are consumed and cleaned up
+     * - For 1+ tools: All input shapes (base and tools) are consumed
+     * - For 0 tools: Returns base unchanged (not consumed)
      */
     difference(base: Shape, ...tools: Shape[]): Shape {
       if (tools.length === 0) {
@@ -94,7 +97,9 @@ export function createOperations(M: ManifoldToplevel): Operations {
 
     /**
      * Intersect multiple shapes
-     * All input shapes are consumed and cleaned up
+     * - For 2+ shapes: All input shapes are consumed and cleaned up
+     * - For 1 shape: Returns input unchanged (optimization, not consumed)
+     * - For 0 shapes: Returns empty geometry
      */
     intersection(...shapes: Shape[]): Shape {
       if (shapes.length === 0) {
@@ -119,6 +124,9 @@ export function createOperations(M: ManifoldToplevel): Operations {
 
     /**
      * Create a linear array of shapes
+     * - For count >= 2: Shape is consumed and cleaned up
+     * - For count === 1: Returns input unchanged (optimization, not consumed)
+     * - For count <= 0: Shape is consumed, returns empty geometry
      * @param shape - Shape to duplicate
      * @param count - Number of copies
      * @param spacing - Spacing as [x, y, z] offset between copies
@@ -141,26 +149,30 @@ export function createOperations(M: ManifoldToplevel): Operations {
       ]
 
       const baseManifold = shape.build()
-      const copies = []
+      const copies: Manifold[] = []
 
-      for (let i = 0; i < count; i++) {
-        copies.push(baseManifold.translate(safeSpacing[0] * i, safeSpacing[1] * i, safeSpacing[2] * i))
+      try {
+        for (let i = 0; i < count; i++) {
+          copies.push(baseManifold.translate(safeSpacing[0] * i, safeSpacing[1] * i, safeSpacing[2] * i))
+        }
+
+        // Use batch boolean which creates separate geometry
+        const result = M.Manifold.union(copies)
+        return new Shape(M, result)
+      } finally {
+        // Clean up all intermediate manifolds (even on exception)
+        for (const copy of copies) {
+          copy.delete()
+        }
+        baseManifold.delete()
       }
-
-      // Use batch boolean which creates separate geometry
-      const result = M.Manifold.union(copies)
-
-      // Clean up all intermediate manifolds
-      for (const copy of copies) {
-        copy.delete()
-      }
-      baseManifold.delete()
-
-      return new Shape(M, result)
     },
 
     /**
      * Create a polar (circular) array of shapes
+     * - For count >= 2: Shape is consumed and cleaned up
+     * - For count === 1: Returns input unchanged (optimization, not consumed)
+     * - For count <= 0: Shape is consumed, returns empty geometry
      * @param shape - Shape to duplicate
      * @param count - Number of copies
      * @param axis - Rotation axis (default: 'z')
@@ -177,33 +189,35 @@ export function createOperations(M: ManifoldToplevel): Operations {
 
       const baseManifold = shape.build()
       const angleStep = 360 / count
-      const copies = []
+      const copies: Manifold[] = []
 
-      for (let i = 0; i < count; i++) {
-        const angle = i * angleStep
-        const rotation: [number, number, number] = [
-          axis === 'x' ? angle : 0,
-          axis === 'y' ? angle : 0,
-          axis === 'z' ? angle : 0
-        ]
-        copies.push(baseManifold.rotate(rotation))
+      try {
+        for (let i = 0; i < count; i++) {
+          const angle = i * angleStep
+          const rotation: [number, number, number] = [
+            axis === 'x' ? angle : 0,
+            axis === 'y' ? angle : 0,
+            axis === 'z' ? angle : 0
+          ]
+          copies.push(baseManifold.rotate(rotation))
+        }
+
+        // Use batch union for O(1) performance
+        const result = M.Manifold.union(copies)
+        return new Shape(M, result)
+      } finally {
+        // Clean up all intermediate manifolds (even on exception)
+        for (const copy of copies) {
+          copy.delete()
+        }
+        baseManifold.delete()
       }
-
-      // Use batch union for O(1) performance
-      const result = M.Manifold.union(copies)
-
-      // Clean up all intermediate manifolds
-      for (const copy of copies) {
-        copy.delete()
-      }
-      baseManifold.delete()
-
-      return new Shape(M, result)
     },
 
     /**
      * Create a 2D grid array of shapes
-     * @param shape - Shape to duplicate
+     * Shape is always consumed and cleaned up
+     * @param shape - Shape to duplicate (consumed)
      * @param countX - Number of copies in X direction
      * @param countY - Number of copies in Y direction
      * @param spacingX - Spacing in X direction
@@ -220,24 +234,25 @@ export function createOperations(M: ManifoldToplevel): Operations {
       const safeSpacingY = Math.max(spacingY, MIN_SMALL_FEATURE)
 
       const baseManifold = shape.build()
-      const copies = []
+      const copies: Manifold[] = []
 
-      for (let y = 0; y < countY; y++) {
-        for (let x = 0; x < countX; x++) {
-          copies.push(baseManifold.translate(x * safeSpacingX, y * safeSpacingY, 0))
+      try {
+        for (let y = 0; y < countY; y++) {
+          for (let x = 0; x < countX; x++) {
+            copies.push(baseManifold.translate(x * safeSpacingX, y * safeSpacingY, 0))
+          }
         }
+
+        // Use batch union for O(1) performance
+        const result = M.Manifold.union(copies)
+        return new Shape(M, result)
+      } finally {
+        // Clean up all intermediate manifolds (even on exception)
+        for (const copy of copies) {
+          copy.delete()
+        }
+        baseManifold.delete()
       }
-
-      // Use batch union for O(1) performance
-      const result = M.Manifold.union(copies)
-
-      // Clean up all intermediate manifolds
-      for (const copy of copies) {
-        copy.delete()
-      }
-      baseManifold.delete()
-
-      return new Shape(M, result)
     },
 
     /**

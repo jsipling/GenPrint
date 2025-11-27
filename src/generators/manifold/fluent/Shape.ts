@@ -124,10 +124,16 @@ export class Shape {
    */
   linearPattern(count: number, spacing: number, axis: 'x' | 'y' | 'z' = 'x'): Shape {
     if (count <= 0) {
-      return this
+      // Return clone to maintain consistent "original is consumed" contract
+      const result = this.clone()
+      this.manifold.delete()
+      return result
     }
     if (count === 1) {
-      return this
+      // Return clone to maintain consistent "original is consumed" contract
+      const result = this.clone()
+      this.manifold.delete()
+      return result
     }
 
     // Clamp spacing to minimum to prevent overlapping copies
@@ -162,10 +168,16 @@ export class Shape {
    */
   circularPattern(count: number, axis: 'x' | 'y' | 'z' = 'z'): Shape {
     if (count <= 0) {
-      return this
+      // Return clone to maintain consistent "original is consumed" contract
+      const result = this.clone()
+      this.manifold.delete()
+      return result
     }
     if (count === 1) {
-      return this
+      // Return clone to maintain consistent "original is consumed" contract
+      const result = this.clone()
+      this.manifold.delete()
+      return result
     }
 
     const angleStep = 360 / count

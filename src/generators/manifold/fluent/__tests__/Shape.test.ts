@@ -100,6 +100,14 @@ describe('Shape', () => {
       scaled.delete()
     })
 
+    it('scale() with two arguments scales X independently and Y/Z uniformly', () => {
+      const cube = new Shape(M, M.Manifold.cube([10, 10, 10], true))
+      const scaled = cube.scale(2, 3) // x=2, y=3, z=3
+
+      expectDimensions(scaled.build(), { width: 20, depth: 30, height: 30 })
+      scaled.delete()
+    })
+
     it('mirror() mirrors across an axis', () => {
       const cube = new Shape(M, M.Manifold.cube([10, 10, 10], false).translate(5, 0, 0))
       const mirrored = cube.mirror('x')
@@ -137,38 +145,42 @@ describe('Shape', () => {
       pattern.delete()
     })
 
-    it('linearPattern() with count 1 returns original', () => {
+    it('linearPattern() with count 1 returns clone with same geometry (consumes original)', () => {
       const cube = new Shape(M, M.Manifold.cube([10, 10, 10], true))
       const originalVolume = cube.getVolume()
       const pattern = cube.linearPattern(1, 20, 'x')
 
+      // Returns clone with same volume (original is consumed)
       expect(pattern.getVolume()).toBeCloseTo(originalVolume, 0)
       pattern.delete()
     })
 
-    it('linearPattern() with count 0 returns original unchanged', () => {
+    it('linearPattern() with count 0 returns clone with same geometry (consumes original)', () => {
       const cube = new Shape(M, M.Manifold.cube([10, 10, 10], true))
       const originalVolume = cube.getVolume()
       const pattern = cube.linearPattern(0, 20, 'x')
 
+      // Returns clone with same volume (original is consumed)
       expect(pattern.getVolume()).toBeCloseTo(originalVolume, 0)
       pattern.delete()
     })
 
-    it('circularPattern() with count 1 returns original', () => {
+    it('circularPattern() with count 1 returns clone with same geometry (consumes original)', () => {
       const cube = new Shape(M, M.Manifold.cube([5, 5, 5], false).translate(10, 0, 0))
       const originalVolume = cube.getVolume()
       const pattern = cube.circularPattern(1, 'z')
 
+      // Returns clone with same volume (original is consumed)
       expect(pattern.getVolume()).toBeCloseTo(originalVolume, 0)
       pattern.delete()
     })
 
-    it('circularPattern() with count 0 returns original unchanged', () => {
+    it('circularPattern() with count 0 returns clone with same geometry (consumes original)', () => {
       const cube = new Shape(M, M.Manifold.cube([5, 5, 5], false).translate(10, 0, 0))
       const originalVolume = cube.getVolume()
       const pattern = cube.circularPattern(0, 'z')
 
+      // Returns clone with same volume (original is consumed)
       expect(pattern.getVolume()).toBeCloseTo(originalVolume, 0)
       pattern.delete()
     })
