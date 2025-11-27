@@ -172,6 +172,26 @@ describe('Shape', () => {
       expect(pattern.getVolume()).toBeCloseTo(originalVolume, 0)
       pattern.delete()
     })
+
+    it('linearPattern() with zero spacing clamps to minimum spacing', () => {
+      const cube = new Shape(M, M.Manifold.cube([5, 5, 5], true))
+      const pattern = cube.linearPattern(3, 0, 'x')
+
+      // With clamped spacing (MIN_SMALL_FEATURE = 1.5mm), 5mm cubes will still overlap
+      // but volume should be greater than a single cube (125) and less than 3x (375)
+      expect(pattern.getVolume()).toBeGreaterThan(125) // More than single cube
+      expect(pattern.getVolume()).toBeLessThan(375) // Less than 3 separate cubes
+      pattern.delete()
+    })
+
+    it('linearPattern() with negative spacing clamps to minimum spacing', () => {
+      const cube = new Shape(M, M.Manifold.cube([5, 5, 5], true))
+      const pattern = cube.linearPattern(3, -10, 'x')
+
+      // Should still produce valid geometry with positive spacing
+      expect(pattern.getVolume()).toBeGreaterThan(125) // More than single cube
+      pattern.delete()
+    })
   })
 
   describe('utilities', () => {

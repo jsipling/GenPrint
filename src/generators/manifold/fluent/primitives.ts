@@ -211,14 +211,21 @@ export function createPrimitives(M: ManifoldToplevel): Primitives {
       segments?: number
     ): Shape {
       const segs = segments ?? HOLE_CYLINDER_SEGMENTS
+      const mainRadius = diameter / 2
+      const headRadius = headDiameter / 2
+
+      // If headDiameter <= diameter, countersink is invalid - fall back to regular hole
+      if (headRadius <= mainRadius) {
+        const manifold = M.Manifold.cylinder(depth + 2, mainRadius, mainRadius, segs)
+          .translate(0, 0, -1)
+        return new Shape(M, manifold)
+      }
 
       // Main hole
-      const mainRadius = diameter / 2
       const mainHole = M.Manifold.cylinder(depth + 2, mainRadius, mainRadius, segs)
         .translate(0, 0, -1)
 
       // Countersink cone (typical 82° or 90° angle - using 90° for simplicity)
-      const headRadius = headDiameter / 2
       const coneHeight = (headRadius - mainRadius) // 90° angle means height = radius diff
       const countersink = M.Manifold.cylinder(coneHeight + 0.01, headRadius, mainRadius, segs)
         .translate(0, 0, depth - coneHeight)
@@ -236,6 +243,10 @@ export function createPrimitives(M: ManifoldToplevel): Primitives {
      * @param height - Extrusion height
      */
     extrude(profile: [number, number][], height: number): Shape {
+      // Empty or invalid profile - return fallback unit cube
+      if (!profile || profile.length < 3) {
+        return new Shape(M, M.Manifold.cube([1, 1, 1], true))
+      }
       const crossSection = new M.CrossSection([profile])
       const manifold = crossSection.extrude(height)
       crossSection.delete()
@@ -249,6 +260,10 @@ export function createPrimitives(M: ManifoldToplevel): Primitives {
      * @param segments - Number of segments (default: uses global setting)
      */
     revolve(profile: [number, number][], angle: number = 360, segments?: number): Shape {
+      // Empty or invalid profile - return fallback unit cube
+      if (!profile || profile.length < 3) {
+        return new Shape(M, M.Manifold.cube([1, 1, 1], true))
+      }
       const crossSection = new M.CrossSection([profile])
       const segs = segments ?? 0
       const manifold = crossSection.revolve(segs, angle)

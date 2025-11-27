@@ -173,5 +173,43 @@ describe('operations', () => {
       expect(result.getVolume()).toBe(0)
       result.delete()
     })
+
+    it('linearArray() with zero spacing clamps to minimum spacing', () => {
+      const box = p.box(5, 5, 5)
+      const result = ops.linearArray(box, 3, [0, 0, 0])
+
+      // With clamped spacing (MIN_SMALL_FEATURE = 1.5mm), 5mm cubes will still overlap
+      // but volume should be greater than a single cube
+      expect(result.getVolume()).toBeGreaterThan(125) // More than single cube
+      result.delete()
+    })
+
+    it('gridArray() with zero spacing clamps to minimum spacing', () => {
+      const box = p.box(5, 5, 5)
+      const result = ops.gridArray(box, 2, 2, 0, 0)
+
+      // With clamped spacing (MIN_SMALL_FEATURE = 1.5mm), 5mm cubes will still overlap
+      // but volume should be greater than a single cube
+      expect(result.getVolume()).toBeGreaterThan(125) // More than single cube
+      result.delete()
+    })
+
+    it('linearArray() with negative spacing clamps to minimum', () => {
+      const box = p.box(5, 5, 5)
+      const result = ops.linearArray(box, 3, [-10, 0, 0])
+
+      // Should still produce valid geometry with positive spacing
+      expect(result.getVolume()).toBeGreaterThan(125) // More than single cube
+      result.delete()
+    })
+
+    it('gridArray() with negative spacing clamps to minimum', () => {
+      const box = p.box(5, 5, 5)
+      const result = ops.gridArray(box, 2, 2, -10, -10)
+
+      // Should still produce valid geometry with positive spacing
+      expect(result.getVolume()).toBeGreaterThan(125) // More than single cube
+      result.delete()
+    })
   })
 })

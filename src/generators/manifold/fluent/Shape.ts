@@ -3,6 +3,7 @@
  * Wraps Manifold with automatic memory management
  */
 import type { ManifoldToplevel, Manifold } from 'manifold-3d'
+import { MIN_SMALL_FEATURE } from '../printingConstants'
 
 /**
  * Bounding box representation
@@ -129,11 +130,14 @@ export class Shape {
       return this
     }
 
+    // Clamp spacing to minimum to prevent overlapping copies
+    const safeSpacing = Math.max(spacing, MIN_SMALL_FEATURE)
+
     // Build incrementally using add() to avoid batch union issues
     let result = this.manifold.translate(0, 0, 0) // First copy at origin
 
     for (let i = 1; i < count; i++) {
-      const offset = i * spacing
+      const offset = i * safeSpacing
       const translation: [number, number, number] = [
         axis === 'x' ? offset : 0,
         axis === 'y' ? offset : 0,

@@ -133,11 +133,18 @@ export function createOperations(M: ManifoldToplevel): Operations {
         return shape
       }
 
+      // Clamp spacing components to minimum to prevent overlapping copies
+      const safeSpacing: [number, number, number] = [
+        Math.max(spacing[0], MIN_SMALL_FEATURE),
+        Math.max(spacing[1], MIN_SMALL_FEATURE),
+        Math.max(spacing[2], MIN_SMALL_FEATURE)
+      ]
+
       const baseManifold = shape.build()
       const copies = []
 
       for (let i = 0; i < count; i++) {
-        copies.push(baseManifold.translate(spacing[0] * i, spacing[1] * i, spacing[2] * i))
+        copies.push(baseManifold.translate(safeSpacing[0] * i, safeSpacing[1] * i, safeSpacing[2] * i))
       }
 
       // Use batch boolean which creates separate geometry
@@ -206,6 +213,10 @@ export function createOperations(M: ManifoldToplevel): Operations {
         return new Shape(M, M.Manifold.cube([0, 0, 0]))
       }
 
+      // Clamp spacing to minimum to prevent overlapping copies
+      const safeSpacingX = Math.max(spacingX, MIN_SMALL_FEATURE)
+      const safeSpacingY = Math.max(spacingY, MIN_SMALL_FEATURE)
+
       const baseManifold = shape.build()
 
       // Build incrementally using add() to avoid batch union issues
@@ -218,7 +229,7 @@ export function createOperations(M: ManifoldToplevel): Operations {
             isFirst = false
             continue // Skip first since we already have it
           }
-          const copy = baseManifold.translate(x * spacingX, y * spacingY, 0)
+          const copy = baseManifold.translate(x * safeSpacingX, y * safeSpacingY, 0)
           const newResult = result.add(copy)
           result.delete()
           copy.delete()

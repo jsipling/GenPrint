@@ -169,6 +169,26 @@ describe('primitives', () => {
       expectValid(hole.build())
       hole.delete()
     })
+
+    it('countersunkHole() handles equal head and shaft diameter', () => {
+      // When headDiameter equals diameter, should fall back to regular hole
+      const hole = p.countersunkHole(10, 20, 10)
+
+      expectValid(hole.build())
+      // Should still have valid volume (just a regular hole)
+      expect(hole.getVolume()).toBeGreaterThan(0)
+      hole.delete()
+    })
+
+    it('countersunkHole() handles inverted head diameter', () => {
+      // When headDiameter < diameter, should fall back to regular hole
+      const hole = p.countersunkHole(10, 20, 5)
+
+      expectValid(hole.build())
+      // Should still have valid volume (just a regular hole)
+      expect(hole.getVolume()).toBeGreaterThan(0)
+      hole.delete()
+    })
   })
 
   describe('extrude', () => {
@@ -179,6 +199,16 @@ describe('primitives', () => {
 
       expectValid(shape.build())
       expect(shape.getVolume()).toBeCloseTo(10 * 10 * 20, 0)
+      shape.delete()
+    })
+
+    it('handles empty profile by returning fallback geometry', () => {
+      // Empty profile should return valid fallback geometry, not crash
+      const shape = p.extrude([], 20)
+
+      expectValid(shape.build())
+      // Should have positive volume (fallback unit cube)
+      expect(shape.getVolume()).toBeGreaterThan(0)
       shape.delete()
     })
 
@@ -205,6 +235,16 @@ describe('primitives', () => {
       expectValid(shape.build())
       // Should approximate a cylinder with r=5, h=10
       expectVolumeApprox(shape.build(), Math.PI * 25 * 10, 0.1)
+      shape.delete()
+    })
+
+    it('handles empty profile by returning fallback geometry', () => {
+      // Empty profile should return valid fallback geometry, not crash
+      const shape = p.revolve([], 360)
+
+      expectValid(shape.build())
+      // Should have positive volume (fallback unit cube)
+      expect(shape.getVolume()).toBeGreaterThan(0)
       shape.delete()
     })
 
