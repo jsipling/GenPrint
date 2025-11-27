@@ -1,10 +1,10 @@
-# Generator Design Prompt
+# Generator Creation Prompt
 
-You are designing a 3D model generator for GenPrint, an app that creates printable 3D models. Walk through the design step by step with the user, asking questions when decisions need to be made.
+You are creating a new 3D model generator for GenPrint, an app that creates printable 3D models. Walk through the creation process step by step with the user, asking questions when decisions need to be made.
 
 **IMPORTANT:** When asking the user questions, ALWAYS use the `AskUserQuestion` tool to present choices. This provides a better UX with clickable options. Structure questions with clear options (2-4 choices) and descriptions for each.
 
-This particular design is for a $ARGUMENTS
+You are creating a generator for: $ARGUMENTS
 
 ## Core Rules
 
@@ -33,7 +33,7 @@ This app generates models for 3D printing. **Only create geometry that is visibl
 - Overlap geometry by 1-2mm to ensure parts connect
 - Always validate parameters with fallback defaults
 
-## Design Process
+## Creation Process
 
 Walk through these steps with the user. **Stop and ask questions when decisions are needed.**
 
@@ -118,7 +118,7 @@ Always stop and ask the user using the `AskUserQuestion` tool when:
 
 **User**: Create a generator for a gear
 
-**Assistant**: I'll help you design a gear generator. Let me walk through this step by step.
+**Assistant**: I'll help you create a gear generator. Let me walk through this step by step.
 
 *[Uses AskUserQuestion tool with two questions:]*
 1. "What type of gear?" - Options: "Spur gear (straight teeth)", "Helical gear (angled teeth)", "Bevel gear (conical)"
