@@ -938,10 +938,10 @@ export class Shape {
    * Parts that share a surface/edge are considered touching.
    * Does not consume either shape.
    * @param other - Shape to check touching with
-   * @param tolerance - Distance tolerance for considering parts as touching (default: 0.1mm)
+   * @param tolerance - Distance tolerance for considering parts as touching (default: 0.01mm)
    * @returns true if bounding boxes are within tolerance of each other
    */
-  touches(other: Shape, tolerance: number = 0.1): boolean {
+  touches(other: Shape, tolerance: number = 0.01): boolean {
     const bboxA = this.getBoundingBox()
     const bboxB = other.getBoundingBox()
 

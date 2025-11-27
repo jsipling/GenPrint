@@ -501,7 +501,7 @@ if (partA.touches(partB)) {
   console.log('Parts are adjacent')
 }
 
-// With custom tolerance (default: 0.1mm)
+// With custom tolerance (default: 0.01mm)
 if (partA.touches(partB, 0.5)) {
   console.log('Parts within 0.5mm')
 }
