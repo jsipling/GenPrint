@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeAll } from 'vitest'
+import type { ManifoldToplevel } from 'manifold-3d'
 import {
   flattenParameters,
   isBooleanParam,
@@ -6,9 +7,20 @@ import {
   type BooleanParameterDef
 } from './types'
 import { generators } from './index'
+import { getManifold, setCircularSegments } from '../test/manifoldSetup'
+import { createBuilderContext } from './manifold/fluent/BuilderContext'
 
-// Find bracket generator from the auto-discovered generators
-const bracketGenerator = generators.find(g => g.id === 'bracket')!
+// Find v8-engine generator from the auto-discovered generators
+const v8EngineGenerator = generators.find(g => g.id === 'v8-engine')!
+
+// Worker wrapper - matches src/workers/manifold.worker.ts executeUserBuilder()
+function createWorkerBuildFn(builderCode: string) {
+  return new Function('ctx', 'params', `
+    const { box, cylinder, sphere, cone, roundedBox, tube, hole, counterboredHole, countersunkHole, extrude, revolve, union, difference, intersection, linearArray, polarArray, gridArray, ensureMinWall, ensureMinFeature } = ctx
+    const { constants, ops, primitives } = ctx
+    ${builderCode}
+  `)
+}
 
 describe('flattenParameters', () => {
   it('should return flat array unchanged', () => {
@@ -195,19 +207,66 @@ describe('generators', () => {
     }
   })
 
-  it('bracket rib_thickness has 1.2mm minimum per AGENTS.md', () => {
-    const ribParam = bracketGenerator.parameters.find(
-      p => p.type === 'boolean' && p.name === 'add_rib'
+  it('v8Engine wallThickness has minimum wall thickness per AGENTS.md', () => {
+    const wallParam = v8EngineGenerator.parameters.find(
+      p => p.type === 'number' && p.name === 'wallThickness'
     )
-    expect(ribParam).toBeDefined()
-    expect(isBooleanParam(ribParam!)).toBe(true)
+    expect(wallParam).toBeDefined()
+    expect(wallParam!.type).toBe('number')
+    // Per AGENTS.md, minimum wall thickness should be at least 1.2mm
+    expect((wallParam as { min: number }).min).toBeGreaterThanOrEqual(1.2)
+  })
+})
 
-    const boolRibParam = ribParam as BooleanParameterDef
-    const ribThicknessParam = boolRibParam.children?.find(
-      c => c.name === 'rib_thickness'
-    )
-    expect(ribThicknessParam).toBeDefined()
-    expect(ribThicknessParam!.type).toBe('number')
-    expect((ribThicknessParam as { min: number }).min).toBeGreaterThanOrEqual(1.2)
+describe('generator builderCode validation', () => {
+  let M: ManifoldToplevel
+
+  beforeAll(async () => {
+    M = await getManifold()
+    setCircularSegments(M, 16) // Lower segments for faster validation
+  })
+
+  it('all generators execute without syntax or runtime errors', () => {
+    for (const gen of generators) {
+      // Build default params from generator definition
+      const params: Record<string, number | string | boolean> = {}
+      for (const param of flattenParameters(gen.parameters)) {
+        params[param.name] = param.default
+      }
+
+      // Execute builderCode with worker wrapper (catches redeclaration errors, etc.)
+      const ctx = createBuilderContext(M)
+      const buildFn = createWorkerBuildFn(gen.builderCode)
+
+      // This will throw if there are syntax errors or runtime errors
+      expect(() => {
+        const result = buildFn(ctx, params)
+        // Ensure it returns something (Shape or Manifold)
+        expect(result).toBeDefined()
+      }).not.toThrow()
+    }
+  })
+
+  it('all generators produce valid manifold geometry', () => {
+    for (const gen of generators) {
+      // Build default params
+      const params: Record<string, number | string | boolean> = {}
+      for (const param of flattenParameters(gen.parameters)) {
+        params[param.name] = param.default
+      }
+
+      const ctx = createBuilderContext(M)
+      const buildFn = createWorkerBuildFn(gen.builderCode)
+      const result = buildFn(ctx, params)
+
+      // Get the manifold (handle both Shape and raw Manifold returns)
+      const manifold = result.build
+        ? result.build({ skipConnectivityCheck: true })
+        : result
+
+      // Validate geometry
+      expect(manifold.volume(), `${gen.name} should have positive volume`).toBeGreaterThan(0)
+      expect(manifold.genus(), `${gen.name} should be watertight (genus >= 0)`).toBeGreaterThanOrEqual(0)
+    }
   })
 })
