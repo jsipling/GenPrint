@@ -3,7 +3,7 @@ import type { Generator } from './types'
 const generator: Generator = {
   id: 'v6-engine',
   name: 'V6 Engine Block',
-  description: 'V6 engine block with cylinder bores, crankcase, oil pan, timing cover, rear main seal housing, lifter valley, head bolt holes, and optional intake manifold',
+  description: 'V6 engine block with cylinder bores, crankcase, oil pan, timing cover, rear main seal housing, lifter valley, head bolt holes, exhaust ports, and optional intake manifold',
   parameters: [
     {
       type: 'number',
@@ -410,6 +410,50 @@ const generator: Generator = {
       return plenum
     }
 
+    // Build exhaust ports (visible openings on outer face of each cylinder bank)
+    function buildExhaustPorts(isLeftBank) {
+      var portRadius = bore * 0.2  // Exhaust port ~40% of bore diameter
+      var portDepth = wallThickness * 3  // Deep enough to be visible
+      var bossPadding = wallThickness * 0.5  // Small boss around port
+      var bossDepth = wallThickness * 1.5
+      var bankRotation = isLeftBank ? -halfBankAngle : halfBankAngle
+      var bankXOffset = (isLeftBank ? -1 : 1) * Math.sin(halfBankAngle * Math.PI / 180) * blockWidth / 2
+
+      var ports = null
+      var bosses = null
+
+      for (var cylIdx = 0; cylIdx < 3; cylIdx++) {  // 3 cylinders per bank for V6
+        var yOffset = -blockLength / 2 + cylinderOuterRadius + cylIdx * cylinderSpacing
+
+        // Position port on outer face of the bank (opposite the V valley side)
+        // Port is at deck height level, offset outward from cylinder centerline
+        var portLocalX = (isLeftBank ? -1 : 1) * (blockWidth / 2 - wallThickness)
+        var portZ = blockHeight * 0.5
+
+        // Create exhaust port boss (raised gasket surface)
+        var boss = cylinder(bossDepth, portRadius + bossPadding)
+          .translate(portLocalX, yOffset, portZ)
+          .rotate(0, bankRotation, 0)
+          .translate(bankXOffset, 0, 0)
+
+        // Create exhaust port hole
+        var port = cylinder(portDepth + bossDepth, portRadius)
+          .translate(portLocalX, yOffset, portZ)
+          .rotate(0, bankRotation, 0)
+          .translate(bankXOffset, 0, 0)
+
+        if (bosses === null) {
+          bosses = boss
+          ports = port
+        } else {
+          bosses = bosses.add(boss)
+          ports = ports.add(port)
+        }
+      }
+
+      return { bosses: bosses, ports: ports }
+    }
+
     // Combine into one block
     var block = union(leftBank, rightBank).add(crankcase)
 
@@ -459,6 +503,12 @@ const generator: Generator = {
     // Drill head bolt holes into both banks (visible holes in deck surface)
     block = block.subtract(buildHeadBoltHoles(true))   // Left bank
     block = block.subtract(buildHeadBoltHoles(false))  // Right bank
+
+    // Add exhaust port bosses and drill exhaust ports on both banks
+    var leftExhaust = buildExhaustPorts(true)
+    var rightExhaust = buildExhaustPorts(false)
+    block = block.add(leftExhaust.bosses).add(rightExhaust.bosses)
+    block = block.subtract(leftExhaust.ports).subtract(rightExhaust.ports)
 
     // Add optional intake manifold
     if (showIntakeManifold) {

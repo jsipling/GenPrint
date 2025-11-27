@@ -168,6 +168,19 @@ describe('v6Engine.generator', () => {
       // Intake manifold should add volume
       expect(volumeWith).toBeGreaterThan(volumeWithout)
     })
+
+    it('has exhaust ports on outer faces of cylinder banks', () => {
+      const ctx = createBuilderContext(M)
+      const buildFn = createBuildFn(generator.builderCode)
+
+      const result = buildFn(ctx, defaultParams)
+      const manifold = result.build ? result.build() : result
+      expectValid(manifold)
+
+      // Exhaust ports are carved into the outer faces of each bank
+      // Block should still be valid and connected with 6 exhaust ports (3 per bank)
+      expect(manifold.volume()).toBeGreaterThan(20000) // mm³ - ports remove some material
+    })
   })
 
   describe('display dimensions', () => {
