@@ -10,6 +10,18 @@ We should always strive to keep things simple and clean.  Implementing new
 features properly instead of tacking them on.  Always consider refactoring if it
 helps us achieve these goals better.
 
+## Visible Geometry Only
+
+This app generates models for 3D printing. **Only create geometry that is visible on the printed model.**
+
+- **No hidden internal features:** If a feature wouldn't be visible on the surface of the printed part, don't create it
+- **No artificial visibility:** Never add geometry just to make something "visible" - if the real-world object has a flat surface, model it as flat
+- **Holes are visible:** Holes, bores, and cutouts ARE visible features (they affect the surface)
+- **Internal reinforcement is invisible:** Don't model internal strengthening ribs or bosses that would be hidden inside solid walls
+- **Reference real objects:** When modeling real-world items (engines, brackets, etc.), only include features that would be visible on the actual part's exterior
+
+Every triangle in the exported STL should contribute to the visible surface of the printed model.
+
 ## 3D Printing Optimization
 
 All geometry must be optimized for FDM 3D printing:
