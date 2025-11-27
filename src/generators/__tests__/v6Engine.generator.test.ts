@@ -3,7 +3,7 @@ import type { ManifoldToplevel } from 'manifold-3d'
 import { getManifold, setCircularSegments } from '../../test/manifoldSetup'
 import { expectValid } from '../../test/geometryHelpers'
 import { createBuilderContext } from '../manifold/fluent/BuilderContext'
-import generator from '../v8Engine.generator'
+import generator from '../v6Engine.generator'
 
 // Create a build function that matches the worker's wrapper
 function createBuildFn(builderCode: string) {
@@ -14,7 +14,7 @@ function createBuildFn(builderCode: string) {
   `)
 }
 
-describe('v8Engine.generator', () => {
+describe('v6Engine.generator', () => {
   let M: ManifoldToplevel
 
   beforeAll(async () => {
@@ -24,8 +24,8 @@ describe('v8Engine.generator', () => {
 
   describe('metadata', () => {
     it('has required fields', () => {
-      expect(generator.id).toBe('v8-engine')
-      expect(generator.name).toBe('V8 Engine Block')
+      expect(generator.id).toBe('v6-engine')
+      expect(generator.name).toBe('V6 Engine Block')
       expect(generator.description).toBeTruthy()
       expect(generator.parameters.length).toBeGreaterThan(0)
       expect(generator.builderCode).toBeTruthy()
@@ -42,12 +42,11 @@ describe('v8Engine.generator', () => {
 
       const strokeParam = generator.parameters.find(p => p.name === 'stroke')
       expect(strokeParam).toBeDefined()
+    })
 
+    it('does not have bank angle parameter (fixed at 60 degrees)', () => {
       const bankAngleParam = generator.parameters.find(p => p.name === 'bankAngle')
-      expect(bankAngleParam).toBeDefined()
-      if (bankAngleParam?.type === 'number') {
-        expect(bankAngleParam.default).toBe(90)
-      }
+      expect(bankAngleParam).toBeUndefined()
     })
   })
 
@@ -55,7 +54,6 @@ describe('v8Engine.generator', () => {
     const defaultParams: Record<string, number | string | boolean> = {
       bore: 30,
       stroke: 25,
-      bankAngle: 90,
       wallThickness: 3,
       cylinderSpacing: 35,
       oilPanDepth: 25
@@ -69,7 +67,7 @@ describe('v8Engine.generator', () => {
       expectValid(result.build ? result.build() : result)
     })
 
-    it('produces geometry larger than 150mm in at least one dimension', () => {
+    it('produces geometry larger than 100mm in at least one dimension', () => {
       const ctx = createBuilderContext(M)
       const buildFn = createBuildFn(generator.builderCode)
       const result = buildFn(ctx, defaultParams)
@@ -81,26 +79,7 @@ describe('v8Engine.generator', () => {
       const height = bbox.max[2] - bbox.min[2]
 
       const maxDimension = Math.max(width, depth, height)
-      expect(maxDimension).toBeGreaterThanOrEqual(140) // Block is ~145mm long
-    })
-
-    it('respects bank angle parameter', () => {
-      const ctx = createBuilderContext(M)
-      const buildFn = createBuildFn(generator.builderCode)
-
-      // Test with 90-degree bank angle
-      const result90 = buildFn(ctx, { ...defaultParams, bankAngle: 90 })
-      const manifold90 = result90.build ? result90.build() : result90
-      expectValid(manifold90)
-
-      // Test with 60-degree bank angle
-      const ctx2 = createBuilderContext(M)
-      const result60 = buildFn(ctx2, { ...defaultParams, bankAngle: 60 })
-      const manifold60 = result60.build ? result60.build() : result60
-      expectValid(manifold60)
-
-      // Different bank angles should produce different geometry
-      expect(manifold90.volume()).not.toBeCloseTo(manifold60.volume(), 0)
+      expect(maxDimension).toBeGreaterThanOrEqual(100) // V6 block is smaller than V8
     })
 
     it('enforces minimum wall thickness', () => {
@@ -123,14 +102,15 @@ describe('v8Engine.generator', () => {
       expect(manifold.numVert()).toBeGreaterThan(0)
     })
 
-    it('has 8 cylinder bores', () => {
+    it('has 6 cylinder bores (3 per bank)', () => {
       const ctx = createBuilderContext(M)
       const buildFn = createBuildFn(generator.builderCode)
       const result = buildFn(ctx, defaultParams)
       const manifold = result.build ? result.build() : result
 
-      // Engine block should have substantial volume for 8 cylinders
-      expect(manifold.volume()).toBeGreaterThan(50000) // mm³
+      // V6 engine block should have substantial volume for 6 cylinders
+      // Smaller than V8 (which was >50000)
+      expect(manifold.volume()).toBeGreaterThan(35000) // mm³
     })
 
     it('includes head bolt holes around cylinders', () => {
@@ -142,8 +122,8 @@ describe('v8Engine.generator', () => {
       expectValid(manifold)
 
       // Engine block should have substantial volume even with head bolt holes subtracted
-      // 8 cylinders with 4 holes each = 32 small holes
-      expect(manifold.volume()).toBeGreaterThan(50000) // mm³
+      // 6 cylinders with 4 holes each = 24 small holes
+      expect(manifold.volume()).toBeGreaterThan(30000) // mm³
     })
 
     it('has lifter valley between cylinder banks', () => {
@@ -156,7 +136,7 @@ describe('v8Engine.generator', () => {
 
       // Lifter valley is carved out of the V between the banks
       // Block should still be valid and connected after valley subtraction
-      expect(manifold.volume()).toBeGreaterThan(40000) // mm³ - valley removes material
+      expect(manifold.volume()).toBeGreaterThan(25000) // mm³ - valley removes material
     })
   })
 

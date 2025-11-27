@@ -2,6 +2,10 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
+import { generators } from './generators'
+
+// Get the first generator (sorted alphabetically) for App default selection tests
+const firstGenerator = generators[0]
 
 // Mock the components and hooks to isolate App logic
 vi.mock('./components/Viewer', () => ({
@@ -77,44 +81,44 @@ describe('App', () => {
     cleanup()
   })
 
-  it('renders with default generator selected', async () => {
+  it('renders with first generator selected (alphabetically sorted)', async () => {
     const App = (await import('./App')).default
     render(<App />)
 
-    // First generator alphabetically is V8 Engine (currently the only generator)
+    // First generator alphabetically is selected
     const selectedGen = screen.getByTestId('selected-generator')
-    expect(selectedGen.textContent).toBe('V8 Engine Block')
+    expect(selectedGen.textContent).toBe(firstGenerator.name)
 
     const genCount = screen.getByTestId('generator-count')
-    expect(Number(genCount.textContent)).toBeGreaterThanOrEqual(1)
+    expect(Number(genCount.textContent)).toBe(generators.length)
   })
 
-  it('initializes with default parameters for selected generator', async () => {
+  it('initializes with default parameters for first generator', async () => {
     const App = (await import('./App')).default
     render(<App />)
 
-    // V8 Engine generator has these defaults
     const paramsEl = screen.getByTestId('params')
     const params = JSON.parse(paramsEl.textContent || '{}')
-    expect(params.bore).toBe(30)
-    expect(params.stroke).toBe(25)
-    expect(params.bankAngle).toBe(90)
+
+    // Verify all default params from first generator are present
+    for (const param of firstGenerator.parameters) {
+      expect(params[param.name]).toBe(param.default)
+    }
   })
 
-  it('switches generator and resets parameters', async () => {
+  it('handles switching to non-existent generator gracefully', async () => {
     const App = (await import('./App')).default
     render(<App />)
 
-    // Initially shows V8 Engine Block (currently the only generator)
-    expect(screen.getByTestId('selected-generator').textContent).toBe('V8 Engine Block')
+    // Initially shows first generator
+    expect(screen.getByTestId('selected-generator').textContent).toBe(firstGenerator.name)
 
     // Click to change generator (mock tries to change to 'custom-sign' which doesn't exist)
-    // This should gracefully handle missing generator
     fireEvent.click(screen.getByTestId('change-generator'))
 
-    // Should still show V8 Engine Block since custom-sign doesn't exist
+    // Should still show first generator since custom-sign doesn't exist
     await waitFor(() => {
-      expect(screen.getByTestId('selected-generator').textContent).toBe('V8 Engine Block')
+      expect(screen.getByTestId('selected-generator').textContent).toBe(firstGenerator.name)
     })
   })
 
@@ -122,18 +126,13 @@ describe('App', () => {
     const App = (await import('./App')).default
     render(<App />)
 
-    // Get initial params (V8 Engine generator)
-    let paramsEl = screen.getByTestId('params')
-    let params = JSON.parse(paramsEl.textContent || '{}')
-    expect(params.bore).toBe(30)
-
     // Click to change param (mock changes outer_diameter - adds new param)
     fireEvent.click(screen.getByTestId('change-param'))
 
     // Params should be updated
     await waitFor(() => {
-      paramsEl = screen.getByTestId('params')
-      params = JSON.parse(paramsEl.textContent || '{}')
+      const paramsEl = screen.getByTestId('params')
+      const params = JSON.parse(paramsEl.textContent || '{}')
       expect(params.outer_diameter).toBe(50)
     })
   })
@@ -148,21 +147,50 @@ describe('App', () => {
   })
 })
 
-describe('App - getDefaultParams', () => {
-  it('correctly generates default params from generator parameters', async () => {
-    const { generators } = await import('./generators')
-    // V8 Engine is currently the only generator
-    const v8Engine = generators.find(g => g.id === 'v8-engine')!
+describe('App - getDefaultParams for all generators', () => {
+  // Dynamically test all generators
+  for (const generator of generators) {
+    describe(`${generator.name} (${generator.id})`, () => {
+      it('has valid parameter definitions', () => {
+        expect(generator.parameters.length).toBeGreaterThan(0)
 
-    // Manually test the logic that would be in getDefaultParams
-    const defaults = v8Engine.parameters.reduce((acc, param) => {
-      acc[param.name] = param.default
-      return acc
-    }, {} as Record<string, unknown>)
+        for (const param of generator.parameters) {
+          expect(param.name).toBeTruthy()
+          expect(param.label).toBeTruthy()
+          expect(param.default).toBeDefined()
+        }
+      })
 
-    expect(defaults.bore).toBe(30)
-    expect(defaults.stroke).toBe(25)
-    expect(defaults.bankAngle).toBe(90)
-    expect(defaults.wallThickness).toBe(3)
-  })
+      it('correctly generates default params from parameters', () => {
+        const defaults = generator.parameters.reduce((acc, param) => {
+          acc[param.name] = param.default
+          return acc
+        }, {} as Record<string, unknown>)
+
+        // Each param's default should be in the defaults object
+        for (const param of generator.parameters) {
+          expect(defaults[param.name]).toBe(param.default)
+        }
+      })
+
+      it('has number parameters with valid ranges', () => {
+        const numberParams = generator.parameters.filter(p => p.type === 'number')
+
+        for (const param of numberParams) {
+          if (param.type === 'number') {
+            expect(param.min).toBeLessThanOrEqual(param.default)
+            expect(param.max).toBeGreaterThanOrEqual(param.default)
+            expect(param.min).toBeLessThan(param.max)
+          }
+        }
+      })
+
+      it('has required metadata', () => {
+        expect(generator.id).toBeTruthy()
+        expect(generator.name).toBeTruthy()
+        expect(generator.description).toBeTruthy()
+        expect(generator.builderCode).toBeTruthy()
+      })
+    })
+  }
 })
