@@ -86,7 +86,7 @@ describe('App', () => {
     expect(selectedGen.textContent).toBe('Box')
 
     const genCount = screen.getByTestId('generator-count')
-    expect(genCount.textContent).toBe('10')
+    expect(genCount.textContent).toBe('12')
   })
 
   it('initializes with default parameters for selected generator', async () => {
