@@ -4,158 +4,23 @@ Feature requests based on building complex mechanical assemblies (V8 engine gene
 
 ---
 
-## High Priority
+## Implemented Features
 
-### 1. Auto-Connect / Overlap Helper
+The following features from the original wishlist have been implemented:
 
-**Problem:** Ensuring rotated/translated parts overlap with the main body requires tedious manual position calculations. When building assemblies, parts often need to connect but calculating exact overlap positions for rotated cylinders is error-prone.
+- **Auto-Connect / Overlap Helper** - `connectTo()` and `overlapWith()` methods
+- **Overlap Verification / Debug Helper** - `overlaps()`, `assertConnected()` with part tracking, `findDisconnected()`
+- **Snap-to-Surface Positioning** - `snapTo()` method
+- **Polar/Cylindrical Positioning** - `polar()` and `cylindrical()` methods
+- **Named Parts** - `name()`, `getName()`, `getTrackedParts()`, `getTrackedPartClones()`
 
-**Current:**
-```typescript
-// Must manually calculate overlap position for rotated cylinder
-const exhaustOffsetX = blockWidth / 2 - 2 * scale  // Trial and error
-parts.push(cylinder(exhaustLength, exhaustRadius)
-  .rotate(0, 90, 0)
-  .translate(-exhaustOffsetX - exhaustLength / 2, pipeY, exhaustZ))
-// Hope it overlaps...
-```
-
-**Proposed:**
-```typescript
-// Auto-position to overlap with target by specified amount
-const exhaustPipe = cylinder(exhaustLength, exhaustRadius)
-  .connectTo(engineBlock, {
-    overlap: 2 * scale,  // How much to overlap
-    direction: '-x',     // Which direction to approach from
-    at: [0, pipeY, exhaustZ],  // Where on target to connect
-    alignAxis: 'length', // Orient cylinder's length axis along direction (optional)
-    frame: 'world'       // 'world' or 'target' - coordinate frame for 'at' (default: 'world')
-  })
-```
-
-**Benefits:**
-- Eliminates manual overlap calculations
-- Works correctly with rotated shapes
-- Self-documenting intent
-- Optional axis alignment handles rotation automatically
-
-**Design Considerations:**
-- `frame: 'target'` would interpret `at` in the target's local coordinates (useful for rotated assemblies)
-- `alignAxis` options: `'length'` (Z), `'width'` (X), `'height'` (Y), or `'none'` (use current orientation)
+See [fluent-api.md](./fluent-api.md) for documentation.
 
 ---
 
-### 2. Overlap Verification / Debug Helper
+## Remaining Wishlist
 
-**Problem:** When building complex assemblies, it's hard to know if parts actually connect. Negative genus errors don't tell you *which* parts are disconnected.
-
-**Current:**
-```typescript
-const result = union(...parts)
-// genus = -7 ... which parts aren't connected?
-```
-
-**Proposed:**
-```typescript
-// Check if two shapes intersect (with optional minimum volume threshold)
-if (!partA.overlaps(partB, { minVolume: 1 })) {  // at least 1mm³ intersection
-  console.warn('Parts do not connect:', partA.name, partB.name)
-}
-
-// Batch check all parts against main body
-const disconnected = ctx.findDisconnected(mainBody, [...parts])
-// Returns: ['exhaustPipe3', 'sparkPlug2', ...]
-
-// Build-time validation - fail loudly with actionable info
-const engine = union(...parts).assertConnected()
-// Throws: "Disconnected parts: exhaustPipe3, sparkPlug2" instead of silent bad geometry
-
-// Debug mode: highlight disconnected parts in preview
-ctx.debugOverlaps(true)
-```
-
-**Benefits:**
-- Faster debugging of complex assemblies
-- Identifies exactly which parts are disconnected
-- `assertConnected()` fails loudly with actionable information for LLM workflows
-- `minVolume` threshold handles numerical precision issues
-- Could integrate with preview rendering
-
----
-
-### 3. Snap-to-Surface Positioning
-
-**Problem:** Many parts need to be placed flush against a surface (fasteners, bosses, surface-mounted features) rather than overlapping into a body.
-
-**Current:**
-```typescript
-// Must know exact Z height of bracket top surface
-const boltZ = bracketHeight + baseOffset
-bolt.translate(10, 15, boltZ)
-// And hope the surface is actually there...
-```
-
-**Proposed:**
-```typescript
-// Place bolt head flush against surface, centered at point
-bolt.snapTo(bracket, {
-  surface: 'top',      // 'top', 'bottom', 'left', 'right', 'front', 'back', or 'nearest'
-  at: [10, 15],        // Position on that surface (2D coordinates in surface plane)
-  penetrate: 0,        // Negative to hover above, positive to embed partially
-  alignAxis: 'z'       // Orient this axis perpendicular to surface
-})
-
-// Auto-detect nearest surface to a point
-washer.snapTo(bracket, {
-  surface: 'nearest',
-  at: [10, 15, bracketHeight],  // 3D point - finds closest surface
-  penetrate: -0.1      // Small gap for clearance
-})
-```
-
-**Benefits:**
-- Natural for fasteners, labels, surface features
-- Complements `connectTo` (flush vs. overlapping)
-- Surface detection eliminates coordinate guessing
-- `penetrate` parameter handles both standoff and embedding cases
-
----
-
-## Medium Priority
-
-### 4. Polar/Cylindrical Positioning Helpers
-
-**Problem:** Engine geometry is naturally cylindrical (angles + radii), but API uses Cartesian.
-
-**Current:**
-```typescript
-const pinX = crankThrow * Math.sin(throwAngle)
-const pinZ = crankThrow * Math.cos(throwAngle)
-crankpin.translate(pinX, yPos, pinZ)
-```
-
-**Proposed:**
-```typescript
-// Position by angle and radius in a plane
-crankpin.polar(throwAngle, crankThrow, 'xz').translate(0, yPos, 0)
-
-// Or cylindrical (angle, radius, height) - all in one call
-crankpin.cylindrical(throwAngle, crankThrow, yPos, { axis: 'y' })
-
-// Chainable with other transforms
-pin.cylindrical(45, 20, 10).rotate(0, 45, 0)
-```
-
-**Benefits:**
-- Natural for rotary assemblies (engines, gearboxes, turbines)
-- Eliminates manual sin/cos calculations
-- ~15% code reduction for rotary geometry
-
-**Implementation:** Simple wrapper around trigonometry. Low effort, high value.
-
----
-
-### 5. Pattern with Transform Callback
+### 1. Pattern with Transform Callback
 
 **Problem:** Complex patterns where each instance has different transforms.
 
@@ -197,7 +62,7 @@ link.patternWith(10, (i, prev) => ({
 
 ---
 
-### 6. Loft Between Profiles
+### 2. Loft Between Profiles
 
 **Problem:** Connecting rods, intake manifolds, and transitions need varying cross-sections along length.
 
@@ -233,7 +98,7 @@ const rod = loft([
 
 ---
 
-### 7. Path Sweep
+### 3. Path Sweep
 
 **Problem:** Curved parts (exhaust headers, piping) need profile swept along a path.
 
@@ -265,9 +130,7 @@ const conduit = sweep(
 
 ---
 
-## Lower Priority
-
-### 8. 2D Profile Operations
+### 4. 2D Profile Operations
 
 **Problem:** Complex extrusion profiles need boolean operations before extruding.
 
@@ -298,34 +161,7 @@ extrude(holedPlate, depth)
 
 ---
 
-### 9. Named Sub-assemblies
-
-**Problem:** Complex builds have many intermediate shapes that are hard to track/debug.
-
-**Proposed:**
-```typescript
-const piston = buildPiston().name('piston_cyl1')
-const rod = buildRod().name('rod_cyl1')
-
-// Query by name
-engine.getByName('piston_cyl1')
-
-// List all named parts
-engine.listParts() // ['piston_cyl1', 'rod_cyl1', ...]
-
-// Integrates with overlap debugging
-const disconnected = ctx.findDisconnected(block, parts)
-// Returns names: ['exhaustPipe3', 'sparkPlug2']
-```
-
-**Benefits:**
-- Essential for debugging with `findDisconnected`
-- Foundation for exploded views and documentation
-- Self-documenting assemblies
-
----
-
-### 10. Clearance/Interference Checking
+### 5. Clearance/Interference Checking
 
 **Problem:** Moving assemblies (pistons in bores) need clearance verification.
 
@@ -358,15 +194,10 @@ assembly.validateClearances({
 
 | Feature | Code Reduction | Complexity Reduction | Effort | Use Case |
 |---------|---------------|---------------------|--------|----------|
-| Auto-Connect | ~30% | High | Medium | Assembly overlap positioning |
-| Overlap Debug | N/A | High | Low | Debugging disconnected parts |
-| Snap-to-Surface | ~20% | High | Medium | Fasteners, surface features |
-| Polar Positioning | ~15% | Medium | Low | Rotary assemblies |
 | Pattern Callback | ~20% | Medium | Medium | Variable patterns |
 | Loft | N/A | Medium | High | Transitions, rods |
 | Path Sweep | N/A | Medium | High | Curved parts, piping |
 | 2D Profiles | ~10% | Low | Medium | Complex extrusions |
-| Named Parts | N/A | Medium | Low | Debugging, documentation |
 | Clearance Check | N/A | Medium | Medium | Moving assemblies |
 
 ---
@@ -375,46 +206,17 @@ assembly.validateClearances({
 
 | Phase | Features | Rationale |
 |-------|----------|-----------|
-| 1 | Auto-Connect, Overlap Debug, Named Parts | Core assembly validation. Named parts required for useful debug output. |
-| 2 | Snap-to-Surface | Completes positioning toolkit (overlap vs. flush mounting). |
-| 3 | Polar Positioning | Low effort, immediate value for rotary geometry. |
-| 4 | Pattern Callback | Builds on positioning helpers. |
-| 5 | 2D Profile Operations | Medium effort, cleaner extrusions. |
-| 6 | Loft | Higher effort, depends on Manifold capabilities. |
-| 7 | Path Sweep | Arc sweep first, then bezier/polyline. |
-| 8 | Clearance Checking | Useful but less critical than connectivity. |
+| 1 | Pattern Callback | Builds on existing positioning helpers. |
+| 2 | 2D Profile Operations | Medium effort, cleaner extrusions. |
+| 3 | Loft | Higher effort, depends on Manifold capabilities. |
+| 4 | Path Sweep | Arc sweep first, then bezier/polyline. |
+| 5 | Clearance Checking | Useful but less critical than connectivity. |
 
 ---
 
 ## Design Decisions to Resolve
 
-### 1. Coordinate Frames for `connectTo`
-
-When `at` specifies a position, which coordinate frame?
-
-**Option A:** Always world coordinates (simpler mental model)
-**Option B:** Parameter to choose: `frame: 'world' | 'target'`
-**Option C:** Always target-local (more useful for rotated assemblies)
-
-**Recommendation:** Option B with `'world'` as default. Target-local is powerful but can be confusing.
-
-### 2. Surface Detection for `snapTo`
-
-How to identify surfaces?
-
-**Option A:** Named surfaces (`'top'`, `'bottom'`, etc.) based on bounding box
-**Option B:** Surface normal direction (`[0, 0, 1]` for top)
-**Option C:** Nearest surface to a point
-
-**Recommendation:** Support all three. Named surfaces for simple cases, normal vector for precision, nearest for convenience.
-
-### 3. Overlap Volume Threshold
-
-What's a sensible default for `overlaps()` and `assertConnected()`?
-
-**Recommendation:** Default `minVolume: 0.001` (1mm³ at mm scale). Small enough to catch real connections, large enough to ignore numerical noise.
-
-### 4. Pattern Callback Return Type
+### 1. Pattern Callback Return Type
 
 What transforms should the callback be able to specify?
 ```typescript
