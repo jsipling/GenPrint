@@ -468,8 +468,9 @@ Options:
 - `minVolume` - Minimum intersection volume (default: 0.001 mm³)
 
 ### .assertConnected()
-Assert that this shape is a single connected body.
-Throws if the shape has disconnected parts.
+Assert that this shape forms a connected assembly.
+Parts are considered connected if they **touch** (share a surface) or overlap.
+Throws if any parts are isolated (not touching any other part).
 Returns `this` for chaining.
 
 When parts are tracked (via `union()`), the error message identifies which specific parts are disconnected:
@@ -478,7 +479,7 @@ When parts are tracked (via `union()`), the error message identifies which speci
 const engine = union(
   block.name('block'),
   piston.name('piston'),
-  sparkPlug.name('sparkPlug')  // Oops, not overlapping!
+  sparkPlug.name('sparkPlug')  // Oops, floating in space!
 ).assertConnected()
 // Throws: "Disconnected parts: sparkPlug (genus: -1)"
 ```
@@ -488,6 +489,22 @@ For shapes without part tracking, a generic error is thrown:
 ```typescript
 const shape = someShape.assertConnected()
 // Throws: "Shape has disconnected parts (genus: -7)"
+```
+
+### .touches(other, tolerance?)
+Check if this shape touches another shape (bounding boxes are adjacent or overlapping).
+Parts that share a surface/edge are considered touching.
+Does not consume either shape.
+
+```typescript
+if (partA.touches(partB)) {
+  console.log('Parts are adjacent')
+}
+
+// With custom tolerance (default: 0.1mm)
+if (partA.touches(partB, 0.5)) {
+  console.log('Parts within 0.5mm')
+}
 ```
 
 ### ctx.findDisconnected(mainBody, parts, options?)
@@ -571,7 +588,7 @@ Check if geometry is manifold (watertight).
 ### .build(options?)
 **Required at the end.** Returns the raw Manifold for the worker.
 
-By default, validates that the geometry is a single connected body and throws an error if parts are disconnected. This prevents accidentally creating geometry with floating parts that won't print correctly.
+By default, validates that the geometry forms a connected assembly. Parts are considered connected if they **touch** (share a surface) or overlap. This prevents accidentally creating geometry with floating parts that won't print correctly.
 
 ```typescript
 return finalShape.build()

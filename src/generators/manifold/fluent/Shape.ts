@@ -218,7 +218,12 @@ export class Shape {
     for (const [name, point] of this.attachPoints) {
       newPoints.set(name, [point[0] + x, point[1] + y, point[2] + z])
     }
-    return new Shape(this.M, result, newPoints, this._name)
+    // Transform tracked parts (they need to be translated too for accurate touch detection)
+    const newTrackedParts = new Map<string, Shape>()
+    for (const [name, part] of this.trackedParts) {
+      newTrackedParts.set(name, part.translate(x, y, z))
+    }
+    return new Shape(this.M, result, newPoints, this._name, newTrackedParts)
   }
 
   /**
@@ -904,7 +909,7 @@ export class Shape {
   // ============================================================
 
   /**
-   * Check if this shape overlaps with another shape
+   * Check if this shape overlaps with another shape (shares volume)
    * Does not consume either shape
    * @param other - Shape to check overlap with
    * @param options - Configuration options
@@ -929,47 +934,71 @@ export class Shape {
   }
 
   /**
-   * Assert that this shape is a single connected body
-   * Throws if the shape has disconnected parts, listing which parts are disconnected
+   * Check if this shape touches another shape (bounding boxes are adjacent or overlapping)
+   * Parts that share a surface/edge are considered touching.
+   * Does not consume either shape.
+   * @param other - Shape to check touching with
+   * @param tolerance - Distance tolerance for considering parts as touching (default: 0.1mm)
+   * @returns true if bounding boxes are within tolerance of each other
+   */
+  touches(other: Shape, tolerance: number = 0.1): boolean {
+    const bboxA = this.getBoundingBox()
+    const bboxB = other.getBoundingBox()
+
+    // Check if bounding boxes are within tolerance on all axes
+    // Two boxes touch if they're adjacent or overlapping on all three axes
+    const touchesX = bboxA.max[0] + tolerance >= bboxB.min[0] && bboxA.min[0] - tolerance <= bboxB.max[0]
+    const touchesY = bboxA.max[1] + tolerance >= bboxB.min[1] && bboxA.min[1] - tolerance <= bboxB.max[1]
+    const touchesZ = bboxA.max[2] + tolerance >= bboxB.min[2] && bboxA.min[2] - tolerance <= bboxB.max[2]
+
+    return touchesX && touchesY && touchesZ
+  }
+
+  /**
+   * Assert that this shape forms a connected assembly
+   * Parts are considered connected if they touch (share a surface) or overlap.
+   * Throws if any parts are isolated (not touching any other part).
    * @returns this for chaining
    */
   assertConnected(): this {
-    // A connected shape has genus >= 0
-    // Disconnected shapes (multiple disjoint bodies) have negative genus
-    const genus = this.manifold.genus()
-
-    if (genus < 0) {
-      // If we have tracked parts, identify which ones are disconnected
-      if (this.trackedParts.size > 0) {
-        const disconnectedNames = this.findDisconnectedFromTracked()
-        if (disconnectedNames.length > 0) {
-          throw new Error(`Disconnected parts: ${disconnectedNames.join(', ')} (genus: ${genus})`)
-        }
+    // If we have tracked parts, verify they form a connected graph via touching
+    if (this.trackedParts.size > 0) {
+      const disconnectedNames = this.findDisconnectedFromTracked()
+      if (disconnectedNames.length > 0) {
+        const genus = this.manifold.genus()
+        throw new Error(`Disconnected parts: ${disconnectedNames.join(', ')} (genus: ${genus})`)
       }
-      // Fallback to generic message if no tracked parts or couldn't identify disconnected
+      // All parts touch - assembly is connected
+      return this
+    }
+
+    // No tracked parts - fall back to genus check for single bodies
+    const genus = this.manifold.genus()
+    if (genus < 0) {
       const name = this._name ? `"${this._name}"` : 'Shape'
-      throw new Error(`${name} has disconnected parts (genus: ${genus}). Ensure all components overlap.`)
+      throw new Error(`${name} has disconnected parts (genus: ${genus}). Ensure all components touch.`)
     }
 
     return this
   }
 
   /**
-   * Find which tracked parts are disconnected from the main body
-   * Uses overlap detection between parts to determine connectivity
+   * Find which tracked parts are disconnected from the assembly
+   * Uses touch detection (bounding box proximity) between parts to determine connectivity.
+   * Parts that share a surface are considered connected.
    * @returns Array of disconnected part names
    */
   private findDisconnectedFromTracked(): string[] {
     const partNames = Array.from(this.trackedParts.keys())
     if (partNames.length === 0) return []
 
-    // Build adjacency list for parts that overlap each other
-    const overlaps = new Map<string, Set<string>>()
+    // Build adjacency list for parts that touch each other
+    const connections = new Map<string, Set<string>>()
     for (const name of partNames) {
-      overlaps.set(name, new Set())
+      connections.set(name, new Set())
     }
 
-    // Check each pair of parts for overlap
+    // Check each pair of parts for touching (bounding box proximity)
     for (let i = 0; i < partNames.length; i++) {
       for (let j = i + 1; j < partNames.length; j++) {
         const nameA = partNames[i]!
@@ -977,9 +1006,9 @@ export class Shape {
         const partA = this.trackedParts.get(nameA)!
         const partB = this.trackedParts.get(nameB)!
 
-        if (partA.overlaps(partB)) {
-          overlaps.get(nameA)!.add(nameB)
-          overlaps.get(nameB)!.add(nameA)
+        if (partA.touches(partB)) {
+          connections.get(nameA)!.add(nameB)
+          connections.get(nameB)!.add(nameA)
         }
       }
     }
@@ -1001,7 +1030,7 @@ export class Shape {
         visited.add(current)
         component.push(current)
 
-        for (const neighbor of overlaps.get(current)!) {
+        for (const neighbor of connections.get(current)!) {
           if (!visited.has(neighbor)) {
             queue.push(neighbor)
           }

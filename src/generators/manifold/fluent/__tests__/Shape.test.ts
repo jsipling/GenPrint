@@ -1304,7 +1304,7 @@ describe('Shape', () => {
   })
 
   describe('build() connectivity validation', () => {
-    it('build() succeeds for connected geometry', () => {
+    it('build() succeeds for overlapping geometry', () => {
       const part1 = p.box(10, 10, 10)
       const part2 = p.box(10, 10, 10).translate(5, 0, 0) // overlapping
 
@@ -1313,11 +1313,21 @@ describe('Shape', () => {
       result.delete()
     })
 
-    it('build() throws for disconnected geometry by default', () => {
-      const part1 = p.box(10, 10, 10)
-      const part2 = p.box(10, 10, 10).translate(50, 0, 0) // not touching
+    it('build() succeeds for touching geometry (parts share a surface)', () => {
+      // Two boxes that touch at a face but don't overlap
+      const part1 = p.box(10, 10, 10).name('left')
+      const part2 = p.box(10, 10, 10).translate(10, 0, 0).name('right') // adjacent, sharing YZ face
 
-      const result = part1.add(part2)
+      const result = ops.union(part1, part2)
+      expect(() => result.build()).not.toThrow()
+      result.delete()
+    })
+
+    it('build() throws for disconnected geometry by default', () => {
+      const part1 = p.box(10, 10, 10).name('a')
+      const part2 = p.box(10, 10, 10).translate(50, 0, 0).name('b') // far apart, not touching
+
+      const result = ops.union(part1, part2)
       expect(() => result.build()).toThrow(/disconnected/i)
       result.delete()
     })

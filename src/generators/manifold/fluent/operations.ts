@@ -72,7 +72,8 @@ export function createOperations(M: ManifoldToplevel): Operations {
       }
 
       // Extract raw manifolds for batch union
-      const manifolds = shapes.map(s => s.build())
+      // Skip connectivity check here - connectivity is verified at final build()
+      const manifolds = shapes.map(s => s.build({ skipConnectivityCheck: true }))
       const result = M.Manifold.union(manifolds)
 
       // Clean up all inputs
