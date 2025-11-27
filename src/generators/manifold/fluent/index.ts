@@ -24,7 +24,7 @@ export { Shape, type BoundingBox, type Frame, type MirrorUnionOptions, type XAli
 export { Sketch, type ExtrudeOptions } from './Sketch'
 
 // Primitives factory
-export { createPrimitives, type Primitives } from './primitives'
+export { createPrimitives, type Primitives, type BoxOptions } from './primitives'
 
 // Operations factory
 export { createOperations, type Operations } from './operations'

@@ -44,16 +44,19 @@ const { box, cylinder, hole, tube, difference, union } = ctx
 
 All primitives return a `Shape` object that supports method chaining.
 
-### box(width, depth, height, centered?)
+### box(width, depth, height, options?)
 Creates a rectangular prism.
 - `width` - X dimension
 - `depth` - Y dimension
 - `height` - Z dimension
-- `centered` - Center at origin (default: true)
+- `options` - Boolean or options object:
+  - Boolean: `true` for centered (default), `false` for corner at origin
+  - Object: `{ corner: true }` or `{ centered: false }` for corner at origin
 
 ```typescript
 const cube = box(10, 10, 10)
-const plate = box(50, 30, 5, false)  // corner at origin
+const plate = box(50, 30, 5, false)  // corner at origin (legacy)
+const bracket = box(20, 10, 5, { corner: true })  // corner at origin (clearer)
 ```
 
 ### cylinder(height, radius, segments?)
@@ -194,6 +197,43 @@ const engine = union(
   sparkPlug.name('sparkPlug')
 ).assertConnected()
 // If sparkPlug doesn't overlap: "Disconnected parts: sparkPlug (genus: -1)"
+```
+
+#### unionAll(shapes)
+Combine multiple shapes from an array, filtering out null/undefined values.
+Returns `null` if the array is empty or contains only nulls.
+
+```typescript
+// Common pattern: accumulate shapes conditionally
+const parts: (Shape | null)[] = []
+for (const config of configs) {
+  if (config.enabled) {
+    parts.push(box(10, 10, 10).translate(config.x, 0, 0))
+  } else {
+    parts.push(null)  // filtered out
+  }
+}
+
+const result = unionAll(parts)  // null-safe union
+if (result) {
+  return result.build()
+}
+```
+
+Replaces the common null-accumulator pattern:
+```typescript
+// Before: repetitive null checking
+let result: Shape | null = null
+for (const part of parts) {
+  if (result === null) {
+    result = part
+  } else {
+    result = result.add(part)
+  }
+}
+
+// After: cleaner with unionAll
+const result = unionAll(parts)
 ```
 
 #### intersection(...shapes)
@@ -979,8 +1019,9 @@ Summary of how invalid inputs are handled:
 | Method | Invalid Input | Behavior |
 |--------|--------------|----------|
 | `.alignToPoint()` | Nonexistent point name | Returns clone unchanged + `console.warn` in dev |
-| `.assertConnected()` | Disconnected geometry | **Throws** `Error` with part names |
+| `.assertConnected()` | Disconnected geometry | **Throws** `Error` with part names + `skipConnectivityCheck` hint |
 | `.overlapWith()` | Ambiguous direction | **Throws** `Error` suggesting explicit direction |
+| `unionAll()` | Empty array or all nulls | Returns `null` |
 | `hole()` | Negative diameter | Passes to Manifold (may produce invalid geometry) |
 | `tube()` | Inner radius too large | Clamps to enforce minimum wall thickness |
 | `roundedBox()` | Radius > half width | Clamps to maximum possible radius |

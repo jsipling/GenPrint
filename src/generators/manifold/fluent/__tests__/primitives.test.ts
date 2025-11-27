@@ -32,6 +32,31 @@ describe('primitives', () => {
       expectBoundingBox(box.build(), { minX: 0, maxX: 10, minY: 0, maxY: 20, minZ: 0, maxZ: 30 })
       box.delete()
     })
+
+    it('creates corner-positioned box with options object', () => {
+      const box = p.box(10, 20, 30, { corner: true })
+
+      expectValid(box.build())
+      expectBoundingBox(box.build(), { minX: 0, maxX: 10, minY: 0, maxY: 20, minZ: 0, maxZ: 30 })
+      box.delete()
+    })
+
+    it('creates centered box with options object', () => {
+      const box = p.box(10, 20, 30, { centered: true })
+
+      expectValid(box.build())
+      expectBoundingBox(box.build(), { minX: -5, maxX: 5, minY: -10, maxY: 10 })
+      box.delete()
+    })
+
+    it('creates centered box with empty options object', () => {
+      const box = p.box(10, 20, 30, {})
+
+      expectValid(box.build())
+      // Default is centered
+      expectBoundingBox(box.build(), { minX: -5, maxX: 5, minY: -10, maxY: 10 })
+      box.delete()
+    })
   })
 
   describe('cylinder', () => {

@@ -1162,6 +1162,7 @@ export class Shape {
 
     if (numComponents > 1) {
       const name = this._name ? `"${this._name}"` : 'Shape'
+      const hint = `If this is intentional (e.g., multi-part prints), use .build({ skipConnectivityCheck: true }).`
 
       // If we have tracked parts, try to identify which ones are disconnected
       if (this.trackedParts.size > 0) {
@@ -1170,14 +1171,14 @@ export class Shape {
           throw new Error(
             `${name} has ${numComponents} disconnected components. ` +
             `Disconnected parts: ${disconnectedNames.join(', ')}. ` +
-            `Ensure all components touch.`
+            `Ensure all components touch. ${hint}`
           )
         }
       }
 
       throw new Error(
         `${name} has ${numComponents} disconnected components. ` +
-        `Ensure all parts touch or overlap.`
+        `Ensure all parts touch or overlap. ${hint}`
       )
     }
 

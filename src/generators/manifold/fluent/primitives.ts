@@ -12,11 +12,21 @@ import {
 } from '../printingConstants'
 
 /**
+ * Options for box positioning
+ */
+export interface BoxOptions {
+  /** Position box at corner (minX=0, minY=0, minZ=0). Alias for centered=false */
+  corner?: boolean
+  /** Center box at origin. Default is true */
+  centered?: boolean
+}
+
+/**
  * Primitives interface for type safety
  */
 export interface Primitives {
   // Basic shapes
-  box(width: number, depth: number, height: number, centered?: boolean): Shape
+  box(width: number, depth: number, height: number, options?: boolean | BoxOptions): Shape
   cylinder(height: number, radius: number, segments?: number): Shape
   sphere(radius: number, segments?: number): Shape
   cone(height: number, bottomRadius: number, topRadius?: number, segments?: number): Shape
@@ -45,9 +55,24 @@ export function createPrimitives(M: ManifoldToplevel): Primitives {
      * @param width - X dimension
      * @param depth - Y dimension
      * @param height - Z dimension
-     * @param centered - If true, center at origin (default: true)
+     * @param options - Boolean for centered (legacy) or options object { corner?: boolean, centered?: boolean }
      */
-    box(width: number, depth: number, height: number, centered: boolean = true): Shape {
+    box(width: number, depth: number, height: number, options?: boolean | BoxOptions): Shape {
+      // Determine centered based on options type
+      let centered = true  // default
+      if (typeof options === 'boolean') {
+        // Legacy boolean form: box(w, d, h, false)
+        centered = options
+      } else if (options !== undefined) {
+        // Options object form: box(w, d, h, { corner: true })
+        if (options.corner !== undefined) {
+          centered = !options.corner
+        } else if (options.centered !== undefined) {
+          centered = options.centered
+        }
+        // If empty object {}, keep default centered=true
+      }
+
       const manifold = M.Manifold.cube([width, depth, height], centered)
       return new Shape(M, manifold)
     },

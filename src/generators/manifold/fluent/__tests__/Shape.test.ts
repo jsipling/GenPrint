@@ -1107,6 +1107,15 @@ describe('Shape', () => {
       expect(() => result.assertConnected()).toThrow(/floating/)
       result.delete()
     })
+
+    it('assertConnected() error message suggests skipConnectivityCheck for intentional disconnection', () => {
+      const main = p.box(10, 10, 10).name('main')
+      const disc = p.box(5, 5, 5).translate(50, 0, 0).name('floating')
+      const result = ops.union(main, disc)
+
+      expect(() => result.assertConnected()).toThrow(/skipConnectivityCheck/)
+      result.delete()
+    })
   })
 
   describe('overlapWith', () => {

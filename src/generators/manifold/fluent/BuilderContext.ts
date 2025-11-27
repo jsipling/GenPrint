@@ -4,7 +4,7 @@
  */
 import type { ManifoldToplevel, Manifold } from 'manifold-3d'
 import { Shape } from './Shape'
-import { createPrimitives, type Primitives } from './primitives'
+import { createPrimitives, type Primitives, type BoxOptions } from './primitives'
 import { createOperations, type Operations, type FindDisconnectedOptions } from './operations'
 import {
   MIN_WALL_THICKNESS,
@@ -52,8 +52,8 @@ export class BuilderContext {
   // ============================================================
 
   /** Create a box (rectangular prism) */
-  box = (width: number, depth: number, height: number, centered?: boolean): Shape => {
-    return this.primitives.box(width, depth, height, centered)
+  box = (width: number, depth: number, height: number, options?: boolean | BoxOptions): Shape => {
+    return this.primitives.box(width, depth, height, options)
   }
 
   /** Create a cylinder */
@@ -119,6 +119,11 @@ export class BuilderContext {
   /** Union multiple shapes */
   union = (...shapes: Shape[]): Shape => {
     return this.ops.union(...shapes)
+  }
+
+  /** Union multiple shapes from array, filtering nulls. Returns null if no valid shapes. */
+  unionAll = (shapes: (Shape | null | undefined)[]): Shape | null => {
+    return this.ops.unionAll(shapes)
   }
 
   /** Subtract tools from a base */

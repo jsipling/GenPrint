@@ -93,6 +93,54 @@ describe('operations', () => {
     })
   })
 
+  describe('unionAll()', () => {
+    it('unionAll() combines array of shapes', () => {
+      const shapes = [
+        p.box(10, 10, 10).name('a'),
+        p.box(10, 10, 10).translate(5, 0, 0).name('b'),
+        p.box(10, 10, 10).translate(10, 0, 0).name('c')
+      ]
+      const result = ops.unionAll(shapes)
+
+      expect(result).not.toBeNull()
+      expect(result!.getVolume()).toBeGreaterThan(0)
+      result!.delete()
+    })
+
+    it('unionAll() filters null values', () => {
+      const shapes = [
+        p.box(10, 10, 10).name('a'),
+        null,
+        p.box(10, 10, 10).translate(5, 0, 0).name('b'),
+        undefined,
+        p.box(10, 10, 10).translate(10, 0, 0).name('c')
+      ]
+      const result = ops.unionAll(shapes)
+
+      expect(result).not.toBeNull()
+      expect(result!.getTrackedParts()).toHaveLength(3)
+      result!.delete()
+    })
+
+    it('unionAll() returns null for empty array', () => {
+      const result = ops.unionAll([])
+      expect(result).toBeNull()
+    })
+
+    it('unionAll() returns null for array of only nulls', () => {
+      const result = ops.unionAll([null, undefined, null])
+      expect(result).toBeNull()
+    })
+
+    it('unionAll() returns single shape for array with one shape', () => {
+      const shape = p.box(10, 10, 10).name('single')
+      const result = ops.unionAll([shape])
+
+      expect(result).toBe(shape)
+      result!.delete()
+    })
+  })
+
   describe('findDisconnected', () => {
     it('finds parts that do not overlap with main body', () => {
       const mainBody = p.box(20, 20, 20)

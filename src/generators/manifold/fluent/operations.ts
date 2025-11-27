@@ -25,6 +25,7 @@ export interface FindDisconnectedOptions {
 export interface Operations {
   // Batch CSG operations
   union(...shapes: Shape[]): Shape
+  unionAll(shapes: (Shape | null | undefined)[]): Shape | null
   difference(base: Shape, ...tools: Shape[]): Shape
   intersection(...shapes: Shape[]): Shape
 
@@ -85,6 +86,29 @@ export function createOperations(M: ManifoldToplevel): Operations {
       }
 
       return new Shape(M, result, undefined, undefined, trackedParts)
+    },
+
+    /**
+     * Union multiple shapes from an array, filtering out null/undefined values
+     * - For 2+ valid shapes: All input shapes are consumed and cleaned up, parts are tracked
+     * - For 1 valid shape: Returns input unchanged (optimization, not consumed)
+     * - For 0 valid shapes (empty or all nulls): Returns null
+     * @param shapes - Array of shapes (null/undefined values are filtered out)
+     */
+    unionAll(shapes: (Shape | null | undefined)[]): Shape | null {
+      // Filter out null/undefined values
+      const validShapes = shapes.filter((s): s is Shape => s != null)
+
+      if (validShapes.length === 0) {
+        return null
+      }
+
+      if (validShapes.length === 1) {
+        return validShapes[0]!
+      }
+
+      // Delegate to union() for 2+ shapes
+      return this.union(...validShapes)
     },
 
     /**
