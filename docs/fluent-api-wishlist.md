@@ -4,101 +4,76 @@ Feature requests based on building complex mechanical assemblies (V8 engine gene
 
 ---
 
-## High Priority (Implemented ✅)
+## High Priority
 
-### 1. Coordinate Frames / Reference Systems ✅
+### 1. Auto-Connect / Overlap Helper
 
-**Problem:** Building angled assemblies (V-engine banks, gearboxes) requires recalculating positions repeatedly with sin/cos.
+**Problem:** Ensuring rotated/translated parts overlap with the main body requires tedious manual position calculations. When building assemblies, parts often need to connect but calculating exact overlap positions for rotated cylinders is error-prone.
 
 **Current:**
 ```typescript
-const halfAngleRad = (bankAngle / 2) * Math.PI / 180
-const cylX = -bankExtent * 0.5 * Math.sin(halfAngleRad)
-const cylZ = totalHeight - bankExtent * 0.5 * Math.cos(halfAngleRad)
-piston.translate(cylX, yPos, cylZ)
-// Repeat for rod, wrist pin, etc.
+// Must manually calculate overlap position for rotated cylinder
+const exhaustOffsetX = blockWidth / 2 - 2 * scale  // Trial and error
+parts.push(cylinder(exhaustLength, exhaustRadius)
+  .rotate(0, 90, 0)
+  .translate(-exhaustOffsetX - exhaustLength / 2, pipeY, exhaustZ))
+// Hope it overlaps...
 ```
 
 **Proposed:**
 ```typescript
-const leftBank = ctx.frame()
-  .rotate(bankAngle / 2, 0, 0)
-  .translate(0, 0, blockDepth)
-
-// All children inherit the frame's transform
-piston.inFrame(leftBank).translate(0, yPos, pistonOffset)
-rod.inFrame(leftBank).translate(0, yPos, rodOffset)
+// Auto-position to overlap with target by specified amount
+const exhaustPipe = cylinder(exhaustLength, exhaustRadius)
+  .rotate(0, 90, 0)
+  .connectTo(engineBlock, {
+    overlap: 2 * scale,  // How much to overlap
+    direction: '-x',     // Which direction to approach from
+    at: [0, pipeY, exhaustZ]  // Where on target to connect
+  })
 ```
 
 **Benefits:**
-- Define coordinate system once, reuse everywhere
-- Cleaner code, fewer bugs
-- Natural for mechanical assemblies
+- Eliminates manual overlap calculations
+- Works correctly with rotated shapes
+- Self-documenting intent
 
 ---
 
-### 2. Attach Points / Assembly Joints ✅
+### 2. Overlap Verification / Debug Helper
 
-**Problem:** Mechanical parts connect at specific points (wrist pin, crankpin, bearing). Currently requires manual position math.
+**Problem:** When building complex assemblies, it's hard to know if parts actually connect. Negative genus errors don't tell you *which* parts are disconnected.
 
 **Current:**
 ```typescript
-const wristZ = pistonZ - pistonHeight * 0.2 * Math.cos(halfAngleRad)
-const wristX = pistonX - pistonHeight * 0.2 * Math.sin(halfAngleRad)
-rod.translate(wristX, yPos, 0)
+const result = union(...parts)
+// genus = -7 ... which parts aren't connected?
 ```
 
 **Proposed:**
 ```typescript
-// Define attachment points when building
-const piston = buildPiston()
-  .definePoint('wristPin', [0, 0, -pistonHeight * 0.2])
-  .definePoint('crown', [0, 0, pistonHeight / 2])
+// Check if two shapes intersect
+if (!partA.overlaps(partB)) {
+  console.warn('Parts do not connect:', partA.name, partB.name)
+}
 
-const rod = buildRod()
-  .definePoint('smallEnd', [0, 0, rodLength])
-  .definePoint('bigEnd', [0, 0, 0])
+// Or batch check all parts against main body
+const disconnected = ctx.findDisconnected(mainBody, [...parts])
+// Returns: ['exhaustPipe3', 'sparkPlug2', ...]
 
-// Attach by name
-rod.attach('smallEnd').to(piston, 'wristPin')
+// Debug mode: highlight disconnected parts in preview
+ctx.debugOverlaps(true)
 ```
 
 **Benefits:**
-- Self-documenting assemblies
-- Automatic positioning
-- Easier to modify (change attachment point, all connections update)
-
----
-
-### 3. Mirror with Union ✅
-
-**Problem:** V-configurations and symmetric parts require building both sides or duplicating logic.
-
-**Current:**
-```typescript
-const leftComponents = buildBankComponents(true)   // isLeftBank = true
-const rightComponents = buildBankComponents(false) // Duplicated logic with sign flips
-union(leftComponents, rightComponents)
-```
-
-**Proposed:**
-```typescript
-// Build one side, mirror-union creates both
-buildBankComponents().mirrorUnion('yz')
-
-// Or with offset
-buildBankComponents().mirrorUnion('yz', { offset: valleyWidth })
-```
-
-**Benefits:**
-- 50% less code for symmetric assemblies
-- Guaranteed symmetry (no copy-paste errors)
+- Faster debugging of complex assemblies
+- Identifies exactly which parts are disconnected
+- Could integrate with preview rendering
 
 ---
 
 ## Medium Priority
 
-### 4. Loft Between Profiles
+### 3. Loft Between Profiles
 
 **Problem:** Connecting rods, intake manifolds, and transitions need varying cross-sections along length.
 
@@ -129,7 +104,7 @@ const rod = loft([
 
 ---
 
-### 5. Path Sweep
+### 4. Path Sweep
 
 **Problem:** Curved parts (exhaust headers, piping) need profile swept along a path.
 
@@ -146,7 +121,7 @@ const curvedRod = sweep(iBeamProfile, arc(radius, startAngle, endAngle))
 
 ---
 
-### 6. Polar/Cylindrical Positioning Helpers
+### 5. Polar/Cylindrical Positioning Helpers
 
 **Problem:** Engine geometry is naturally cylindrical (angles + radii), but API uses Cartesian.
 
@@ -168,7 +143,7 @@ crankpin.cylindrical(throwAngle, crankThrow, yPos)
 
 ---
 
-### 7. Pattern with Transform Callback
+### 6. Pattern with Transform Callback
 
 **Problem:** Complex patterns where each instance has different transforms.
 
@@ -200,7 +175,7 @@ cylinder(journalLength, crankpinRadius)
 
 ## Lower Priority
 
-### 8. 2D Profile Operations
+### 7. 2D Profile Operations
 
 **Problem:** Complex extrusion profiles need boolean operations before extruding.
 
@@ -217,7 +192,7 @@ extrude(profile, depth)
 
 ---
 
-### 9. Named Sub-assemblies
+### 8. Named Sub-assemblies
 
 **Problem:** Complex builds have many intermediate shapes that are hard to track/debug.
 
@@ -232,7 +207,7 @@ engine.getByName('piston_cyl1').highlight()
 
 ---
 
-### 10. Clearance/Interference Checking
+### 9. Clearance/Interference Checking
 
 **Problem:** Moving assemblies (pistons in bores) need clearance verification.
 
@@ -255,10 +230,10 @@ if (piston.intersects(rod)) {
 
 | Feature | Code Reduction | Complexity Reduction | Use Case |
 |---------|---------------|---------------------|----------|
-| Coordinate Frames | ~40% | High | Any angled assembly |
-| Attach Points | ~30% | High | Mechanical linkages |
-| Mirror Union | ~25% | Medium | Symmetric parts |
+| Auto-Connect | ~30% | High | Assembly overlap positioning |
+| Overlap Debug | N/A | High | Debugging disconnected parts |
 | Loft | N/A | Medium | Transitions, rods |
+| Path Sweep | N/A | Medium | Curved parts, piping |
 | Polar Positioning | ~15% | Medium | Rotary assemblies |
 | Pattern Callback | ~20% | Medium | Variable patterns |
 
@@ -267,8 +242,8 @@ if (piston.intersects(rod)) {
 ## Implementation Notes
 
 These could be added incrementally:
-1. **Phase 1:** Polar positioning helpers (simple, high value)
-2. **Phase 2:** Mirror union (medium complexity)
-3. **Phase 3:** Coordinate frames (requires architecture thought)
-4. **Phase 4:** Attach points (builds on frames)
+1. **Phase 1:** Auto-connect / overlap helper (high value for assembly work)
+2. **Phase 2:** Overlap verification debug helper (pairs with auto-connect)
+3. **Phase 3:** Polar positioning helpers (simple, high value)
+4. **Phase 4:** Pattern callback (builds on positioning)
 5. **Phase 5:** Loft/sweep (depends on Manifold library support)
