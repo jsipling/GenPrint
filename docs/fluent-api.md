@@ -179,9 +179,21 @@ const withHoles = difference(plate, hole1, hole2, hole3)
 
 #### union(...shapes)
 Combine multiple shapes into one.
+When using `union()`, input parts are automatically tracked for assembly diagnostics with `assertConnected()`.
 
 ```typescript
 const assembly = union(base, boss1, boss2)
+```
+
+Part tracking enables detailed error messages when parts are disconnected:
+
+```typescript
+const engine = union(
+  block.name('block'),
+  piston.name('piston'),
+  sparkPlug.name('sparkPlug')
+).assertConnected()
+// If sparkPlug doesn't overlap: "Disconnected parts: sparkPlug (genus: -1)"
 ```
 
 #### intersection(...shapes)
@@ -318,6 +330,25 @@ Get the name of this shape (returns `undefined` if not named).
 
 ```typescript
 const name = shape.getName() // 'piston_cyl1' or undefined
+```
+
+### .getTrackedParts()
+Get names of all parts tracked from `union()` operations.
+Used internally by `assertConnected()` for diagnostics.
+
+```typescript
+const assembly = union(part1.name('a'), part2.name('b'))
+console.log(assembly.getTrackedParts()) // ['a', 'b']
+```
+
+### .getTrackedPartClones()
+Get cloned shapes of tracked parts for custom diagnostics.
+Returns a `Map<string, Shape>` of part name to cloned Shape.
+
+```typescript
+const assembly = union(part1.name('a'), part2.name('b'))
+const clones = assembly.getTrackedPartClones()
+// clones.get('a') returns a Shape you can use for overlap checking
 ```
 
 ## Polar/Cylindrical Positioning
