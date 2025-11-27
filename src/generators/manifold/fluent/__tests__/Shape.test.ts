@@ -1928,4 +1928,160 @@ describe('Shape', () => {
       colored.delete()
     })
   })
+
+  describe('relative positioning', () => {
+    describe('above()', () => {
+      it('positions shape directly above target (touching)', () => {
+        const base = p.box(20, 20, 10) // 10 tall, centered at z=0 means top at z=5
+        const lid = p.box(20, 20, 3).above(base) // 3 tall lid
+
+        const bbox = lid.getBoundingBox()
+        // Lid bottom should be at base top (z=5)
+        expect(bbox.min[2]).toBeCloseTo(5, 1)
+        // Lid top should be at z=5+3=8
+        expect(bbox.max[2]).toBeCloseTo(8, 1)
+
+        base.delete()
+        lid.delete()
+      })
+
+      it('centers horizontally on target by default', () => {
+        const base = p.box(30, 30, 10)
+        const lid = p.box(10, 10, 5).above(base)
+
+        const lidBbox = lid.getBoundingBox()
+        // Should be centered at X=0, Y=0
+        expect((lidBbox.min[0] + lidBbox.max[0]) / 2).toBeCloseTo(0, 1)
+        expect((lidBbox.min[1] + lidBbox.max[1]) / 2).toBeCloseTo(0, 1)
+
+        base.delete()
+        lid.delete()
+      })
+
+      it('does not consume target', () => {
+        const base = p.box(20, 20, 10)
+        p.box(10, 10, 5).above(base)
+
+        expect(base.isConsumed()).toBe(false)
+        base.delete()
+      })
+    })
+
+    describe('below()', () => {
+      it('positions shape directly below target (touching)', () => {
+        const top = p.box(20, 20, 10) // centered at z=0 means bottom at z=-5
+        const bottom = p.box(20, 20, 3).below(top) // 3 tall
+
+        const bbox = bottom.getBoundingBox()
+        // Bottom top should be at top bottom (z=-5)
+        expect(bbox.max[2]).toBeCloseTo(-5, 1)
+        // Bottom bottom should be at z=-5-3=-8
+        expect(bbox.min[2]).toBeCloseTo(-8, 1)
+
+        top.delete()
+        bottom.delete()
+      })
+    })
+
+    describe('leftOf()', () => {
+      it('positions shape to the left of target (touching)', () => {
+        const right = p.box(20, 20, 10) // centered at x=0 means left at x=-10
+        const left = p.box(5, 20, 10).leftOf(right)
+
+        const bbox = left.getBoundingBox()
+        // Left right edge should be at right left edge (x=-10)
+        expect(bbox.max[0]).toBeCloseTo(-10, 1)
+
+        right.delete()
+        left.delete()
+      })
+    })
+
+    describe('rightOf()', () => {
+      it('positions shape to the right of target (touching)', () => {
+        const left = p.box(20, 20, 10) // centered at x=0 means right at x=10
+        const right = p.box(5, 20, 10).rightOf(left)
+
+        const bbox = right.getBoundingBox()
+        // Right left edge should be at left right edge (x=10)
+        expect(bbox.min[0]).toBeCloseTo(10, 1)
+
+        left.delete()
+        right.delete()
+      })
+    })
+
+    describe('inFrontOf()', () => {
+      it('positions shape in front of target (touching, -Y)', () => {
+        const back = p.box(20, 20, 10) // centered at y=0 means front at y=-10
+        const front = p.box(20, 5, 10).inFrontOf(back)
+
+        const bbox = front.getBoundingBox()
+        // Front back edge should be at back front edge (y=-10)
+        expect(bbox.max[1]).toBeCloseTo(-10, 1)
+
+        back.delete()
+        front.delete()
+      })
+    })
+
+    describe('behind()', () => {
+      it('positions shape behind target (touching, +Y)', () => {
+        const front = p.box(20, 20, 10) // centered at y=0 means back at y=10
+        const back = p.box(20, 5, 10).behind(front)
+
+        const bbox = back.getBoundingBox()
+        // Back front edge should be at front back edge (y=10)
+        expect(bbox.min[1]).toBeCloseTo(10, 1)
+
+        front.delete()
+        back.delete()
+      })
+    })
+
+    describe('offset()', () => {
+      it('offsets shape position (alias for translate)', () => {
+        const shape = p.box(10, 10, 10)
+        const moved = shape.offset(5, 10, 15)
+
+        const bbox = moved.getBoundingBox()
+        // Original was centered at origin, so center should now be at (5, 10, 15)
+        expect((bbox.min[0] + bbox.max[0]) / 2).toBeCloseTo(5, 1)
+        expect((bbox.min[1] + bbox.max[1]) / 2).toBeCloseTo(10, 1)
+        expect((bbox.min[2] + bbox.max[2]) / 2).toBeCloseTo(15, 1)
+
+        moved.delete()
+      })
+    })
+
+    describe('combined positioning', () => {
+      it('positions lid on box with gap', () => {
+        const boxBase = p.box(100, 100, 50) // top at z=25
+        const lid = p.box(100, 100, 3).above(boxBase).offset(0, 0, 1) // 1mm gap
+
+        const lidBbox = lid.getBoundingBox()
+        // Lid bottom should be 1mm above base top (z=25+1=26)
+        expect(lidBbox.min[2]).toBeCloseTo(26, 1)
+
+        boxBase.delete()
+        lid.delete()
+      })
+
+      it('positions hinge parts using above then offset', () => {
+        const base = p.box(100, 80, 5).align('center', 'center', 'bottom') // bottom at z=0, top at z=5
+        // Position hinge on top of base, then offset Y to back edge
+        // Cylinder rotated 90° around X has Y extent of ±1.5 (height/2)
+        const hinge = p.cylinder(3, 5).rotate(90, 0, 0).above(base).offset(0, 40, 0)
+
+        const hingeBbox = hinge.getBoundingBox()
+        // After offset(0, 40, 0), the Y center is at 40, so min Y is 40 - 1.5 = 38.5
+        expect(hingeBbox.min[1]).toBeCloseTo(38.5, 1)
+        // Z should be on top of base (z=5)
+        expect(hingeBbox.min[2]).toBeCloseTo(5, 1)
+
+        base.delete()
+        hinge.delete()
+      })
+    })
+  })
 })

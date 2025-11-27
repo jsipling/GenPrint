@@ -312,6 +312,163 @@ Create a 2D grid of shapes.
 const holes = gridArray(hole(4, 10), 3, 4, 10, 10)
 ```
 
+## Layout Helpers
+
+Simplify compartmentalized designs by automatically calculating divider positions.
+
+### ctx.compartmentGrid(options)
+Create a grid of divider walls for compartmentalized containers.
+
+```typescript
+const dividers = ctx.compartmentGrid({
+  bounds: [innerLength, innerWidth],  // Inner dimensions of compartment area
+  rows: 4,                            // Number of rows
+  columns: 5,                         // Number of columns
+  height: 20,                         // Height of divider walls
+  wallThickness: 2,                   // Thickness of walls (clamped to MIN_WALL_THICKNESS)
+  corner: false,                      // Position at corner (default: centered)
+  includePerimeter: false             // Include outer perimeter walls (default: false)
+})
+```
+
+Returns `null` if no dividers needed (1x1 grid without perimeter).
+
+```typescript
+// Example: Storage organizer with 4x5 grid
+const container = box(120, 100, 30, { corner: true })
+const cavity = box(100, 80, 25, { corner: true }).translate(10, 10, 5)
+const dividers = ctx.compartmentGrid({
+  bounds: [100, 80],
+  rows: 4,
+  columns: 5,
+  height: 20,
+  wallThickness: 2,
+  corner: true
+})
+
+const organizer = container
+  .subtract(cavity)
+  .add(dividers!.translate(10, 10, 5))
+  .build()
+```
+
+## Relative Positioning
+
+Position shapes relative to other shapes using intuitive directional methods.
+
+### .above(target)
+Position this shape directly above the target (touching top surface).
+Centers horizontally on target.
+
+```typescript
+const lid = box(100, 100, 3).above(boxBase)  // Lid sits on top of box
+```
+
+### .below(target)
+Position this shape directly below the target (touching bottom surface).
+
+```typescript
+const stand = box(80, 80, 10).below(mainBody)  // Stand under the body
+```
+
+### .leftOf(target)
+Position to the left of target (touching left surface).
+Centers on Y and Z axes.
+
+```typescript
+const handle = box(10, 50, 20).leftOf(drawer)
+```
+
+### .rightOf(target)
+Position to the right of target (touching right surface).
+
+```typescript
+const button = box(15, 15, 5).rightOf(panel)
+```
+
+### .inFrontOf(target)
+Position in front of target (touching front/-Y surface).
+
+```typescript
+const display = box(80, 5, 40).inFrontOf(case)
+```
+
+### .behind(target)
+Position behind target (touching back/+Y surface).
+
+```typescript
+const hinge = cylinder(3, 5).rotate(90, 0, 0).behind(lid)
+```
+
+### .offset(x, y, z)
+Move the shape by given amounts. Alias for `translate()` with more intuitive naming for positioning workflows.
+
+```typescript
+// Position lid with 1mm gap above base
+const lid = box(100, 100, 3).above(boxBase).offset(0, 0, 1)
+```
+
+### Combined Positioning Example
+
+```typescript
+// Position a lid on a box with a small gap
+const base = box(100, 80, 50)
+const lid = box(100, 80, 5)
+  .above(base)
+  .offset(0, 0, 0.5)  // 0.5mm gap
+
+// Position hinges on the back edge
+const hingeY = 40  // half of depth
+const hinge1 = cylinder(3, 5).rotate(90, 0, 0).above(base).offset(-30, hingeY, 0)
+const hinge2 = cylinder(3, 5).rotate(90, 0, 0).above(base).offset(30, hingeY, 0)
+```
+
+## Shape Groups
+
+Transform multiple shapes together without manual accumulation.
+
+### ctx.group(shapes)
+Create a group from multiple shapes.
+
+```typescript
+const hingeKnuckles = ctx.group([knuckle1, knuckle2, knuckle3])
+  .translateAll(0, backEdgeY, hingeZ)
+```
+
+### ShapeGroup Methods
+
+```typescript
+group.translateAll(x, y, z)        // Translate all shapes
+group.rotateAll(x, y?, z?)         // Rotate all around origin
+group.scaleAll(factor)             // Scale all from origin
+group.mirrorAll('x' | 'y' | 'z')   // Mirror all across axis
+group.unionAll()                   // Union all into single Shape (or null if empty)
+group.getShapes()                  // Get clones of all shapes
+group.get(index)                   // Get clone of shape at index
+group.count()                      // Number of shapes in group
+group.mapAll(fn)                   // Apply custom transform to each
+```
+
+### ShapeGroup Example
+
+```typescript
+// Create multiple mounting bosses
+const boss1 = cylinder(5, 8).translate(-30, -20, 0)
+const boss2 = cylinder(5, 8).translate(30, -20, 0)
+const boss3 = cylinder(5, 8).translate(-30, 20, 0)
+const boss4 = cylinder(5, 8).translate(30, 20, 0)
+
+// Position all at once
+const positioned = ctx.group([boss1, boss2, boss3, boss4])
+  .translateAll(0, 0, 10)  // All bosses at z=10
+
+// Get the positioned shapes
+const bosses = positioned.getShapes()
+
+// Or union them all
+const allBosses = positioned.unionAll()
+```
+
 ## Mirror Union
 
 ### .mirrorUnion(axis: 'x' | 'y' | 'z', options?: { offset?: number }): Shape

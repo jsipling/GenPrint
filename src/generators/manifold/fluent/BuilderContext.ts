@@ -6,6 +6,8 @@ import type { ManifoldToplevel, Manifold } from 'manifold-3d'
 import { Shape } from './Shape'
 import { createPrimitives, type Primitives, type BoxOptions } from './primitives'
 import { createOperations, type Operations, type FindDisconnectedOptions } from './operations'
+import { createLayout, type Layout, type CompartmentGridOptions } from './layout'
+import { ShapeGroup, createGroup } from './ShapeGroup'
 import {
   MIN_WALL_THICKNESS,
   MIN_SMALL_FEATURE,
@@ -37,12 +39,14 @@ export class BuilderContext {
   private M: ManifoldToplevel
   readonly primitives: Primitives
   readonly ops: Operations
+  readonly layout: Layout
   readonly constants: typeof printingConstants
 
   constructor(M: ManifoldToplevel) {
     this.M = M
     this.primitives = createPrimitives(M)
     this.ops = createOperations(M)
+    this.layout = createLayout(M)
     this.constants = printingConstants
   }
 
@@ -169,6 +173,31 @@ export class BuilderContext {
   /** Calculate safe wall thickness with optional geometry constraint */
   safeWall = (requested: number, maxByGeometry?: number): number => {
     return this.ops.safeWall(requested, maxByGeometry)
+  }
+
+  // ============================================================
+  // Convenience re-exports for layout helpers
+  // ============================================================
+
+  /**
+   * Create a grid of compartment divider walls
+   * Automatically calculates and positions dividers for the specified grid
+   */
+  compartmentGrid = (options: CompartmentGridOptions): Shape | null => {
+    return this.layout.compartmentGrid(options)
+  }
+
+  /**
+   * Group multiple shapes for batch operations
+   * Allows transforming multiple shapes together without manual accumulation
+   * @example
+   * ```typescript
+   * const hingeKnuckles = ctx.group([knuckle1, knuckle2, knuckle3])
+   *   .translateAll(0, backEdgeY, hingeZ)
+   * ```
+   */
+  group = (shapes: Shape[]): ShapeGroup => {
+    return createGroup(this.M, shapes)
   }
 
   // ============================================================

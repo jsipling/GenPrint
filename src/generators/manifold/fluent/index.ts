@@ -29,6 +29,12 @@ export { createPrimitives, type Primitives, type BoxOptions } from './primitives
 // Operations factory
 export { createOperations, type Operations } from './operations'
 
+// Layout helpers factory
+export { createLayout, type Layout, type CompartmentGridOptions } from './layout'
+
+// ShapeGroup for batch operations
+export { ShapeGroup, createGroup } from './ShapeGroup'
+
 // BuilderContext - unified API
 export {
   BuilderContext,

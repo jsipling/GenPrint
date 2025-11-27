@@ -367,6 +367,155 @@ export class Shape {
   }
 
   // ============================================================
+  // Relative Positioning - position relative to another shape
+  // ============================================================
+
+  /**
+   * Position this shape directly above target (touching top surface)
+   * Centers horizontally on target by default
+   * @param target - Shape to position above (not consumed)
+   */
+  above(target: Shape): Shape {
+    const targetBbox = target.getBoundingBox()
+    const thisBbox = this.getBoundingBox()
+
+    // Calculate translation to place this shape's bottom at target's top
+    // Also center horizontally over target
+    const targetCenterX = (targetBbox.min[0] + targetBbox.max[0]) / 2
+    const targetCenterY = (targetBbox.min[1] + targetBbox.max[1]) / 2
+    const thisCenterX = (thisBbox.min[0] + thisBbox.max[0]) / 2
+    const thisCenterY = (thisBbox.min[1] + thisBbox.max[1]) / 2
+
+    const dx = targetCenterX - thisCenterX
+    const dy = targetCenterY - thisCenterY
+    const dz = targetBbox.max[2] - thisBbox.min[2]
+
+    return this.translate(dx, dy, dz)
+  }
+
+  /**
+   * Position this shape directly below target (touching bottom surface)
+   * Centers horizontally on target by default
+   * @param target - Shape to position below (not consumed)
+   */
+  below(target: Shape): Shape {
+    const targetBbox = target.getBoundingBox()
+    const thisBbox = this.getBoundingBox()
+
+    // Calculate translation to place this shape's top at target's bottom
+    // Also center horizontally under target
+    const targetCenterX = (targetBbox.min[0] + targetBbox.max[0]) / 2
+    const targetCenterY = (targetBbox.min[1] + targetBbox.max[1]) / 2
+    const thisCenterX = (thisBbox.min[0] + thisBbox.max[0]) / 2
+    const thisCenterY = (thisBbox.min[1] + thisBbox.max[1]) / 2
+
+    const dx = targetCenterX - thisCenterX
+    const dy = targetCenterY - thisCenterY
+    const dz = targetBbox.min[2] - thisBbox.max[2]
+
+    return this.translate(dx, dy, dz)
+  }
+
+  /**
+   * Position this shape to the left of target (touching left surface)
+   * Centers on Y and Z with target by default
+   * @param target - Shape to position left of (not consumed)
+   */
+  leftOf(target: Shape): Shape {
+    const targetBbox = target.getBoundingBox()
+    const thisBbox = this.getBoundingBox()
+
+    // Calculate translation to place this shape's right at target's left
+    const targetCenterY = (targetBbox.min[1] + targetBbox.max[1]) / 2
+    const targetCenterZ = (targetBbox.min[2] + targetBbox.max[2]) / 2
+    const thisCenterY = (thisBbox.min[1] + thisBbox.max[1]) / 2
+    const thisCenterZ = (thisBbox.min[2] + thisBbox.max[2]) / 2
+
+    const dx = targetBbox.min[0] - thisBbox.max[0]
+    const dy = targetCenterY - thisCenterY
+    const dz = targetCenterZ - thisCenterZ
+
+    return this.translate(dx, dy, dz)
+  }
+
+  /**
+   * Position this shape to the right of target (touching right surface)
+   * Centers on Y and Z with target by default
+   * @param target - Shape to position right of (not consumed)
+   */
+  rightOf(target: Shape): Shape {
+    const targetBbox = target.getBoundingBox()
+    const thisBbox = this.getBoundingBox()
+
+    // Calculate translation to place this shape's left at target's right
+    const targetCenterY = (targetBbox.min[1] + targetBbox.max[1]) / 2
+    const targetCenterZ = (targetBbox.min[2] + targetBbox.max[2]) / 2
+    const thisCenterY = (thisBbox.min[1] + thisBbox.max[1]) / 2
+    const thisCenterZ = (thisBbox.min[2] + thisBbox.max[2]) / 2
+
+    const dx = targetBbox.max[0] - thisBbox.min[0]
+    const dy = targetCenterY - thisCenterY
+    const dz = targetCenterZ - thisCenterZ
+
+    return this.translate(dx, dy, dz)
+  }
+
+  /**
+   * Position this shape in front of target (touching front/min-Y surface)
+   * Centers on X and Z with target by default
+   * @param target - Shape to position in front of (not consumed)
+   */
+  inFrontOf(target: Shape): Shape {
+    const targetBbox = target.getBoundingBox()
+    const thisBbox = this.getBoundingBox()
+
+    // Calculate translation to place this shape's back at target's front
+    const targetCenterX = (targetBbox.min[0] + targetBbox.max[0]) / 2
+    const targetCenterZ = (targetBbox.min[2] + targetBbox.max[2]) / 2
+    const thisCenterX = (thisBbox.min[0] + thisBbox.max[0]) / 2
+    const thisCenterZ = (thisBbox.min[2] + thisBbox.max[2]) / 2
+
+    const dx = targetCenterX - thisCenterX
+    const dy = targetBbox.min[1] - thisBbox.max[1]
+    const dz = targetCenterZ - thisCenterZ
+
+    return this.translate(dx, dy, dz)
+  }
+
+  /**
+   * Position this shape behind target (touching back/max-Y surface)
+   * Centers on X and Z with target by default
+   * @param target - Shape to position behind (not consumed)
+   */
+  behind(target: Shape): Shape {
+    const targetBbox = target.getBoundingBox()
+    const thisBbox = this.getBoundingBox()
+
+    // Calculate translation to place this shape's front at target's back
+    const targetCenterX = (targetBbox.min[0] + targetBbox.max[0]) / 2
+    const targetCenterZ = (targetBbox.min[2] + targetBbox.max[2]) / 2
+    const thisCenterX = (thisBbox.min[0] + thisBbox.max[0]) / 2
+    const thisCenterZ = (thisBbox.min[2] + thisBbox.max[2]) / 2
+
+    const dx = targetCenterX - thisCenterX
+    const dy = targetBbox.max[1] - thisBbox.min[1]
+    const dz = targetCenterZ - thisCenterZ
+
+    return this.translate(dx, dy, dz)
+  }
+
+  /**
+   * Offset (move) the shape by given amounts
+   * Alias for translate() with more intuitive naming for positioning workflows
+   * @param x - X offset
+   * @param y - Y offset
+   * @param z - Z offset
+   */
+  offset(x: number, y: number, z: number): Shape {
+    return this.translate(x, y, z)
+  }
+
+  // ============================================================
   // Patterns - create arrays of shapes
   // ============================================================
 
