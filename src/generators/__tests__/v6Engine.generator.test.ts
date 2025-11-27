@@ -138,6 +138,36 @@ describe('v6Engine.generator', () => {
       // Block should still be valid and connected after valley subtraction
       expect(manifold.volume()).toBeGreaterThan(25000) // mm³ - valley removes material
     })
+
+    it('has optional intake manifold parameter', () => {
+      const intakeParam = generator.parameters.find(p => p.name === 'showIntakeManifold')
+      expect(intakeParam).toBeDefined()
+      expect(intakeParam?.type).toBe('boolean')
+      if (intakeParam?.type === 'boolean') {
+        expect(intakeParam.default).toBe(false)
+      }
+    })
+
+    it('adds intake manifold when enabled', () => {
+      const ctx = createBuilderContext(M)
+      const buildFn = createBuildFn(generator.builderCode)
+
+      // Without intake manifold
+      const resultWithout = buildFn(ctx, { ...defaultParams, showIntakeManifold: false })
+      const manifoldWithout = resultWithout.build ? resultWithout.build() : resultWithout
+      expectValid(manifoldWithout)
+      const volumeWithout = manifoldWithout.volume()
+
+      // With intake manifold
+      const ctx2 = createBuilderContext(M)
+      const resultWith = buildFn(ctx2, { ...defaultParams, showIntakeManifold: true })
+      const manifoldWith = resultWith.build ? resultWith.build() : resultWith
+      expectValid(manifoldWith)
+      const volumeWith = manifoldWith.volume()
+
+      // Intake manifold should add volume
+      expect(volumeWith).toBeGreaterThan(volumeWithout)
+    })
   })
 
   describe('display dimensions', () => {

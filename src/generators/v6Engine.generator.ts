@@ -3,7 +3,7 @@ import type { Generator } from './types'
 const generator: Generator = {
   id: 'v6-engine',
   name: 'V6 Engine Block',
-  description: 'V6 engine block with cylinder bores, crankcase, oil pan, timing cover, rear main seal housing, lifter valley, and head bolt holes',
+  description: 'V6 engine block with cylinder bores, crankcase, oil pan, timing cover, rear main seal housing, lifter valley, head bolt holes, and optional intake manifold',
   parameters: [
     {
       type: 'number',
@@ -60,6 +60,13 @@ const generator: Generator = {
       step: 1,
       unit: 'mm',
       description: 'Depth of the oil pan sump'
+    },
+    {
+      type: 'boolean',
+      name: 'showIntakeManifold',
+      label: 'Show Intake Manifold',
+      default: false,
+      description: 'Add intake manifold with plenum and runners on top of the V'
     }
   ],
   builderCode: `
@@ -73,6 +80,7 @@ const generator: Generator = {
     var wallThickness = Math.max(Number(params['wallThickness']) || 3, MIN_WALL_THICKNESS)
     var cylinderSpacing = Math.max(Number(params['cylinderSpacing']) || 35, bore + 5)
     var oilPanDepth = Number(params['oilPanDepth']) || 25
+    var showIntakeManifold = params['showIntakeManifold'] === true
 
     // Derived dimensions
     var boreRadius = bore / 2
@@ -311,6 +319,97 @@ const generator: Generator = {
       return holes
     }
 
+    // Build intake manifold (plenum + runners sitting on top of the V)
+    function buildIntakeManifold() {
+      var rad = halfBankAngle * Math.PI / 180
+
+      // Plenum dimensions - sits in the valley between banks
+      var plenumLength = blockLength * 0.85
+      var plenumWidth = Math.sin(rad) * blockWidth * 1.2
+      var plenumHeight = bore * 0.4
+      var plenumZ = blockHeight * Math.cos(rad) + plenumHeight / 2 + wallThickness
+
+      // Main plenum body (rounded box shape)
+      var plenum = roundedBox(plenumWidth, plenumLength, plenumHeight, wallThickness)
+        .translate(0, 0, plenumZ)
+
+      // Throttle body boss at front of plenum
+      var throttleBodyRadius = bore * 0.35
+      var throttleBodyLength = wallThickness * 4
+      var throttleBody = cylinder(throttleBodyLength, throttleBodyRadius)
+        .rotate(90, 0, 0)
+        .translate(0, -plenumLength / 2 - throttleBodyLength / 2 + 2, plenumZ)
+      plenum = plenum.add(throttleBody)
+
+      // Throttle bore (hole through throttle body)
+      var throttleBoreRadius = throttleBodyRadius * 0.7
+      var throttleBore = cylinder(throttleBodyLength + 10, throttleBoreRadius)
+        .rotate(90, 0, 0)
+        .translate(0, -plenumLength / 2 - throttleBodyLength / 2, plenumZ)
+      plenum = plenum.subtract(throttleBore)
+
+      // Intake runners - one for each cylinder (3 per bank)
+      var runnerRadius = bore * 0.2
+      var runnerLength = blockWidth * 0.6
+
+      // Left bank runners
+      for (var i = 0; i < 3; i++) {
+        var yPos = -blockLength / 2 + cylinderOuterRadius + i * cylinderSpacing
+        var runner = cylinder(runnerLength, runnerRadius)
+          .rotate(0, -halfBankAngle - 90, 0)
+          .translate(
+            -plenumWidth / 4,
+            yPos,
+            plenumZ - plenumHeight / 4
+          )
+        plenum = plenum.add(runner)
+
+        // Runner port (hollow out the runner)
+        var runnerPort = cylinder(runnerLength + 5, runnerRadius * 0.7)
+          .rotate(0, -halfBankAngle - 90, 0)
+          .translate(
+            -plenumWidth / 4,
+            yPos,
+            plenumZ - plenumHeight / 4
+          )
+        plenum = plenum.subtract(runnerPort)
+      }
+
+      // Right bank runners
+      for (var i = 0; i < 3; i++) {
+        var yPos = -blockLength / 2 + cylinderOuterRadius + i * cylinderSpacing
+        var runner = cylinder(runnerLength, runnerRadius)
+          .rotate(0, halfBankAngle + 90, 0)
+          .translate(
+            plenumWidth / 4,
+            yPos,
+            plenumZ - plenumHeight / 4
+          )
+        plenum = plenum.add(runner)
+
+        // Runner port (hollow out the runner)
+        var runnerPort = cylinder(runnerLength + 5, runnerRadius * 0.7)
+          .rotate(0, halfBankAngle + 90, 0)
+          .translate(
+            plenumWidth / 4,
+            yPos,
+            plenumZ - plenumHeight / 4
+          )
+        plenum = plenum.subtract(runnerPort)
+      }
+
+      // Hollow out plenum interior
+      var plenumInterior = roundedBox(
+        plenumWidth - wallThickness * 2,
+        plenumLength - wallThickness * 2,
+        plenumHeight - wallThickness,
+        wallThickness / 2
+      ).translate(0, 0, plenumZ + wallThickness / 2)
+      plenum = plenum.subtract(plenumInterior)
+
+      return plenum
+    }
+
     // Combine into one block
     var block = union(leftBank, rightBank).add(crankcase)
 
@@ -360,6 +459,11 @@ const generator: Generator = {
     // Drill head bolt holes into both banks (visible holes in deck surface)
     block = block.subtract(buildHeadBoltHoles(true))   // Left bank
     block = block.subtract(buildHeadBoltHoles(false))  // Right bank
+
+    // Add optional intake manifold
+    if (showIntakeManifold) {
+      block = block.add(buildIntakeManifold())
+    }
 
     // Center the model on Z=0 for printing
     var bbox = block.getBoundingBox()
