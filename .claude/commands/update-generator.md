@@ -89,7 +89,7 @@ innerCavity.delete()
 After presenting the current generator summary, ask the user:
 
 *[Use AskUserQuestion tool:]*
-1. "What would you like to update?" - Options: "Add new feature", "Modify existing feature", "Add/change parameter", "Fix a bug", "Other"
+1. "What would you like to update?" - Options: "Add new feature", "Modify existing feature", "Add/change parameter", "Convert to multi-part", "Fix a bug", "Other"
 
 ### Step 2: Clarify the Change
 
@@ -109,6 +109,30 @@ Based on the user's selection, gather more details:
 - Ask what parameter to add/change
 - Discuss appropriate min/max/default values
 - Check if it needs `dynamicMin`/`dynamicMax` constraints
+
+**For "Convert to multi-part":**
+- Review the current generator structure
+- Identify logical parts that should highlight separately (e.g., engine block, oil pan, timing cover)
+- Plan how to refactor: build parts separately instead of unioning them
+- Each part needs: `{ name, manifold, dimensions?, params? }`
+- Ensure all parts are translated together so the assembly sits on Z=0
+
+**Return format for multi-part generators:**
+```javascript
+return [
+  {
+    name: 'Main Part',
+    manifold: mainManifold,
+    dimensions: [{ label: 'Size', param: 'size', format: '{value}mm' }],
+    params: { size: 50 }
+  },
+  {
+    name: 'Accessory',
+    manifold: accessoryManifold
+    // dimensions optional - shows bounding box if omitted
+  }
+]
+```
 
 **For "Fix a bug":**
 - Ask for bug description
@@ -177,10 +201,11 @@ Before completing:
 - [ ] No hidden internal features
 - [ ] All tests pass
 - [ ] Printability analyzer returns PASS
-- [ ] Geometry is connected (single piece)
-- [ ] Model centered for printing
+- [ ] Geometry is connected (each part is single piece)
+- [ ] Model centered for printing (lowest Z at 0)
 - [ ] Description accurately describes the output
-- [ ] `displayDimensions` reflect current parameters
+- [ ] If multi-part: each part has name, manifold, and appropriate dimensions
+- [ ] If single-part: `displayDimensions` reflect current parameters
 
 ## Decision Points
 
@@ -235,6 +260,7 @@ Here's the current state of the V6 Engine generator:
 - "Add new feature" - Add a new visible feature to the engine
 - "Modify existing feature" - Change how an existing feature looks
 - "Add/change parameter" - Add a new parameter or modify existing ranges
+- "Convert to multi-part" - Enable hover highlighting for distinct parts
 - "Fix a bug" - Address an issue with the current implementation
 
 **User selects**: Add new feature

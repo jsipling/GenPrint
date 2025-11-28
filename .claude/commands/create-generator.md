@@ -94,16 +94,44 @@ For each adjustable dimension, ask the user:
 
 **Present proposed parameters and get user approval before proceeding.**
 
-### Step 4: Plan the Build Order
+### Step 4: Identify Distinct Parts (Multi-Part Highlighting)
+
+Ask the user if the model has logical components that should be **separately highlightable** when hovering:
+
+*[Use AskUserQuestion tool:]*
+"Does this model have distinct parts that should highlight separately on hover?" - Options:
+- "Yes, multiple parts" - e.g., engine block + oil pan + timing cover
+- "No, single piece" - The entire model highlights as one
+
+**If multiple parts:**
+- List the proposed parts (e.g., "Engine Block", "Oil Pan", "Timing Cover")
+- Each part should be built separately (not unioned together)
+- Each part can have its own dimensions displayed on hover
+
+**Return format for multi-part generators:**
+```javascript
+return [
+  {
+    name: 'Part Name',
+    manifold: partManifold,
+    dimensions: [{ label: 'Size', param: 'size', format: '{value}mm' }],
+    params: { size: 50 }
+  },
+  // ... more parts
+]
+```
+
+### Step 5: Plan the Build Order
 
 Determine the order of operations:
 1. What is the base shape?
 2. What features are added (protrusions)?
 3. What features are subtracted (holes, cutouts)?
+4. If multi-part: which parts are built separately vs combined?
 
 **Review the build order with the user.**
 
-### Step 5: Implement Incrementally
+### Step 6: Implement Incrementally
 
 For each feature:
 1. Write the test first (TDD)
@@ -113,7 +141,7 @@ For each feature:
 
 **After each feature, ask: "Does this look correct? Should we proceed to the next feature?"**
 
-### Step 6: Run Printability Analyzer
+### Step 7: Run Printability Analyzer
 
 After implementation is complete, run the printability analyzer to verify the generator produces valid geometry:
 
@@ -141,16 +169,17 @@ npm run analyze:print <generator-id> --param=minValue
 npm run analyze:print <generator-id> --param=maxValue
 ```
 
-### Step 7: Final Validation
+### Step 8: Final Validation
 
 Before completing:
 - [ ] All geometry is visible on the surface
 - [ ] No hidden internal features
 - [ ] All tests pass
 - [ ] Printability analyzer returns PASS
-- [ ] Geometry is connected (single piece)
-- [ ] Model centered for printing
+- [ ] Geometry is connected (each part is single piece)
+- [ ] Model centered for printing (lowest Z at 0)
 - [ ] Description accurately describes the output
+- [ ] If multi-part: each part has name, manifold, and appropriate dimensions
 
 ## Decision Points
 
