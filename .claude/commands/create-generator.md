@@ -24,8 +24,8 @@ This app generates models for 3D printing. **Only create geometry that is visibl
 
 - Minimum wall thickness: 1.2mm
 - Minimum small features: 1.5mm
-- All geometry must be connected (single piece)
-- Model should be centered on Z=0 for printing
+- Each part must be connected (single piece) - multi-part generators have multiple connected parts
+- Model should sit on Z=0 for printing (lowest point at Z=0)
 
 ### Code Constraints
 
