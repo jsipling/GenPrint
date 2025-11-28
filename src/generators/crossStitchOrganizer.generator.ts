@@ -183,7 +183,7 @@ const generator: Generator = {
     function buildBobbinGrid() {
       if (!includeBobbins) return null
 
-      var dividers = null
+      var dividerList = []
       var gridStartX = -innerLength / 2
       var gridEndX = hasSideCompartments ? gridStartX + bobbinSectionWidth : innerLength / 2
       var cellWidth = bobbinSectionWidth / bobbinColumns
@@ -194,12 +194,7 @@ const generator: Generator = {
         var xPos = gridStartX + col * cellWidth
         var divider = box(wallThickness, innerWidth, height, false)
           .translate(xPos - wallThickness / 2, -innerWidth / 2, wallThickness)
-        if (dividers === null) {
-          dividers = divider
-        } else {
-          // Grid dividers may not all touch each other until assembled with main box
-          dividers = dividers.add(divider, { skipConnectionCheck: true })
-        }
+        dividerList.push(divider)
       }
 
       // Horizontal dividers (separating rows)
@@ -207,15 +202,10 @@ const generator: Generator = {
         var yPos = -innerWidth / 2 + row * cellDepth
         var divider = box(bobbinSectionWidth, wallThickness, height, false)
           .translate(gridStartX, yPos - wallThickness / 2, wallThickness)
-        if (dividers === null) {
-          dividers = divider
-        } else {
-          // Grid dividers may not all touch each other until assembled with main box
-          dividers = dividers.add(divider, { skipConnectionCheck: true })
-        }
+        dividerList.push(divider)
       }
 
-      return dividers
+      return dividerList.length > 0 ? group(dividerList).unionAll() : null
     }
 
     // Build the main vertical divider separating bobbin section from side compartments
@@ -231,7 +221,7 @@ const generator: Generator = {
     function buildSideCompartments() {
       if (!hasSideCompartments) return null
 
-      var dividers = null
+      var dividerList = []
       var sideStartX = includeBobbins ? (-innerLength / 2 + bobbinSectionWidth + wallThickness) : -innerLength / 2
       var actualSideWidth = includeBobbins ? sideColumnWidth : innerLength
 
@@ -264,34 +254,24 @@ const generator: Generator = {
         currentY += scissorsHeight
         var divider = box(actualSideWidth, wallThickness, height, false)
           .translate(sideStartX, currentY - wallThickness / 2, wallThickness)
-        if (dividers === null) {
-          dividers = divider
-        } else {
-          // Dividers may not touch each other until assembled
-          dividers = dividers.add(divider, { skipConnectionCheck: true })
-        }
+        dividerList.push(divider)
       }
 
       if (includeAccessories && includeNeedles) {
         currentY += accessoriesHeight
         var divider = box(actualSideWidth, wallThickness, height, false)
           .translate(sideStartX, currentY - wallThickness / 2, wallThickness)
-        if (dividers === null) {
-          dividers = divider
-        } else {
-          // Dividers may not touch each other until assembled
-          dividers = dividers.add(divider, { skipConnectionCheck: true })
-        }
+        dividerList.push(divider)
       }
 
-      return dividers
+      return dividerList.length > 0 ? group(dividerList).unionAll() : null
     }
 
     // Build needle slot ridges (small ridges to hold needles)
     function buildNeedleRidges() {
       if (!includeNeedles) return null
 
-      var ridges = null
+      var ridgeList = []
       var sideStartX = includeBobbins ? (-innerLength / 2 + bobbinSectionWidth + wallThickness) : -innerLength / 2
       var actualSideWidth = includeBobbins ? sideColumnWidth : innerLength
 
@@ -317,20 +297,15 @@ const generator: Generator = {
         var ridgeX = sideStartX + wallThickness + i * ridgeSpacing
         var ridge = box(ridgeWidth, needlesHeight - wallThickness, ridgeHeight, false)
           .translate(ridgeX, needleStartY + wallThickness / 2, wallThickness)
-        if (ridges === null) {
-          ridges = ridge
-        } else {
-          // Ridges don't touch each other - they're spaced apart
-          ridges = ridges.add(ridge, { skipConnectionCheck: true })
-        }
+        ridgeList.push(ridge)
       }
 
-      return ridges
+      return ridgeList.length > 0 ? group(ridgeList).unionAll() : null
     }
 
     // Build hinge knuckles on the box (back edge)
     function buildBoxHingeKnuckles() {
-      var knuckles = null
+      var knuckleList = []
       var backEdgeY = width / 2
       var hingeZ = totalHeight - hingeRadius
       var startX = -hingeLength / 2
@@ -340,19 +315,14 @@ const generator: Generator = {
         var knuckle = cylinder(hingeSegmentLength - hingeGap, hingeRadius)
           .rotate(0, 90, 0)
           .translate(segX, backEdgeY, hingeZ)
-        if (knuckles === null) {
-          knuckles = knuckle
-        } else {
-          // Hinge knuckles are spaced apart - they don't touch each other
-          knuckles = knuckles.add(knuckle, { skipConnectionCheck: true })
-        }
+        knuckleList.push(knuckle)
       }
-      return knuckles
+      return knuckleList.length > 0 ? group(knuckleList).unionAll() : null
     }
 
     // Build hinge knuckles on the lid (back edge)
     function buildLidHingeKnuckles() {
-      var knuckles = null
+      var knuckleList = []
       var backEdgeY = width / 2
       var hingeZ = totalHeight - hingeRadius
       var startX = -hingeLength / 2
@@ -362,14 +332,9 @@ const generator: Generator = {
         var knuckle = cylinder(hingeSegmentLength - hingeGap, hingeRadius)
           .rotate(0, 90, 0)
           .translate(segX, backEdgeY, hingeZ)
-        if (knuckles === null) {
-          knuckles = knuckle
-        } else {
-          // Hinge knuckles are spaced apart - they don't touch each other
-          knuckles = knuckles.add(knuckle, { skipConnectionCheck: true })
-        }
+        knuckleList.push(knuckle)
       }
-      return knuckles
+      return knuckleList.length > 0 ? group(knuckleList).unionAll() : null
     }
 
     // Build the hinge pin hole through all knuckles
@@ -402,7 +367,7 @@ const generator: Generator = {
         return diag1.add(diag2)
       }
 
-      var stitchCuts = null
+      var stitchList = []
       var patternStartX = -(numPatternX - 1) * patternSpacing / 2
       var patternStartY = -width / 2 + (width - wallThickness) / 2 - (numPatternY - 1) * patternSpacing / 2 + patternSpacing
 
@@ -414,16 +379,12 @@ const generator: Generator = {
               patternStartY + py * patternSpacing,
               totalHeight + lidThickness - patternDepth / 2
             )
-          if (stitchCuts === null) {
-            stitchCuts = stitch
-          } else {
-            // Stitch pattern elements are separate cuts - they don't touch each other
-            stitchCuts = stitchCuts.add(stitch, { skipConnectionCheck: true })
-          }
+          stitchList.push(stitch)
         }
       }
 
-      if (stitchCuts !== null) {
+      if (stitchList.length > 0) {
+        var stitchCuts = group(stitchList).unionAll()
         lidPlate = lidPlate.subtract(stitchCuts)
       }
 

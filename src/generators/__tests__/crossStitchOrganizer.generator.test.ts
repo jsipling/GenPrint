@@ -7,7 +7,7 @@ import generator from '../crossStitchOrganizer.generator'
 // Create a build function that matches the worker's wrapper
 function createBuildFn(builderCode: string) {
   return new Function('ctx', 'params', `
-    const { box, cylinder, sphere, cone, roundedBox, tube, hole, counterboredHole, countersunkHole, extrude, revolve, union, difference, intersection, linearArray, polarArray, gridArray, ensureMinWall, ensureMinFeature } = ctx
+    const { box, cylinder, sphere, cone, roundedBox, tube, hole, counterboredHole, countersunkHole, extrude, revolve, union, unionAll, difference, intersection, linearArray, polarArray, gridArray, ensureMinWall, ensureMinFeature, group, compartmentGrid } = ctx
     const { constants, ops, primitives } = ctx
     ${builderCode}
   `)

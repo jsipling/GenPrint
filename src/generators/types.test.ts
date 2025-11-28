@@ -16,7 +16,7 @@ const v8EngineGenerator = generators.find(g => g.id === 'v8-engine')!
 // Worker wrapper - matches src/workers/manifold.worker.ts executeUserBuilder()
 function createWorkerBuildFn(builderCode: string) {
   return new Function('ctx', 'params', `
-    const { box, cylinder, sphere, cone, roundedBox, tube, hole, counterboredHole, countersunkHole, extrude, revolve, union, difference, intersection, linearArray, polarArray, gridArray, ensureMinWall, ensureMinFeature } = ctx
+    const { box, cylinder, sphere, cone, roundedBox, tube, hole, counterboredHole, countersunkHole, extrude, revolve, union, unionAll, difference, intersection, linearArray, polarArray, gridArray, ensureMinWall, ensureMinFeature, group, compartmentGrid } = ctx
     const { constants, ops, primitives } = ctx
     ${builderCode}
   `)

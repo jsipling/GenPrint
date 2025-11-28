@@ -20,20 +20,12 @@ export interface FindDisconnectedOptions {
 }
 
 /**
- * Options for union operations
- */
-export interface UnionOptions {
-  /** Skip connection validation (for intentional gaps like patterns) */
-  skipConnectionCheck?: boolean
-}
-
-/**
  * Operations interface for type safety
  */
 export interface Operations {
   // Batch CSG operations
-  union(...args: [...Shape[]] | [...Shape[], UnionOptions]): Shape
-  unionAll(shapes: (Shape | null | undefined)[], options?: UnionOptions): Shape | null
+  union(...shapes: Shape[]): Shape
+  unionAll(shapes: (Shape | null | undefined)[]): Shape | null
   difference(base: Shape, ...tools: Shape[]): Shape
   intersection(...shapes: Shape[]): Shape
 
@@ -111,20 +103,9 @@ export function createOperations(M: ManifoldToplevel): Operations {
      * - For 2+ shapes: All input shapes are consumed and cleaned up, parts are tracked
      * - For 1 shape: Returns input unchanged (optimization, not consumed)
      * - For 0 shapes: Returns empty geometry
-     * @throws Error if shapes are not connected (unless skipConnectionCheck option is provided)
+     * @throws Error if shapes are not connected
      */
-    union(...args: [...Shape[]] | [...Shape[], UnionOptions]): Shape {
-      // Parse arguments - last arg might be options
-      let shapes: Shape[]
-      let options: UnionOptions | undefined
-
-      if (args.length > 0 && args[args.length - 1] && !(args[args.length - 1] instanceof Shape)) {
-        options = args[args.length - 1] as UnionOptions
-        shapes = args.slice(0, -1) as Shape[]
-      } else {
-        shapes = args as Shape[]
-      }
-
+    union(...shapes: Shape[]): Shape {
       if (shapes.length === 0) {
         // Return empty manifold
         return new Shape(M, M.Manifold.cube([0, 0, 0]))
@@ -135,9 +116,7 @@ export function createOperations(M: ManifoldToplevel): Operations {
       }
 
       // Validate connectivity before consuming shapes
-      if (!options?.skipConnectionCheck) {
-        validateConnectivity(shapes)
-      }
+      validateConnectivity(shapes)
 
       // Clone parts for tracking before we consume them
       const trackedParts = new Map<string, Shape>()
@@ -166,10 +145,9 @@ export function createOperations(M: ManifoldToplevel): Operations {
      * - For 1 valid shape: Returns input unchanged (optimization, not consumed)
      * - For 0 valid shapes (empty or all nulls): Returns null
      * @param shapes - Array of shapes (null/undefined values are filtered out)
-     * @param options - Connection validation options
-     * @throws Error if shapes are not connected (unless skipConnectionCheck is true)
+     * @throws Error if shapes are not connected
      */
-    unionAll(shapes: (Shape | null | undefined)[], options?: UnionOptions): Shape | null {
+    unionAll(shapes: (Shape | null | undefined)[]): Shape | null {
       // Filter out null/undefined values
       const validShapes = shapes.filter((s): s is Shape => s != null)
 
@@ -181,10 +159,7 @@ export function createOperations(M: ManifoldToplevel): Operations {
         return validShapes[0]!
       }
 
-      // Delegate to union() for 2+ shapes, passing options
-      if (options) {
-        return this.union(...validShapes, options)
-      }
+      // Delegate to union() for 2+ shapes
       return this.union(...validShapes)
     },
 

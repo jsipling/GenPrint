@@ -180,10 +180,10 @@ Subtract shapes from a base shape.
 const withHoles = difference(plate, hole1, hole2, hole3)
 ```
 
-#### union(...shapes, options?)
+#### union(...shapes)
 Combine multiple shapes into one.
 
-**Fail-fast validation**: By default, `union()` validates that all shapes form a connected assembly before performing the union. This catches disconnected geometry immediately.
+**Fail-fast validation**: `union()` validates that all shapes form a connected assembly before performing the union. This catches disconnected geometry immediately.
 
 ```typescript
 const assembly = union(base, boss1, boss2)  // Throws if any part is disconnected
@@ -194,9 +194,9 @@ If shapes don't form a connected graph, throws an error:
 Error: union() contains disconnected parts. Part(s) at index 2 do not connect to the assembly.
 ```
 
-For intentionally disconnected geometry (patterns, exploded views):
+For intentionally disconnected geometry (patterns, exploded views), use `group().unionAll()`:
 ```typescript
-union(partA, partB, floatingPart, { skipConnectionCheck: true })
+const disconnected = group([partA, partB, floatingPart]).unionAll()
 ```
 
 When using `union()`, input parts are automatically tracked for assembly diagnostics with `assertConnected()`:
@@ -210,11 +210,11 @@ const engine = union(
 // If sparkPlug doesn't overlap at union time: throws immediately
 ```
 
-#### unionAll(shapes, options?)
+#### unionAll(shapes)
 Combine multiple shapes from an array, filtering out null/undefined values.
 Returns `null` if the array is empty or contains only nulls.
 
-**Fail-fast validation**: Like `union()`, validates connectivity by default.
+**Fail-fast validation**: Like `union()`, validates connectivity.
 
 ```typescript
 // Common pattern: accumulate shapes conditionally
@@ -233,9 +233,9 @@ if (result) {
 }
 ```
 
-For intentionally disconnected geometry:
+For intentionally disconnected geometry, use `group().unionAll()` instead:
 ```typescript
-const result = unionAll(parts, { skipConnectionCheck: true })
+const result = group(parts.filter(p => p !== null)).unionAll()
 ```
 
 Replaces the common null-accumulator pattern:
@@ -263,10 +263,10 @@ const overlap = intersection(shape1, shape2)
 
 ### Chainable Methods
 
-#### .add(other, options?)
+#### .add(other)
 Union with another shape. Both shapes are consumed.
 
-**Fail-fast validation**: By default, `.add()` checks that shapes are connected (touching or overlapping) before performing the union. This catches disconnected geometry at call time rather than build time, making debugging easier.
+**Fail-fast validation**: `.add()` checks that shapes are connected (touching or overlapping) before performing the union. This catches disconnected geometry at call time rather than build time, making debugging easier.
 
 ```typescript
 const combined = base.add(boss)  // Throws if boss doesn't touch base
@@ -278,12 +278,11 @@ Error: Shape does not connect to assembly.
   - No overlap or contact detected
   - Use .overlapWith(target, amount) to position with overlap
   - Use .connectTo(target, options) for precise positioning
-  - Or use .add(shape, { skipConnectionCheck: true }) for intentional gaps
 ```
 
-For intentionally disconnected geometry (patterns, exploded views):
+For intentionally disconnected geometry (patterns, exploded views), use `group().unionAll()`:
 ```typescript
-base.add(floatingPart, { skipConnectionCheck: true })
+const disconnected = group([base, floatingPart]).unionAll()
 ```
 
 #### .subtract(other)
@@ -1209,8 +1208,8 @@ Summary of how invalid inputs are handled:
 
 | Method | Invalid Input | Behavior |
 |--------|--------------|----------|
-| `.add()` | Disconnected shapes | **Throws** `Error` with positioning hints (use `skipConnectionCheck` to bypass) |
-| `union()` | Disconnected shapes | **Throws** `Error` identifying disconnected part indices (use `skipConnectionCheck` to bypass) |
+| `.add()` | Disconnected shapes | **Throws** `Error` with positioning hints (use `group().unionAll()` for intentional gaps) |
+| `union()` | Disconnected shapes | **Throws** `Error` identifying disconnected part indices (use `group().unionAll()` for intentional gaps) |
 | `unionAll()` | Disconnected shapes | **Throws** `Error` (delegated to `union()`) |
 | `.alignToPoint()` | Nonexistent point name | Returns clone unchanged + `console.warn` in dev |
 | `.assertConnected()` | Disconnected geometry | **Throws** `Error` with part names + `skipConnectivityCheck` hint |

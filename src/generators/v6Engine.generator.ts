@@ -291,7 +291,7 @@ const generator: Generator = {
       var bankRotation = isLeftBank ? -halfBankAngle : halfBankAngle
       var bankXOffset = (isLeftBank ? -1 : 1) * Math.sin(halfBankAngle * Math.PI / 180) * blockWidth / 2
 
-      var holes = null
+      var holeList = []
 
       for (var cylIdx = 0; cylIdx < 3; cylIdx++) {  // 3 cylinders per bank for V6
         var yOffset = -blockLength / 2 + cylinderOuterRadius + cylIdx * cylinderSpacing
@@ -308,16 +308,11 @@ const generator: Generator = {
             .rotate(0, bankRotation, 0)
             .translate(bankXOffset, 0, 0)
 
-          if (holes === null) {
-            holes = boltHole
-          } else {
-            // Bolt holes don't touch each other - skip connection check since they're all subtracted together
-            holes = holes.add(boltHole, { skipConnectionCheck: true })
-          }
+          holeList.push(boltHole)
         }
       }
 
-      return holes
+      return holeList.length > 0 ? group(holeList).unionAll() : null
     }
 
     // Build intake manifold (plenum + runners sitting on top of the V)
@@ -330,9 +325,13 @@ const generator: Generator = {
       var plenumHeight = bore * 0.4
       var plenumZ = blockHeight * Math.cos(rad) + plenumHeight / 2 + wallThickness
 
+      // Collect all parts of the manifold to union at the end
+      var manifoldParts = []
+
       // Main plenum body (rounded box shape)
-      var plenum = roundedBox(plenumWidth, plenumLength, plenumHeight, wallThickness)
+      var plenumBody = roundedBox(plenumWidth, plenumLength, plenumHeight, wallThickness)
         .translate(0, 0, plenumZ)
+      manifoldParts.push(plenumBody)
 
       // Throttle body boss at front of plenum
       var throttleBodyRadius = bore * 0.35
@@ -340,15 +339,7 @@ const generator: Generator = {
       var throttleBody = cylinder(throttleBodyLength, throttleBodyRadius)
         .rotate(90, 0, 0)
         .translate(0, -plenumLength / 2 - throttleBodyLength / 2 + 2, plenumZ)
-      // TODO: Verify throttle body actually overlaps with plenum (may need geometry fix)
-      plenum = plenum.add(throttleBody, { skipConnectionCheck: true })
-
-      // Throttle bore (hole through throttle body)
-      var throttleBoreRadius = throttleBodyRadius * 0.7
-      var throttleBore = cylinder(throttleBodyLength + 10, throttleBoreRadius)
-        .rotate(90, 0, 0)
-        .translate(0, -plenumLength / 2 - throttleBodyLength / 2, plenumZ)
-      plenum = plenum.subtract(throttleBore)
+      manifoldParts.push(throttleBody)
 
       // Intake runners - one for each cylinder (3 per bank)
       var runnerRadius = bore * 0.2
@@ -364,18 +355,7 @@ const generator: Generator = {
             yPos,
             plenumZ - plenumHeight / 4
           )
-        // TODO: Fix runner positioning to actually overlap with plenum body
-        plenum = plenum.add(runner, { skipConnectionCheck: true })
-
-        // Runner port (hollow out the runner)
-        var runnerPort = cylinder(runnerLength + 5, runnerRadius * 0.7)
-          .rotate(0, -halfBankAngle - 90, 0)
-          .translate(
-            -plenumWidth / 4,
-            yPos,
-            plenumZ - plenumHeight / 4
-          )
-        plenum = plenum.subtract(runnerPort)
+        manifoldParts.push(runner)
       }
 
       // Right bank runners
@@ -388,18 +368,33 @@ const generator: Generator = {
             yPos,
             plenumZ - plenumHeight / 4
           )
-        // TODO: Fix runner positioning to actually overlap with plenum body
-        plenum = plenum.add(runner, { skipConnectionCheck: true })
+        manifoldParts.push(runner)
+      }
 
-        // Runner port (hollow out the runner)
-        var runnerPort = cylinder(runnerLength + 5, runnerRadius * 0.7)
+      // Union all parts of the manifold
+      var plenum = group(manifoldParts).unionAll()
+
+      // Throttle bore (hole through throttle body)
+      var throttleBoreRadius = throttleBodyRadius * 0.7
+      var throttleBore = cylinder(throttleBodyLength + 10, throttleBoreRadius)
+        .rotate(90, 0, 0)
+        .translate(0, -plenumLength / 2 - throttleBodyLength / 2, plenumZ)
+      plenum = plenum.subtract(throttleBore)
+
+      // Hollow out runner ports
+      for (var i = 0; i < 3; i++) {
+        var yPos = -blockLength / 2 + cylinderOuterRadius + i * cylinderSpacing
+        // Left bank runner port
+        var leftRunnerPort = cylinder(runnerLength + 5, runnerRadius * 0.7)
+          .rotate(0, -halfBankAngle - 90, 0)
+          .translate(-plenumWidth / 4, yPos, plenumZ - plenumHeight / 4)
+        plenum = plenum.subtract(leftRunnerPort)
+
+        // Right bank runner port
+        var rightRunnerPort = cylinder(runnerLength + 5, runnerRadius * 0.7)
           .rotate(0, halfBankAngle + 90, 0)
-          .translate(
-            plenumWidth / 4,
-            yPos,
-            plenumZ - plenumHeight / 4
-          )
-        plenum = plenum.subtract(runnerPort)
+          .translate(plenumWidth / 4, yPos, plenumZ - plenumHeight / 4)
+        plenum = plenum.subtract(rightRunnerPort)
       }
 
       // Hollow out plenum interior
@@ -423,8 +418,8 @@ const generator: Generator = {
       var bankRotation = isLeftBank ? -halfBankAngle : halfBankAngle
       var bankXOffset = (isLeftBank ? -1 : 1) * Math.sin(halfBankAngle * Math.PI / 180) * blockWidth / 2
 
-      var ports = null
-      var bosses = null
+      var portList = []
+      var bossList = []
 
       for (var cylIdx = 0; cylIdx < 3; cylIdx++) {  // 3 cylinders per bank for V6
         var yOffset = -blockLength / 2 + cylinderOuterRadius + cylIdx * cylinderSpacing
@@ -439,24 +434,20 @@ const generator: Generator = {
           .translate(portLocalX, yOffset, portZ)
           .rotate(0, bankRotation, 0)
           .translate(bankXOffset, 0, 0)
+        bossList.push(boss)
 
         // Create exhaust port hole
         var port = cylinder(portDepth + bossDepth, portRadius)
           .translate(portLocalX, yOffset, portZ)
           .rotate(0, bankRotation, 0)
           .translate(bankXOffset, 0, 0)
-
-        if (bosses === null) {
-          bosses = boss
-          ports = port
-        } else {
-          // Exhaust bosses/ports don't touch each other - skip connection check since they're all added/subtracted together
-          bosses = bosses.add(boss, { skipConnectionCheck: true })
-          ports = ports.add(port, { skipConnectionCheck: true })
-        }
+        portList.push(port)
       }
 
-      return { bosses: bosses, ports: ports }
+      return {
+        bosses: bossList.length > 0 ? group(bossList).unionAll() : null,
+        ports: portList.length > 0 ? group(portList).unionAll() : null
+      }
     }
 
     // Combine into one block

@@ -60,17 +60,6 @@ describe('operations', () => {
       }
     })
 
-    it('union() allows disconnected shapes with skipConnectionCheck option', () => {
-      const part1 = p.box(10, 10, 10).name('partA')
-      const part2 = p.box(10, 10, 10).translate(50, 0, 0).name('partB')
-
-      const result = ops.union(part1, part2, { skipConnectionCheck: true })
-
-      // Geometry is valid (though disconnected)
-      expect(result.getVolume()).toBeCloseTo(2000, 0)
-      result.delete()
-    })
-
     it('union() validates entire connectivity graph', () => {
       // Three shapes where A-B connected, C disconnected from both
       const a = p.box(10, 10, 10).name('a')
@@ -189,19 +178,6 @@ describe('operations', () => {
       ]
 
       expect(() => ops.unionAll(shapes)).toThrow(/disconnected/i)
-    })
-
-    it('unionAll() allows disconnected shapes with skipConnectionCheck option', () => {
-      const shapes = [
-        p.box(10, 10, 10).name('a'),
-        p.box(10, 10, 10).translate(50, 0, 0).name('b')
-      ]
-
-      const result = ops.unionAll(shapes, { skipConnectionCheck: true })
-
-      expect(result).not.toBeNull()
-      expect(result!.getVolume()).toBeCloseTo(2000, 0)
-      result!.delete()
     })
 
     it('unionAll() filters null values', () => {

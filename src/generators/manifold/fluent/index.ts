@@ -18,7 +18,7 @@
  */
 
 // Core Shape class
-export { Shape, type BoundingBox, type Frame, type MirrorUnionOptions, type XAlign, type YAlign, type ZAlign, type ShapeColor, type AddOptions } from './Shape'
+export { Shape, type BoundingBox, type Frame, type MirrorUnionOptions, type XAlign, type YAlign, type ZAlign, type ShapeColor } from './Shape'
 
 // 2D Sketch builder
 export { Sketch, type ExtrudeOptions } from './Sketch'
@@ -27,7 +27,7 @@ export { Sketch, type ExtrudeOptions } from './Sketch'
 export { createPrimitives, type Primitives, type BoxOptions } from './primitives'
 
 // Operations factory
-export { createOperations, type Operations, type UnionOptions } from './operations'
+export { createOperations, type Operations } from './operations'
 
 // Layout helpers factory
 export { createLayout, type Layout, type CompartmentGridOptions } from './layout'

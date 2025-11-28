@@ -294,7 +294,7 @@ const generator: Generator = {
       const bankRotation = isLeftBank ? -halfBankAngle : halfBankAngle
       const bankXOffset = (isLeftBank ? -1 : 1) * Math.sin(halfBankAngle * Math.PI / 180) * blockWidth / 2
 
-      let holes = null
+      const holeList = []
 
       for (let cylIdx = 0; cylIdx < 4; cylIdx++) {
         const yOffset = -blockLength / 2 + cylinderOuterRadius + cylIdx * cylinderSpacing
@@ -311,16 +311,11 @@ const generator: Generator = {
             .rotate(0, bankRotation, 0)
             .translate(bankXOffset, 0, 0)
 
-          if (holes === null) {
-            holes = boltHole
-          } else {
-            // Bolt holes don't touch each other - skip connection check since they're all subtracted together
-            holes = holes.add(boltHole, { skipConnectionCheck: true })
-          }
+          holeList.push(boltHole)
         }
       }
 
-      return holes
+      return holeList.length > 0 ? group(holeList).unionAll() : null
     }
 
     // Combine into one block

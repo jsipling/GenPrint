@@ -122,7 +122,7 @@ function executeUserBuilder(
   // Create a sandboxed function with access only to ctx and params
   // The code is expected to use ctx methods and return a Manifold
   const fn = new Function('ctx', 'params', `
-    const { box, cylinder, sphere, cone, roundedBox, tube, hole, counterboredHole, countersunkHole, extrude, revolve, union, difference, intersection, linearArray, polarArray, gridArray, ensureMinWall, ensureMinFeature } = ctx
+    const { box, cylinder, sphere, cone, roundedBox, tube, hole, counterboredHole, countersunkHole, extrude, revolve, union, unionAll, difference, intersection, linearArray, polarArray, gridArray, ensureMinWall, ensureMinFeature, group, compartmentGrid } = ctx
     const { constants, ops, primitives } = ctx
     ${builderCode}
   `)
