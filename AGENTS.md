@@ -4,7 +4,43 @@ The terminology used in this app should be that of a 3D Model Engineer.
 
 ## Generator Design
 
-Generators use the Manifold-3D library directly for building 3D geometry. Key patterns:
+### Geo Library (Preferred)
+
+New generators should use the `src/geo/` library for declarative geometry:
+
+```typescript
+import { shape, Compiler } from './geo';
+
+// Named parameters only (no positional)
+const base = shape.box({ width: 50, depth: 50, height: 10 });
+const hole = shape.cylinder({ diameter: 5, height: 20 });
+
+// Semantic alignment (replaces translate/rotate)
+hole.align({
+  self: 'center',
+  target: base,
+  to: 'center',
+  mode: 'mate'  // vectors oppose (face-to-face)
+});
+
+// Boolean operations
+const part = base.subtract(hole);
+
+// Compile to Manifold
+const compiler = new Compiler(M);
+const manifold = compiler.compile(part.getNode());
+```
+
+Key features:
+- **Semantic anchors:** `top`, `bottom`, `left`, `right`, `front`, `back`, `center`, corners
+- **Alignment modes:** `mate` (face-to-face), `flush` (parallel)
+- **No memory management:** Compiler handles `.delete()` internally
+- **Validation:** Use `Validator` to check for thin walls, floating geometry
+- **Components:** Custom anchors via `shape.component({ shape, anchors: {...} })`
+
+### Direct Manifold (Legacy)
+
+Existing generators use the Manifold-3D library directly:
 
 - Use `M.Manifold.cube([width, depth, height], centered)` for boxes
 - Use `M.Manifold.cylinder(height, bottomRadius, topRadius, segments)` for cylinders
