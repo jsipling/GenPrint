@@ -310,6 +310,106 @@ describe('Shape', () => {
     })
   })
 
+  describe('translate()', () => {
+    it('returns this for chaining', () => {
+      const shape = new TestShape(
+        { type: 'primitive', shape: 'box', width: 10, depth: 10, height: 10 },
+        new Map()
+      )
+
+      const result = shape.translate(10, 20, 30)
+      expect(result).toBe(shape)
+    })
+
+    it('moves shape by specified amount', () => {
+      const anchors = new Map<string, Anchor>([
+        ['center', { position: [0, 0, 0], direction: [0, 0, 1], name: 'center' }]
+      ])
+      const shape = new TestShape(
+        { type: 'primitive', shape: 'box', width: 10, depth: 10, height: 10 },
+        anchors
+      )
+
+      shape.translate(10, 20, 30)
+
+      const anchor = shape.getAnchor('center')
+      expect(anchor).toBeDefined()
+      expectClose(anchor!.position[0], 10)
+      expectClose(anchor!.position[1], 20)
+      expectClose(anchor!.position[2], 30)
+    })
+
+    it('can chain with other transforms', () => {
+      const anchors = new Map<string, Anchor>([
+        ['center', { position: [0, 0, 0], direction: [0, 0, 1], name: 'center' }]
+      ])
+      const shape = new TestShape(
+        { type: 'primitive', shape: 'box', width: 10, depth: 10, height: 10 },
+        anchors
+      )
+
+      shape.translate(10, 0, 0).translate(0, 20, 0)
+
+      const anchor = shape.getAnchor('center')
+      expect(anchor).toBeDefined()
+      expectClose(anchor!.position[0], 10)
+      expectClose(anchor!.position[1], 20)
+      expectClose(anchor!.position[2], 0)
+    })
+  })
+
+  describe('rotate()', () => {
+    it('returns this for chaining', () => {
+      const shape = new TestShape(
+        { type: 'primitive', shape: 'box', width: 10, depth: 10, height: 10 },
+        new Map()
+      )
+
+      const result = shape.rotate(0, 90, 0)
+      expect(result).toBe(shape)
+    })
+
+    it('rotates shape by specified angles', () => {
+      const anchors = new Map<string, Anchor>([
+        ['front', { position: [0, 10, 0], direction: [0, 1, 0], name: 'front' }]
+      ])
+      const shape = new TestShape(
+        { type: 'primitive', shape: 'box', width: 10, depth: 20, height: 10 },
+        anchors
+      )
+
+      // Rotate 90 degrees around Z axis: Y becomes -X
+      shape.rotate(0, 0, 90)
+
+      const anchor = shape.getAnchor('front')
+      expect(anchor).toBeDefined()
+      expectClose(anchor!.position[0], -10)
+      expectClose(anchor!.position[1], 0)
+      expectClose(anchor!.position[2], 0)
+    })
+
+    it('can chain with other transforms', () => {
+      const anchors = new Map<string, Anchor>([
+        ['center', { position: [0, 0, 0], direction: [0, 0, 1], name: 'center' }]
+      ])
+      const shape = new TestShape(
+        { type: 'primitive', shape: 'box', width: 10, depth: 10, height: 10 },
+        anchors
+      )
+
+      shape.translate(10, 0, 0).rotate(0, 90, 0)
+
+      const anchor = shape.getAnchor('center')
+      expect(anchor).toBeDefined()
+      // After translate to (10,0,0), then rotate 90 around Y:
+      // X becomes Z, Z becomes -X
+      // So (10,0,0) becomes (0,0,-10)
+      expectClose(anchor!.position[0], 0)
+      expectClose(anchor!.position[1], 0)
+      expectClose(anchor!.position[2], -10)
+    })
+  })
+
   describe('boolean operations', () => {
     describe('subtract()', () => {
       it('returns a BooleanShape', () => {

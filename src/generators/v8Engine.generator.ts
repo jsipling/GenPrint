@@ -75,248 +75,193 @@ const generator: Generator = {
   ],
   builderCode: `
     // Parameters
-    const bore = Number(params['bore']) || 30
-    const stroke = Number(params['stroke']) || 25
-    const bankAngle = Number(params['bankAngle']) || 90
-    const wallThickness = Math.max(Number(params['wallThickness']) || 3, MIN_WALL_THICKNESS)
-    const cylinderSpacing = Math.max(Number(params['cylinderSpacing']) || 35, bore + 5)
-    const oilPanDepth = Number(params['oilPanDepth']) || 25
+    var bore = Number(params['bore']) || 30
+    var stroke = Number(params['stroke']) || 25
+    var bankAngle = Number(params['bankAngle']) || 90
+    var wallThickness = Math.max(Number(params['wallThickness']) || 3, MIN_WALL_THICKNESS)
+    var cylinderSpacing = Math.max(Number(params['cylinderSpacing']) || 35, bore + 5)
+    var oilPanDepth = Number(params['oilPanDepth']) || 25
 
     // Derived dimensions
-    const boreRadius = bore / 2
-    const cylinderOuterRadius = boreRadius + wallThickness
-    const blockLength = cylinderSpacing * 3 + cylinderOuterRadius * 2 // 4 cylinders per bank
-    const deckHeight = stroke * 1.5 // Distance from crank centerline to deck
-    const mainJournalRadius = bore * 0.25
-    const halfBankAngle = bankAngle / 2
+    var boreRadius = bore / 2
+    var cylinderOuterRadius = boreRadius + wallThickness
+    var blockLength = cylinderSpacing * 3 + cylinderOuterRadius * 2 // 4 cylinders per bank
+    var deckHeight = stroke * 1.5 // Distance from crank centerline to deck
+    var mainJournalRadius = bore * 0.25
+    var halfBankAngle = bankAngle / 2
 
     // Block dimensions
-    const blockWidth = cylinderOuterRadius * 2 + wallThickness * 2
-    const blockHeight = deckHeight + stroke / 2 + mainJournalRadius + wallThickness
-    const crankcaseWidth = blockWidth * 1.5
-    const crankcaseHeight = mainJournalRadius * 2 + wallThickness * 2
+    var blockWidth = cylinderOuterRadius * 2 + wallThickness * 2
+    var blockHeight = deckHeight + stroke / 2 + mainJournalRadius + wallThickness
+    var crankcaseWidth = blockWidth * 1.5
+    var crankcaseHeight = mainJournalRadius * 2 + wallThickness * 2
 
     // Create left bank
-    const lb1 = M.Manifold.cube([blockWidth, blockLength, blockHeight], true)
-    const lb2 = lb1.translate(0, 0, blockHeight / 2)
-    lb1.delete()
-    const lb3 = lb2.rotate([0, -halfBankAngle, 0])
-    lb2.delete()
-    const leftBank = lb3.translate(-Math.sin(halfBankAngle * Math.PI / 180) * blockWidth / 2, 0, 0)
-    lb3.delete()
+    // geo.shape.box is centered, translate Z up by half height, rotate, then offset X
+    var leftBank = geo.shape.box({ width: blockWidth, depth: blockLength, height: blockHeight })
+      .translate(0, 0, blockHeight / 2)
+      .rotate(0, -halfBankAngle, 0)
+      .translate(-Math.sin(halfBankAngle * Math.PI / 180) * blockWidth / 2, 0, 0)
 
     // Create right bank
-    const rb1 = M.Manifold.cube([blockWidth, blockLength, blockHeight], true)
-    const rb2 = rb1.translate(0, 0, blockHeight / 2)
-    rb1.delete()
-    const rb3 = rb2.rotate([0, halfBankAngle, 0])
-    rb2.delete()
-    const rightBank = rb3.translate(Math.sin(halfBankAngle * Math.PI / 180) * blockWidth / 2, 0, 0)
-    rb3.delete()
+    var rightBank = geo.shape.box({ width: blockWidth, depth: blockLength, height: blockHeight })
+      .translate(0, 0, blockHeight / 2)
+      .rotate(0, halfBankAngle, 0)
+      .translate(Math.sin(halfBankAngle * Math.PI / 180) * blockWidth / 2, 0, 0)
 
     // Crankcase bottom
-    const cc1 = M.Manifold.cube([crankcaseWidth, blockLength, crankcaseHeight], true)
-    const crankcase = cc1.translate(0, 0, -crankcaseHeight / 2)
-    cc1.delete()
+    var crankcase = geo.shape.box({ width: crankcaseWidth, depth: blockLength, height: crankcaseHeight })
+      .translate(0, 0, -crankcaseHeight / 2)
 
     // Build oil pan
     function buildOilPan() {
-      const panWidth = crankcaseWidth + wallThickness * 2
-      const panLength = blockLength
-      const panRailHeight = wallThickness * 2
-      const sumpDepth = oilPanDepth
-      const sumpLength = blockLength * 0.6
+      var panWidth = crankcaseWidth + wallThickness * 2
+      var panLength = blockLength
+      var panRailHeight = wallThickness * 2
+      var sumpDepth = oilPanDepth
+      var sumpLength = blockLength * 0.6
 
       // Main pan rail (attaches to crankcase) - overlaps crankcase by 2mm
-      const pr1 = M.Manifold.cube([panWidth, panLength, panRailHeight + 2], true)
-      const panRail = pr1.translate(0, 0, -crankcaseHeight - panRailHeight / 2)
-      pr1.delete()
+      var panRail = geo.shape.box({ width: panWidth, depth: panLength, height: panRailHeight + 2 })
+        .translate(0, 0, -crankcaseHeight - panRailHeight / 2)
 
       // Sump (deeper section in rear for oil collection)
-      const s1 = M.Manifold.cube([panWidth - wallThickness * 4, sumpLength, sumpDepth], true)
-      const sump = s1.translate(0, (panLength - sumpLength) / 4, -crankcaseHeight - panRailHeight - sumpDepth / 2)
-      s1.delete()
+      var sump = geo.shape.box({ width: panWidth - wallThickness * 4, depth: sumpLength, height: sumpDepth })
+        .translate(0, (panLength - sumpLength) / 4, -crankcaseHeight - panRailHeight - sumpDepth / 2)
 
-      let pan = panRail.add(sump)
-      panRail.delete()
-      sump.delete()
+      var pan = panRail.union(sump)
 
       // Hollow out the inside
-      const innerWidth = panWidth - wallThickness * 2
-      const ir1 = M.Manifold.cube([innerWidth, panLength - wallThickness * 2, panRailHeight + 4], true)
-      const innerRail = ir1.translate(0, 0, -crankcaseHeight - panRailHeight / 2 + wallThickness)
-      ir1.delete()
-      const pan2 = pan.subtract(innerRail)
-      pan.delete()
-      innerRail.delete()
-      pan = pan2
+      var innerWidth = panWidth - wallThickness * 2
+      var innerRail = geo.shape.box({ width: innerWidth, depth: panLength - wallThickness * 2, height: panRailHeight + 4 })
+        .translate(0, 0, -crankcaseHeight - panRailHeight / 2 + wallThickness)
+      pan = pan.subtract(innerRail)
 
-      const is1 = M.Manifold.cube([innerWidth - wallThickness * 2, sumpLength - wallThickness * 2, sumpDepth], true)
-      const innerSump = is1.translate(0, (panLength - sumpLength) / 4, -crankcaseHeight - panRailHeight - sumpDepth / 2 + wallThickness)
-      is1.delete()
-      const pan3 = pan.subtract(innerSump)
-      pan.delete()
-      innerSump.delete()
-      pan = pan3
+      var innerSump = geo.shape.box({ width: innerWidth - wallThickness * 2, depth: sumpLength - wallThickness * 2, height: sumpDepth })
+        .translate(0, (panLength - sumpLength) / 4, -crankcaseHeight - panRailHeight - sumpDepth / 2 + wallThickness)
+      pan = pan.subtract(innerSump)
 
-      // Drain plug boss
-      const drainBossRadius = bore * 0.15
-      const db1 = M.Manifold.cylinder(wallThickness * 2, drainBossRadius, drainBossRadius, 0)
-      const drainBoss = db1.translate(0, (panLength - sumpLength) / 4, -crankcaseHeight - panRailHeight - sumpDepth)
-      db1.delete()
-      const pan4 = pan.add(drainBoss)
-      pan.delete()
-      drainBoss.delete()
-      pan = pan4
+      // Drain plug boss - geo cylinder is centered, so translate Z to position base
+      var drainBossRadius = bore * 0.15
+      var drainBossHeight = wallThickness * 2
+      var drainBoss = geo.shape.cylinder({ diameter: drainBossRadius * 2, height: drainBossHeight })
+        .translate(0, (panLength - sumpLength) / 4, -crankcaseHeight - panRailHeight - sumpDepth + drainBossHeight / 2)
+      pan = pan.union(drainBoss)
 
       // Drain hole
-      const dh1 = M.Manifold.cylinder(wallThickness * 3, drainBossRadius * 0.5, drainBossRadius * 0.5, 0)
-      const drainHole = dh1.translate(0, (panLength - sumpLength) / 4, -crankcaseHeight - panRailHeight - sumpDepth)
-      dh1.delete()
-      const pan5 = pan.subtract(drainHole)
-      pan.delete()
-      drainHole.delete()
+      var drainHoleHeight = wallThickness * 3
+      var drainHole = geo.shape.cylinder({ diameter: drainBossRadius, height: drainHoleHeight })
+        .translate(0, (panLength - sumpLength) / 4, -crankcaseHeight - panRailHeight - sumpDepth + drainHoleHeight / 2)
+      pan = pan.subtract(drainHole)
 
-      return pan5
+      return pan
     }
 
     // Build timing cover (front of engine)
     function buildTimingCover() {
-      const coverDepth = wallThickness * 3
-      const panRailHeight = wallThickness * 2
-      const overlap = cylinderOuterRadius // overlap into block to ensure connectivity with V-banks
+      var coverDepth = wallThickness * 3
+      var panRailHeight = wallThickness * 2
+      var overlap = cylinderOuterRadius // overlap into block to ensure connectivity with V-banks
 
       // Calculate the front face width based on bank angle
-      const rad = halfBankAngle * Math.PI / 180
-      const topWidth = Math.sin(rad) * blockWidth * 2 + blockWidth * Math.cos(rad)
-      const coverHeight = blockHeight + crankcaseHeight + panRailHeight
+      var rad = halfBankAngle * Math.PI / 180
+      var topWidth = Math.sin(rad) * blockWidth * 2 + blockWidth * Math.cos(rad)
+      var coverHeight = blockHeight + crankcaseHeight + panRailHeight
 
       // Main cover plate - positioned at front of block with overlap into block
-      const cp1 = M.Manifold.cube([topWidth, coverDepth + overlap, coverHeight], true)
-      let cover = cp1.translate(0, -blockLength / 2 - coverDepth / 2 + overlap / 2, coverHeight / 2 - crankcaseHeight - panRailHeight)
-      cp1.delete()
+      var cover = geo.shape.box({ width: topWidth, depth: coverDepth + overlap, height: coverHeight })
+        .translate(0, -blockLength / 2 - coverDepth / 2 + overlap / 2, coverHeight / 2 - crankcaseHeight - panRailHeight)
 
-      // Crank snout seal boss (protrudes forward)
-      const sealBossRadius = mainJournalRadius * 1.5
-      const sealBossDepth = wallThickness * 2
-      const coverFront = -blockLength / 2 - coverDepth + overlap / 2
-      const sb1 = M.Manifold.cylinder(sealBossDepth, sealBossRadius, sealBossRadius, 0)
-      const sb2 = sb1.rotate([90, 0, 0])
-      sb1.delete()
-      const sealBoss = sb2.translate(0, coverFront - sealBossDepth / 2, 0)
-      sb2.delete()
-      const cover2 = cover.add(sealBoss)
-      cover.delete()
-      sealBoss.delete()
-      cover = cover2
+      // Crank snout seal boss (protrudes forward) - cylinder oriented along Y axis
+      var sealBossRadius = mainJournalRadius * 1.5
+      var sealBossDepth = wallThickness * 2
+      var coverFront = -blockLength / 2 - coverDepth + overlap / 2
+      var sealBoss = geo.shape.cylinder({ diameter: sealBossRadius * 2, height: sealBossDepth })
+        .rotate(90, 0, 0)
+        .translate(0, coverFront - sealBossDepth / 2, 0)
+      cover = cover.union(sealBoss)
 
       // Crank snout hole (for pulley/damper)
-      const snoutHoleRadius = mainJournalRadius * 0.8
-      const sh1 = M.Manifold.cylinder(coverDepth + sealBossDepth + overlap + 10, snoutHoleRadius, snoutHoleRadius, 0)
-      const sh2 = sh1.rotate([90, 0, 0])
-      sh1.delete()
-      const snoutHole = sh2.translate(0, coverFront, 0)
-      sh2.delete()
-      const cover3 = cover.subtract(snoutHole)
-      cover.delete()
-      snoutHole.delete()
-      cover = cover3
+      var snoutHoleRadius = mainJournalRadius * 0.8
+      var snoutHoleDepth = coverDepth + sealBossDepth + overlap + 10
+      var snoutHole = geo.shape.cylinder({ diameter: snoutHoleRadius * 2, height: snoutHoleDepth })
+        .rotate(90, 0, 0)
+        .translate(0, coverFront, 0)
+      cover = cover.subtract(snoutHole)
 
       // Water pump mounting boss (upper center)
-      const waterPumpBossRadius = bore * 0.3
-      const wpb1 = M.Manifold.cylinder(wallThickness * 2, waterPumpBossRadius, waterPumpBossRadius, 0)
-      const wpb2 = wpb1.rotate([90, 0, 0])
-      wpb1.delete()
-      const waterPumpBoss = wpb2.translate(0, coverFront - wallThickness, blockHeight * 0.5)
-      wpb2.delete()
-      const cover4 = cover.add(waterPumpBoss)
-      cover.delete()
-      waterPumpBoss.delete()
-      cover = cover4
+      var waterPumpBossRadius = bore * 0.3
+      var waterPumpBossDepth = wallThickness * 2
+      var waterPumpBoss = geo.shape.cylinder({ diameter: waterPumpBossRadius * 2, height: waterPumpBossDepth })
+        .rotate(90, 0, 0)
+        .translate(0, coverFront - wallThickness, blockHeight * 0.5)
+      cover = cover.union(waterPumpBoss)
 
       // Water pump inlet hole
-      const wph1 = M.Manifold.cylinder(coverDepth + wallThickness * 3 + overlap, waterPumpBossRadius * 0.6, waterPumpBossRadius * 0.6, 0)
-      const wph2 = wph1.rotate([90, 0, 0])
-      wph1.delete()
-      const waterPumpHole = wph2.translate(0, coverFront, blockHeight * 0.5)
-      wph2.delete()
-      const cover5 = cover.subtract(waterPumpHole)
-      cover.delete()
-      waterPumpHole.delete()
+      var waterPumpHoleDepth = coverDepth + wallThickness * 3 + overlap
+      var waterPumpHole = geo.shape.cylinder({ diameter: waterPumpBossRadius * 1.2, height: waterPumpHoleDepth })
+        .rotate(90, 0, 0)
+        .translate(0, coverFront, blockHeight * 0.5)
+      cover = cover.subtract(waterPumpHole)
 
-      return cover5
+      return cover
     }
 
     // Build rear main seal housing (back of engine)
     function buildRearMainSealHousing() {
-      const housingDepth = wallThickness * 3
-      const panRailHeight = wallThickness * 2
-      const overlap = cylinderOuterRadius // overlap into block to ensure connectivity with V-banks
+      var housingDepth = wallThickness * 3
+      var panRailHeight = wallThickness * 2
+      var overlap = cylinderOuterRadius // overlap into block to ensure connectivity with V-banks
 
       // Calculate the rear face width based on bank angle
-      const rad = halfBankAngle * Math.PI / 180
-      const topWidth = Math.sin(rad) * blockWidth * 2 + blockWidth * Math.cos(rad)
-      const housingHeight = blockHeight + crankcaseHeight + panRailHeight
+      var rad = halfBankAngle * Math.PI / 180
+      var topWidth = Math.sin(rad) * blockWidth * 2 + blockWidth * Math.cos(rad)
+      var housingHeight = blockHeight + crankcaseHeight + panRailHeight
 
       // Main housing plate - positioned at rear of block with overlap into block
-      const hp1 = M.Manifold.cube([topWidth, housingDepth + overlap, housingHeight], true)
-      let housing = hp1.translate(0, blockLength / 2 + housingDepth / 2 - overlap / 2, housingHeight / 2 - crankcaseHeight - panRailHeight)
-      hp1.delete()
+      var housing = geo.shape.box({ width: topWidth, depth: housingDepth + overlap, height: housingHeight })
+        .translate(0, blockLength / 2 + housingDepth / 2 - overlap / 2, housingHeight / 2 - crankcaseHeight - panRailHeight)
 
       // Rear main seal boss (circular boss around crankshaft exit)
-      const sealBossRadius = mainJournalRadius * 2
-      const sealBossDepth = wallThickness * 2
-      const housingRear = blockLength / 2 + housingDepth - overlap / 2
-      const sb1 = M.Manifold.cylinder(sealBossDepth, sealBossRadius, sealBossRadius, 0)
-      const sb2 = sb1.rotate([90, 0, 0])
-      sb1.delete()
-      const sealBoss = sb2.translate(0, housingRear + sealBossDepth / 2, 0)
-      sb2.delete()
-      const housing2 = housing.add(sealBoss)
-      housing.delete()
-      sealBoss.delete()
-      housing = housing2
+      var sealBossRadius = mainJournalRadius * 2
+      var sealBossDepth = wallThickness * 2
+      var housingRear = blockLength / 2 + housingDepth - overlap / 2
+      var sealBoss = geo.shape.cylinder({ diameter: sealBossRadius * 2, height: sealBossDepth })
+        .rotate(90, 0, 0)
+        .translate(0, housingRear + sealBossDepth / 2, 0)
+      housing = housing.union(sealBoss)
 
       // Crankshaft exit hole (rear main seal bore)
-      const sealHoleRadius = mainJournalRadius * 1.2
-      const sh1 = M.Manifold.cylinder(housingDepth + sealBossDepth + overlap + 10, sealHoleRadius, sealHoleRadius, 0)
-      const sh2 = sh1.rotate([90, 0, 0])
-      sh1.delete()
-      const sealHole = sh2.translate(0, housingRear, 0)
-      sh2.delete()
-      const housing3 = housing.subtract(sealHole)
-      housing.delete()
-      sealHole.delete()
-      housing = housing3
+      var sealHoleRadius = mainJournalRadius * 1.2
+      var sealHoleDepth = housingDepth + sealBossDepth + overlap + 10
+      var sealHole = geo.shape.cylinder({ diameter: sealHoleRadius * 2, height: sealHoleDepth })
+        .rotate(90, 0, 0)
+        .translate(0, housingRear, 0)
+      housing = housing.subtract(sealHole)
 
       // Flywheel bolt pattern boss (ring of bosses around crankshaft)
-      const boltPatternRadius = mainJournalRadius * 3
-      const boltBossRadius = bore * 0.08
-      const numBolts = 6
-      for (let i = 0; i < numBolts; i++) {
-        const angle = (i / numBolts) * Math.PI * 2
-        const bx = Math.cos(angle) * boltPatternRadius
-        const bz = Math.sin(angle) * boltPatternRadius
-        const bb1 = M.Manifold.cylinder(wallThickness * 1.5, boltBossRadius, boltBossRadius, 0)
-        const bb2 = bb1.rotate([90, 0, 0])
-        bb1.delete()
-        const boltBoss = bb2.translate(bx, housingRear + wallThickness * 0.75, bz)
-        bb2.delete()
-        const housing4 = housing.add(boltBoss)
-        housing.delete()
-        boltBoss.delete()
-        housing = housing4
+      var boltPatternRadius = mainJournalRadius * 3
+      var boltBossRadius = bore * 0.08
+      var numBolts = 6
+      var boltBossDepth = wallThickness * 1.5
+      var boltHoleDepth = housingDepth + overlap + wallThickness * 2
+
+      for (var i = 0; i < numBolts; i++) {
+        var angle = (i / numBolts) * Math.PI * 2
+        var bx = Math.cos(angle) * boltPatternRadius
+        var bz = Math.sin(angle) * boltPatternRadius
+
+        // Bolt boss
+        var boltBoss = geo.shape.cylinder({ diameter: boltBossRadius * 2, height: boltBossDepth })
+          .rotate(90, 0, 0)
+          .translate(bx, housingRear + boltBossDepth / 2, bz)
+        housing = housing.union(boltBoss)
 
         // Bolt hole
-        const bh1 = M.Manifold.cylinder(housingDepth + overlap + wallThickness * 2, boltBossRadius * 0.5, boltBossRadius * 0.5, 0)
-        const bh2 = bh1.rotate([90, 0, 0])
-        bh1.delete()
-        const boltHole = bh2.translate(bx, housingRear, bz)
-        bh2.delete()
-        const housing5 = housing.subtract(boltHole)
-        housing.delete()
-        boltHole.delete()
-        housing = housing5
+        var boltHole = geo.shape.cylinder({ diameter: boltBossRadius, height: boltHoleDepth })
+          .rotate(90, 0, 0)
+          .translate(bx, housingRear, bz)
+        housing = housing.subtract(boltHole)
       }
 
       return housing
@@ -326,179 +271,133 @@ const generator: Generator = {
     function buildLifterValley() {
       // The lifter valley runs the length of the block between the two cylinder banks
       // It's where the camshaft and lifters would be located in a pushrod V8
-      const rad = halfBankAngle * Math.PI / 180
+      var rad = halfBankAngle * Math.PI / 180
 
       // Valley width depends on bank angle - narrower for smaller angles
-      const valleyWidth = Math.sin(rad) * blockWidth * 0.8
-      const valleyLength = blockLength - wallThickness * 4  // Slightly shorter than block
-      const valleyDepth = blockHeight * 0.4  // Carved into top of crankcase area
+      var valleyWidth = Math.sin(rad) * blockWidth * 0.8
+      var valleyLength = blockLength - wallThickness * 4  // Slightly shorter than block
+      var valleyDepth = blockHeight * 0.4  // Carved into top of crankcase area
 
       // The valley sits at the top of the V, above the crankcase
-      const valleyZ = valleyDepth / 2 + wallThickness * 2
+      var valleyZ = valleyDepth / 2 + wallThickness * 2
 
       // Create the main valley cutout
-      const v1 = M.Manifold.cube([valleyWidth, valleyLength, valleyDepth], true)
-      const valleyBox = v1.translate(0, 0, valleyZ)
-      v1.delete()
+      var valleyBox = geo.shape.box({ width: valleyWidth, depth: valleyLength, height: valleyDepth })
+        .translate(0, 0, valleyZ)
 
       // Add camshaft bore (visible opening at front and rear of valley)
-      const camBoreRadius = mainJournalRadius * 0.7
-      const cb1 = M.Manifold.cylinder(valleyLength + wallThickness * 8, camBoreRadius, camBoreRadius, 0)
-      const cb2 = cb1.rotate([90, 0, 0])
-      cb1.delete()
-      const camBore = cb2.translate(0, 0, wallThickness * 2)
-      cb2.delete()
-      const valley = valleyBox.add(camBore)
-      valleyBox.delete()
-      camBore.delete()
+      var camBoreRadius = mainJournalRadius * 0.7
+      var camBoreLength = valleyLength + wallThickness * 8
+      var camBore = geo.shape.cylinder({ diameter: camBoreRadius * 2, height: camBoreLength })
+        .rotate(90, 0, 0)
+        .translate(0, 0, wallThickness * 2)
+
+      var valley = valleyBox.union(camBore)
 
       return valley
     }
 
     // Build head bolt holes for a cylinder bank (visible holes in the deck surface)
     function buildHeadBoltHoles(isLeftBank) {
-      const boltHoleRadius = bore * 0.05  // Small bolt holes
-      const boltHoleDepth = wallThickness * 3  // Deep enough to penetrate deck
-      const boltPatternRadius = boreRadius + wallThickness * 0.6
-      const numBolts = 4
-      const bankRotation = isLeftBank ? -halfBankAngle : halfBankAngle
-      const bankXOffset = (isLeftBank ? -1 : 1) * Math.sin(halfBankAngle * Math.PI / 180) * blockWidth / 2
+      var boltHoleRadius = bore * 0.05  // Small bolt holes
+      var boltHoleDepth = wallThickness * 3  // Deep enough to penetrate deck
+      var boltPatternRadius = boreRadius + wallThickness * 0.6
+      var numBolts = 4
+      var bankRotation = isLeftBank ? -halfBankAngle : halfBankAngle
+      var bankXOffset = (isLeftBank ? -1 : 1) * Math.sin(halfBankAngle * Math.PI / 180) * blockWidth / 2
 
-      const holeList = []
+      var holeList = []
 
-      for (let cylIdx = 0; cylIdx < 4; cylIdx++) {
-        const yOffset = -blockLength / 2 + cylinderOuterRadius + cylIdx * cylinderSpacing
+      for (var cylIdx = 0; cylIdx < 4; cylIdx++) {  // 4 cylinders per bank for V8
+        var yOffset = -blockLength / 2 + cylinderOuterRadius + cylIdx * cylinderSpacing
 
-        for (let boltIdx = 0; boltIdx < numBolts; boltIdx++) {
-          // Position bolts at 45°, 135°, 225°, 315° around cylinder
-          const angle = (boltIdx * 90 + 45) * Math.PI / 180
-          const localX = Math.cos(angle) * boltPatternRadius
+        for (var boltIdx = 0; boltIdx < numBolts; boltIdx++) {
+          // Position bolts at 45 degrees, 135 degrees, 225 degrees, 315 degrees around cylinder
+          var angle = (boltIdx * 90 + 45) * Math.PI / 180
+          var localX = Math.cos(angle) * boltPatternRadius
 
           // Position hole to penetrate through the deck surface
-          const holeZ = blockHeight
-          const bh1 = M.Manifold.cylinder(boltHoleDepth, boltHoleRadius, boltHoleRadius, 0)
-          const bh2 = bh1.translate(localX, yOffset, holeZ)
-          bh1.delete()
-          const bh3 = bh2.rotate([0, bankRotation, 0])
-          bh2.delete()
-          const boltHole = bh3.translate(bankXOffset, 0, 0)
-          bh3.delete()
+          // geo cylinder is centered, so we position center at blockHeight + boltHoleDepth/2
+          var holeZ = blockHeight + boltHoleDepth / 2
+          var boltHole = geo.shape.cylinder({ diameter: boltHoleRadius * 2, height: boltHoleDepth })
+            .translate(localX, yOffset, holeZ)
+            .rotate(0, bankRotation, 0)
+            .translate(bankXOffset, 0, 0)
 
           holeList.push(boltHole)
         }
       }
 
       if (holeList.length === 0) return null
-      let result = holeList[0]
-      for (let i = 1; i < holeList.length; i++) {
-        const temp = result.add(holeList[i])
-        result.delete()
-        holeList[i].delete()
-        result = temp
+      var result = holeList[0]
+      for (var i = 1; i < holeList.length; i++) {
+        result = result.union(holeList[i])
       }
       return result
     }
 
     // Combine into one block
-    const banks = leftBank.add(rightBank)
-    leftBank.delete()
-    rightBank.delete()
-    let block = banks.add(crankcase)
-    banks.delete()
-    crankcase.delete()
+    var block = leftBank.union(rightBank).union(crankcase)
 
     // Add oil pan
-    const oilPan = buildOilPan()
-    const block2 = block.add(oilPan)
-    block.delete()
-    oilPan.delete()
-    block = block2
+    var oilPan = buildOilPan()
+    block = block.union(oilPan)
 
     // Add timing cover
-    const timingCover = buildTimingCover()
-    const block3 = block.add(timingCover)
-    block.delete()
-    timingCover.delete()
-    block = block3
+    var timingCover = buildTimingCover()
+    block = block.union(timingCover)
 
     // Add rear main seal housing
-    const rearHousing = buildRearMainSealHousing()
-    const block4 = block.add(rearHousing)
-    block.delete()
-    rearHousing.delete()
-    block = block4
+    var rearHousing = buildRearMainSealHousing()
+    block = block.union(rearHousing)
 
-    // Bore cylinders on left bank
-    for (let i = 0; i < 4; i++) {
-      const yOffset = -blockLength / 2 + cylinderOuterRadius + i * cylinderSpacing
-      const cb1 = M.Manifold.cylinder(blockHeight + 10, boreRadius, boreRadius, 0)
-      const cb2 = cb1.rotate([0, -halfBankAngle, 0])
-      cb1.delete()
-      const cylinderBore = cb2.translate(
-        -Math.sin(halfBankAngle * Math.PI / 180) * blockWidth / 2,
-        yOffset,
-        Math.cos(halfBankAngle * Math.PI / 180) * blockHeight / 2
-      )
-      cb2.delete()
-      const blockTemp = block.subtract(cylinderBore)
-      block.delete()
-      cylinderBore.delete()
-      block = blockTemp
+    // Bore cylinders on left bank - 4 cylinders for V8
+    for (var i = 0; i < 4; i++) {
+      var yOffset = -blockLength / 2 + cylinderOuterRadius + i * cylinderSpacing
+      var cylinderBoreHeight = blockHeight + 10
+      // geo cylinder is centered, so position center at Z = cos(angle) * blockHeight/2 + cylinderBoreHeight/2
+      var cylinderBore = geo.shape.cylinder({ diameter: bore, height: cylinderBoreHeight })
+        .rotate(0, -halfBankAngle, 0)
+        .translate(
+          -Math.sin(halfBankAngle * Math.PI / 180) * blockWidth / 2,
+          yOffset,
+          Math.cos(halfBankAngle * Math.PI / 180) * blockHeight / 2 + cylinderBoreHeight / 2
+        )
+      block = block.subtract(cylinderBore)
     }
 
-    // Bore cylinders on right bank
-    for (let i = 0; i < 4; i++) {
-      const yOffset = -blockLength / 2 + cylinderOuterRadius + i * cylinderSpacing
-      const cb1 = M.Manifold.cylinder(blockHeight + 10, boreRadius, boreRadius, 0)
-      const cb2 = cb1.rotate([0, halfBankAngle, 0])
-      cb1.delete()
-      const cylinderBore = cb2.translate(
-        Math.sin(halfBankAngle * Math.PI / 180) * blockWidth / 2,
-        yOffset,
-        Math.cos(halfBankAngle * Math.PI / 180) * blockHeight / 2
-      )
-      cb2.delete()
-      const blockTemp = block.subtract(cylinderBore)
-      block.delete()
-      cylinderBore.delete()
-      block = blockTemp
+    // Bore cylinders on right bank - 4 cylinders for V8
+    for (var i = 0; i < 4; i++) {
+      var yOffset = -blockLength / 2 + cylinderOuterRadius + i * cylinderSpacing
+      var cylinderBoreHeight = blockHeight + 10
+      var cylinderBore = geo.shape.cylinder({ diameter: bore, height: cylinderBoreHeight })
+        .rotate(0, halfBankAngle, 0)
+        .translate(
+          Math.sin(halfBankAngle * Math.PI / 180) * blockWidth / 2,
+          yOffset,
+          Math.cos(halfBankAngle * Math.PI / 180) * blockHeight / 2 + cylinderBoreHeight / 2
+        )
+      block = block.subtract(cylinderBore)
     }
 
     // Bore out main bearing saddles (crank tunnel)
-    const ck1 = M.Manifold.cylinder(blockLength + 10, mainJournalRadius + 1, mainJournalRadius + 1, 0)
-    const ck2 = ck1.rotate([90, 0, 0])
-    ck1.delete()
-    const block5 = block.subtract(ck2)
-    block.delete()
-    ck2.delete()
-    block = block5
+    var crankTunnelLength = blockLength + 10
+    var crankTunnel = geo.shape.cylinder({ diameter: (mainJournalRadius + 1) * 2, height: crankTunnelLength })
+      .rotate(90, 0, 0)
+    block = block.subtract(crankTunnel)
 
     // Carve out lifter valley between the banks
-    const valley = buildLifterValley()
-    const block6 = block.subtract(valley)
-    block.delete()
-    valley.delete()
-    block = block6
+    var valley = buildLifterValley()
+    block = block.subtract(valley)
 
     // Drill head bolt holes into both banks (visible holes in deck surface)
-    const leftHoles = buildHeadBoltHoles(true)
-    const block7 = block.subtract(leftHoles)
-    block.delete()
-    leftHoles.delete()
-    block = block7
+    var leftHoles = buildHeadBoltHoles(true)
+    block = block.subtract(leftHoles)
 
-    const rightHoles = buildHeadBoltHoles(false)
-    const block8 = block.subtract(rightHoles)
-    block.delete()
-    rightHoles.delete()
-    block = block8
+    var rightHoles = buildHeadBoltHoles(false)
+    block = block.subtract(rightHoles)
 
-    // Center the model on Z=0 for printing
-    const bbox = block.boundingBox()
-    const result = block.translate(0, 0, -bbox.min[2])
-    block.delete()
-
-    return result
+    return block
   `,
   displayDimensions: [
     { label: 'Bore', param: 'bore', format: '⌀{value}mm' },

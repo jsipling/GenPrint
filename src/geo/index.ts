@@ -72,6 +72,13 @@ export type { ComponentParams, AnchorDefinition } from './primitives/Component'
 // Builder code generation (for backward compatibility with generators)
 export { toBuilderCode } from './toBuilderCode'
 
+// Pattern utilities
+import { linearPattern, circularPattern } from './patterns'
+export { linearPattern, circularPattern }
+
+// Re-import Shape class for type annotation
+import { Shape as ShapeClass } from './Shape'
+
 // Factory functions for clean API
 export const shape = {
   /**
@@ -93,5 +100,33 @@ export const shape = {
    * @param params Shape and custom anchor definitions
    */
   component: (params: ComponentParams): ComponentClass =>
-    new ComponentClass(params)
+    new ComponentClass(params),
+
+  /**
+   * Create copies of a shape arranged in a line
+   * @param shape The shape to copy
+   * @param count Number of copies to create
+   * @param spacing Distance between each copy
+   * @param direction Axis to arrange copies along ('x', 'y', or 'z')
+   */
+  linearPattern: (
+    shape: ShapeClass,
+    count: number,
+    spacing: number,
+    direction: 'x' | 'y' | 'z'
+  ): ShapeClass => linearPattern(shape, count, spacing, direction),
+
+  /**
+   * Create copies of a shape arranged in a circle
+   * @param shape The shape to copy
+   * @param count Number of copies to create
+   * @param radius Distance from center to each copy
+   * @param axis Axis perpendicular to the circle plane ('x', 'y', or 'z')
+   */
+  circularPattern: (
+    shape: ShapeClass,
+    count: number,
+    radius: number,
+    axis: 'x' | 'y' | 'z'
+  ): ShapeClass => circularPattern(shape, count, radius, axis)
 }

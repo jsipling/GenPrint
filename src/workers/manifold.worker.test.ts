@@ -6,6 +6,8 @@ import { describe, it, expect, beforeAll } from 'vitest'
 import type { ManifoldToplevel, Manifold, Mesh } from 'manifold-3d'
 import { getManifold, setCircularSegments } from '../test/manifoldSetup'
 import type { MeshData } from '../generators/types'
+import { shape, linearPattern, circularPattern, Compiler } from '../geo'
+import type { Shape } from '../geo'
 
 /**
  * Recreate the manifoldToMeshData function for testing
@@ -209,5 +211,245 @@ describe('bounding box calculation', () => {
     expect(typeof bbox.max[0]).toBe('number')
 
     cube.delete()
+  })
+})
+
+/**
+ * Recreate the createGeoContext function for testing
+ * This mirrors the logic that will be in manifold.worker.ts
+ */
+function createGeoContext(M: ManifoldToplevel) {
+  const compiler = new Compiler(M)
+
+  return {
+    shape,
+    linearPattern,
+    circularPattern,
+    // Compile a geo Shape to a Manifold
+    build: (s: Shape) => compiler.compile(s.getNode())
+  }
+}
+
+/**
+ * Recreate the executeUserBuilder function for testing
+ * This mirrors the logic in manifold.worker.ts
+ */
+function executeUserBuilder(
+  M: ManifoldToplevel,
+  builderCode: string,
+  params: Record<string, number | string | boolean>
+): Manifold {
+  const MIN_WALL_THICKNESS = 1.2
+  const geo = createGeoContext(M)
+
+  const fn = new Function('M', 'MIN_WALL_THICKNESS', 'params', 'geo', `
+    ${builderCode}
+  `)
+
+  const result = fn(M, MIN_WALL_THICKNESS, params, geo)
+
+  // Result can be a Manifold or a Shape (from geo library)
+  if (result && typeof result.getMesh === 'function') {
+    return result
+  } else if (result && typeof result.getNode === 'function') {
+    // It's a geo Shape - compile it to Manifold
+    return geo.build(result)
+  } else {
+    throw new Error('Builder must return a Manifold or geo Shape')
+  }
+}
+
+describe('geo library integration in worker sandbox', () => {
+  let M: ManifoldToplevel
+
+  beforeAll(async () => {
+    M = await getManifold()
+    setCircularSegments(M, 32)
+  })
+
+  describe('createGeoContext', () => {
+    it('provides shape factory functions', () => {
+      const geo = createGeoContext(M)
+
+      expect(geo.shape).toBeDefined()
+      expect(typeof geo.shape.box).toBe('function')
+      expect(typeof geo.shape.cylinder).toBe('function')
+    })
+
+    it('provides pattern functions', () => {
+      const geo = createGeoContext(M)
+
+      expect(typeof geo.linearPattern).toBe('function')
+      expect(typeof geo.circularPattern).toBe('function')
+    })
+
+    it('provides build function that compiles to Manifold', () => {
+      const geo = createGeoContext(M)
+      const box = geo.shape.box({ width: 10, depth: 10, height: 10 })
+
+      const manifold = geo.build(box)
+
+      expect(manifold).toBeDefined()
+      expect(typeof manifold.getMesh).toBe('function')
+      expect(typeof manifold.boundingBox).toBe('function')
+
+      manifold.delete()
+    })
+  })
+
+  describe('executeUserBuilder with geo library', () => {
+    it('returns Manifold when builder returns geo Shape', () => {
+      const builderCode = `
+        const base = geo.shape.box({ width: 20, depth: 20, height: 10 })
+        return base
+      `
+      const manifold = executeUserBuilder(M, builderCode, {})
+
+      expect(manifold).toBeDefined()
+      expect(typeof manifold.getMesh).toBe('function')
+
+      const bbox = manifold.boundingBox()
+      expect(bbox.max[0] - bbox.min[0]).toBeCloseTo(20, 1)
+      expect(bbox.max[1] - bbox.min[1]).toBeCloseTo(20, 1)
+      expect(bbox.max[2] - bbox.min[2]).toBeCloseTo(10, 1)
+
+      manifold.delete()
+    })
+
+    it('returns Manifold when builder uses geo.build explicitly', () => {
+      const builderCode = `
+        const base = geo.shape.box({ width: 30, depth: 30, height: 15 })
+        return geo.build(base)
+      `
+      const manifold = executeUserBuilder(M, builderCode, {})
+
+      expect(manifold).toBeDefined()
+      expect(typeof manifold.getMesh).toBe('function')
+
+      const bbox = manifold.boundingBox()
+      expect(bbox.max[0] - bbox.min[0]).toBeCloseTo(30, 1)
+      expect(bbox.max[1] - bbox.min[1]).toBeCloseTo(30, 1)
+      expect(bbox.max[2] - bbox.min[2]).toBeCloseTo(15, 1)
+
+      manifold.delete()
+    })
+
+    it('supports boolean operations on geo Shapes', () => {
+      const builderCode = `
+        const base = geo.shape.box({ width: 50, depth: 50, height: 10 })
+        const hole = geo.shape.cylinder({ diameter: 10, height: 20 })
+        return base.subtract(hole)
+      `
+      const manifold = executeUserBuilder(M, builderCode, {})
+
+      expect(manifold).toBeDefined()
+      // The result should be a valid manifold with the hole cut out
+      const mesh = manifold.getMesh()
+      expect(mesh.numTri).toBeGreaterThan(0)
+
+      manifold.delete()
+    })
+
+    it('supports alignment operations', () => {
+      const builderCode = `
+        const base = geo.shape.box({ width: 50, depth: 50, height: 10 })
+        const peg = geo.shape.cylinder({ diameter: 10, height: 20 })
+        peg.align({
+          self: 'bottom',
+          target: base,
+          to: 'top'
+        })
+        return base.union(peg)
+      `
+      const manifold = executeUserBuilder(M, builderCode, {})
+
+      expect(manifold).toBeDefined()
+      const bbox = manifold.boundingBox()
+      // Base is 10 high, peg is 20 high on top - total should be 30
+      expect(bbox.max[2] - bbox.min[2]).toBeCloseTo(30, 1)
+
+      manifold.delete()
+    })
+
+    it('supports params in geo builder code', () => {
+      const builderCode = `
+        const base = geo.shape.box({
+          width: params.width,
+          depth: params.depth,
+          height: params.height
+        })
+        return base
+      `
+      const manifold = executeUserBuilder(M, builderCode, {
+        width: 40,
+        depth: 30,
+        height: 20
+      })
+
+      const bbox = manifold.boundingBox()
+      expect(bbox.max[0] - bbox.min[0]).toBeCloseTo(40, 1)
+      expect(bbox.max[1] - bbox.min[1]).toBeCloseTo(30, 1)
+      expect(bbox.max[2] - bbox.min[2]).toBeCloseTo(20, 1)
+
+      manifold.delete()
+    })
+
+    it('supports linear patterns', () => {
+      const builderCode = `
+        const peg = geo.shape.cylinder({ diameter: 5, height: 10 })
+        const row = geo.linearPattern(peg, 3, 15, 'x')
+        return row
+      `
+      const manifold = executeUserBuilder(M, builderCode, {})
+
+      const bbox = manifold.boundingBox()
+      // 3 pegs, 15mm apart: first at -15, middle at 0, last at 15
+      // Each peg is 5mm diameter = 2.5 radius
+      // Total width should be approximately 30 + 5 = 35
+      expect(bbox.max[0] - bbox.min[0]).toBeCloseTo(35, 1)
+
+      manifold.delete()
+    })
+
+    it('supports circular patterns', () => {
+      const builderCode = `
+        const post = geo.shape.cylinder({ diameter: 5, height: 10 })
+        const ring = geo.circularPattern(post, 4, 20, 'z')
+        return ring
+      `
+      const manifold = executeUserBuilder(M, builderCode, {})
+
+      const bbox = manifold.boundingBox()
+      // 4 posts at radius 20, plus their own radius of 2.5
+      // Total extent should be about 45mm in X and Y
+      expect(bbox.max[0] - bbox.min[0]).toBeCloseTo(45, 1)
+      expect(bbox.max[1] - bbox.min[1]).toBeCloseTo(45, 1)
+
+      manifold.delete()
+    })
+
+    it('still supports direct Manifold API', () => {
+      const builderCode = `
+        const cube = M.Manifold.cube([10, 10, 10], true)
+        return cube
+      `
+      const manifold = executeUserBuilder(M, builderCode, {})
+
+      expect(manifold).toBeDefined()
+      const bbox = manifold.boundingBox()
+      expect(bbox.max[0] - bbox.min[0]).toBeCloseTo(10, 1)
+
+      manifold.delete()
+    })
+
+    it('throws error when builder returns neither Manifold nor Shape', () => {
+      const builderCode = `
+        return { notAManifold: true }
+      `
+
+      expect(() => executeUserBuilder(M, builderCode, {})).toThrow(
+        'Builder must return a Manifold or geo Shape'
+      )
+    })
   })
 })

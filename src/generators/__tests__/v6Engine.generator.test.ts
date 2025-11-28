@@ -1,15 +1,53 @@
 import { describe, it, expect, beforeAll } from 'vitest'
-import type { ManifoldToplevel } from 'manifold-3d'
+import type { ManifoldToplevel, Manifold } from 'manifold-3d'
 import { getManifold, setCircularSegments } from '../../test/manifoldSetup'
 import { expectValid } from '../../test/geometryHelpers'
 import { MIN_WALL_THICKNESS } from '../manifold/printingConstants'
+import { shape, linearPattern, circularPattern, Compiler } from '../../geo'
+import type { Shape } from '../../geo'
 import generator from '../v6Engine.generator'
 
-// Create a build function that matches the worker's wrapper
-function createBuildFn(builderCode: string, M: ManifoldToplevel) {
-  return new Function('M', 'MIN_WALL_THICKNESS', 'params', `
+/**
+ * Recreate the createGeoContext function for testing
+ * This mirrors the logic in manifold.worker.ts
+ */
+function createGeoContext(M: ManifoldToplevel) {
+  const compiler = new Compiler(M)
+
+  return {
+    shape,
+    linearPattern,
+    circularPattern,
+    // Compile a geo Shape to a Manifold
+    build: (s: Shape) => compiler.compile(s.getNode())
+  }
+}
+
+/**
+ * Execute builder code in a sandboxed context with geo library support
+ */
+function executeBuilder(
+  M: ManifoldToplevel,
+  builderCode: string,
+  params: Record<string, number | string | boolean>
+): Manifold {
+  const geo = createGeoContext(M)
+
+  const fn = new Function('M', 'MIN_WALL_THICKNESS', 'params', 'geo', `
     ${builderCode}
-  `).bind(null, M, MIN_WALL_THICKNESS)
+  `)
+
+  const result = fn(M, MIN_WALL_THICKNESS, params, geo)
+
+  // Result can be a Manifold or a Shape (from geo library)
+  if (result && typeof result.getMesh === 'function') {
+    return result
+  } else if (result && typeof result.getNode === 'function') {
+    // It's a geo Shape - compile it to Manifold
+    return geo.build(result)
+  } else {
+    throw new Error('Builder must return a Manifold or geo Shape')
+  }
 }
 
 describe('v6Engine.generator', () => {
@@ -58,16 +96,14 @@ describe('v6Engine.generator', () => {
     }
 
     it('produces valid manifold geometry with default params', () => {
-      const buildFn = createBuildFn(generator.builderCode, M)
-      const result = buildFn(defaultParams)
+      const manifold = executeBuilder(M, generator.builderCode, defaultParams)
 
-      expectValid(result.build ? result.build() : result)
+      expectValid(manifold)
+      manifold.delete()
     })
 
     it('produces geometry larger than 100mm in at least one dimension', () => {
-      const buildFn = createBuildFn(generator.builderCode, M)
-      const result = buildFn(defaultParams)
-      const manifold = result.build ? result.build() : result
+      const manifold = executeBuilder(M, generator.builderCode, defaultParams)
 
       const bbox = manifold.boundingBox()
       const width = bbox.max[0] - bbox.min[0]
@@ -76,58 +112,52 @@ describe('v6Engine.generator', () => {
 
       const maxDimension = Math.max(width, depth, height)
       expect(maxDimension).toBeGreaterThanOrEqual(100) // V6 block is smaller than V8
+
+      manifold.delete()
     })
 
     it('enforces minimum wall thickness', () => {
-      const buildFn = createBuildFn(generator.builderCode, M)
-
       // Try with very thin wall - should be clamped to minimum
-      const result = buildFn({ ...defaultParams, wallThickness: 0.5 })
-      const manifold = result.build ? result.build() : result
+      const manifold = executeBuilder(M, generator.builderCode, { ...defaultParams, wallThickness: 0.5 })
       expectValid(manifold)
+      manifold.delete()
     })
 
     it('produces connected geometry (single piece)', () => {
-      const buildFn = createBuildFn(generator.builderCode, M)
-      const result = buildFn(defaultParams)
+      const manifold = executeBuilder(M, generator.builderCode, defaultParams)
 
       // build() without skipConnectivityCheck will throw if disconnected
-      const manifold = result.build ? result.build() : result
       expect(manifold.numVert()).toBeGreaterThan(0)
+      manifold.delete()
     })
 
     it('has 6 cylinder bores (3 per bank)', () => {
-      const buildFn = createBuildFn(generator.builderCode, M)
-      const result = buildFn(defaultParams)
-      const manifold = result.build ? result.build() : result
+      const manifold = executeBuilder(M, generator.builderCode, defaultParams)
 
       // V6 engine block should have substantial volume for 6 cylinders
       // Smaller than V8 (which was >50000)
       expect(manifold.volume()).toBeGreaterThan(35000) // mm³
+      manifold.delete()
     })
 
     it('includes head bolt holes around cylinders', () => {
-      const buildFn = createBuildFn(generator.builderCode, M)
-
-      const result = buildFn(defaultParams)
-      const manifold = result.build ? result.build() : result
+      const manifold = executeBuilder(M, generator.builderCode, defaultParams)
       expectValid(manifold)
 
       // Engine block should have substantial volume even with head bolt holes subtracted
       // 6 cylinders with 4 holes each = 24 small holes
       expect(manifold.volume()).toBeGreaterThan(30000) // mm³
+      manifold.delete()
     })
 
     it('has lifter valley between cylinder banks', () => {
-      const buildFn = createBuildFn(generator.builderCode, M)
-
-      const result = buildFn(defaultParams)
-      const manifold = result.build ? result.build() : result
+      const manifold = executeBuilder(M, generator.builderCode, defaultParams)
       expectValid(manifold)
 
       // Lifter valley is carved out of the V between the banks
       // Block should still be valid and connected after valley subtraction
       expect(manifold.volume()).toBeGreaterThan(25000) // mm³ - valley removes material
+      manifold.delete()
     })
 
     it('has optional intake manifold parameter', () => {
@@ -140,34 +170,30 @@ describe('v6Engine.generator', () => {
     })
 
     it('adds intake manifold when enabled', () => {
-      const buildFn = createBuildFn(generator.builderCode, M)
-
       // Without intake manifold
-      const resultWithout = buildFn({ ...defaultParams, showIntakeManifold: false })
-      const manifoldWithout = resultWithout.build ? resultWithout.build() : resultWithout
+      const manifoldWithout = executeBuilder(M, generator.builderCode, { ...defaultParams, showIntakeManifold: false })
       expectValid(manifoldWithout)
       const volumeWithout = manifoldWithout.volume()
+      manifoldWithout.delete()
 
       // With intake manifold
-      const resultWith = buildFn({ ...defaultParams, showIntakeManifold: true })
-      const manifoldWith = resultWith.build ? resultWith.build() : resultWith
+      const manifoldWith = executeBuilder(M, generator.builderCode, { ...defaultParams, showIntakeManifold: true })
       expectValid(manifoldWith)
       const volumeWith = manifoldWith.volume()
+      manifoldWith.delete()
 
       // Intake manifold should add volume
       expect(volumeWith).toBeGreaterThan(volumeWithout)
     })
 
     it('has exhaust ports on outer faces of cylinder banks', () => {
-      const buildFn = createBuildFn(generator.builderCode, M)
-
-      const result = buildFn(defaultParams)
-      const manifold = result.build ? result.build() : result
+      const manifold = executeBuilder(M, generator.builderCode, defaultParams)
       expectValid(manifold)
 
       // Exhaust ports are carved into the outer faces of each bank
       // Block should still be valid and connected with 6 exhaust ports (3 per bank)
       expect(manifold.volume()).toBeGreaterThan(20000) // mm³ - ports remove some material
+      manifold.delete()
     })
   })
 

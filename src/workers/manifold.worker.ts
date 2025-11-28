@@ -10,8 +10,26 @@ import type {
   InitErrorMessage,
   WorkerMessage
 } from './types'
+import { shape, linearPattern, circularPattern, Compiler } from '../geo'
+import type { Shape } from '../geo'
 
 let manifoldModule: ManifoldToplevel | null = null
+
+/**
+ * Create a geo library context bound to the current Manifold module
+ * This provides the geo API to the sandbox environment
+ */
+function createGeoContext(M: ManifoldToplevel) {
+  const compiler = new Compiler(M)
+
+  return {
+    shape,
+    linearPattern,
+    circularPattern,
+    // Compile a geo Shape to a Manifold
+    build: (s: Shape) => compiler.compile(s.getNode())
+  }
+}
 
 // Initialize manifold-3d with explicit WASM path
 Module({
@@ -111,25 +129,36 @@ function manifoldToMeshData(manifold: Manifold): MeshData {
 /**
  * Execute user-generated builder code in a sandboxed context
  * Returns the built Manifold or throws an error
+ *
+ * The sandbox provides:
+ * - M: The Manifold module for direct WASM operations
+ * - MIN_WALL_THICKNESS: Constant for 3D printing minimum wall thickness
+ * - params: User-provided parameters
+ * - geo: The geo library for declarative geometry construction
  */
 function executeUserBuilder(
   M: ManifoldToplevel,
   builderCode: string,
   params: Record<string, number | string | boolean>
 ): Manifold {
-  // Create a sandboxed function with access to M, MIN_WALL_THICKNESS, and params
-  // The code is expected to use M.Manifold methods and return a Manifold
-  const fn = new Function('M', 'MIN_WALL_THICKNESS', 'params', `
+  const geo = createGeoContext(M)
+
+  // Create a sandboxed function with access to M, MIN_WALL_THICKNESS, params, and geo
+  // The code can use either M.Manifold methods or geo library and return either type
+  const fn = new Function('M', 'MIN_WALL_THICKNESS', 'params', 'geo', `
     ${builderCode}
   `)
 
-  const result = fn(M, MIN_WALL_THICKNESS, params)
+  const result = fn(M, MIN_WALL_THICKNESS, params, geo)
 
-  // Result should be a Manifold
+  // Result can be a Manifold or a Shape (from geo library)
   if (result && typeof result.getMesh === 'function') {
     return result
+  } else if (result && typeof result.getNode === 'function') {
+    // It's a geo Shape - compile it to Manifold
+    return geo.build(result)
   } else {
-    throw new Error('Builder must return a Manifold')
+    throw new Error('Builder must return a Manifold or geo Shape')
   }
 }
 

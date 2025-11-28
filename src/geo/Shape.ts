@@ -10,7 +10,9 @@ import {
   IDENTITY_MATRIX,
   multiplyMatrices,
   transformPoint,
-  transformDirection
+  transformDirection,
+  translationMatrix,
+  rotationMatrix
 } from './math';
 
 const EPSILON = 0.0001;
@@ -132,6 +134,34 @@ export abstract class Shape {
     );
 
     this.transform = multiplyMatrices(alignTransform, this.transform);
+    return this;
+  }
+
+  /**
+   * Apply a translation to this shape
+   *
+   * @param x - Translation along X axis
+   * @param y - Translation along Y axis
+   * @param z - Translation along Z axis
+   * @returns this for chaining
+   */
+  translate(x: number, y: number, z: number): this {
+    const translateTransform = translationMatrix(x, y, z);
+    this.transform = multiplyMatrices(translateTransform, this.transform);
+    return this;
+  }
+
+  /**
+   * Apply a rotation to this shape using Euler angles (degrees, XYZ order)
+   *
+   * @param rx - Rotation around X axis in degrees
+   * @param ry - Rotation around Y axis in degrees
+   * @param rz - Rotation around Z axis in degrees
+   * @returns this for chaining
+   */
+  rotate(rx: number, ry: number, rz: number): this {
+    const rotateTransform = rotationMatrix(rx, ry, rz);
+    this.transform = multiplyMatrices(rotateTransform, this.transform);
     return this;
   }
 

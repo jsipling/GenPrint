@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest'
-import type { ManifoldToplevel } from 'manifold-3d'
+import type { ManifoldToplevel, Manifold } from 'manifold-3d'
 import {
   flattenParameters,
   isBooleanParam,
@@ -9,15 +9,54 @@ import {
 import { generators } from './index'
 import { getManifold, setCircularSegments } from '../test/manifoldSetup'
 import { MIN_WALL_THICKNESS } from './manifold/printingConstants'
+import { shape, linearPattern, circularPattern, Compiler } from '../geo'
+import type { Shape } from '../geo'
 
 // Find v8-engine generator from the auto-discovered generators
 const v8EngineGenerator = generators.find(g => g.id === 'v8-engine')!
 
-// Worker wrapper - matches src/workers/manifold.worker.ts executeUserBuilder()
-function createWorkerBuildFn(builderCode: string, M: ManifoldToplevel) {
-  return new Function('M', 'MIN_WALL_THICKNESS', 'params', `
+/**
+ * Recreate the createGeoContext function for testing
+ * This mirrors the logic in manifold.worker.ts
+ */
+function createGeoContext(M: ManifoldToplevel) {
+  const compiler = new Compiler(M)
+
+  return {
+    shape,
+    linearPattern,
+    circularPattern,
+    // Compile a geo Shape to a Manifold
+    build: (s: Shape) => compiler.compile(s.getNode())
+  }
+}
+
+/**
+ * Execute builder code in a sandboxed context with geo library support
+ * This mirrors src/workers/manifold.worker.ts executeUserBuilder()
+ */
+function executeBuilder(
+  M: ManifoldToplevel,
+  builderCode: string,
+  params: Record<string, number | string | boolean>
+): Manifold {
+  const geo = createGeoContext(M)
+
+  const fn = new Function('M', 'MIN_WALL_THICKNESS', 'params', 'geo', `
     ${builderCode}
-  `).bind(null, M, MIN_WALL_THICKNESS)
+  `)
+
+  const result = fn(M, MIN_WALL_THICKNESS, params, geo)
+
+  // Result can be a Manifold or a Shape (from geo library)
+  if (result && typeof result.getMesh === 'function') {
+    return result
+  } else if (result && typeof result.getNode === 'function') {
+    // It's a geo Shape - compile it to Manifold
+    return geo.build(result)
+  } else {
+    throw new Error('Builder must return a Manifold or geo Shape')
+  }
 }
 
 describe('flattenParameters', () => {
@@ -233,13 +272,12 @@ describe('generator builderCode validation', () => {
       }
 
       // Execute builderCode with worker wrapper (catches redeclaration errors, etc.)
-      const buildFn = createWorkerBuildFn(gen.builderCode, M)
-
       // This will throw if there are syntax errors or runtime errors
       expect(() => {
-        const result = buildFn(params)
-        // Ensure it returns something (Shape or Manifold)
-        expect(result).toBeDefined()
+        const manifold = executeBuilder(M, gen.builderCode, params)
+        // Ensure it returns something
+        expect(manifold).toBeDefined()
+        manifold.delete()
       }).not.toThrow()
     }
   })
@@ -255,14 +293,7 @@ describe('generator builderCode validation', () => {
         params[param.name] = param.default
       }
 
-      const buildFn = createWorkerBuildFn(gen.builderCode, M)
-      const result = buildFn(params)
-
-      // Get the manifold (handle both Shape and raw Manifold returns)
-      // Don't skip connectivity check - catch disconnected geometry
-      const manifold = result.build
-        ? result.build()
-        : result
+      const manifold = executeBuilder(M, gen.builderCode, params)
 
       // Validate geometry
       expect(manifold.volume(), `${gen.name} should have positive volume`).toBeGreaterThan(0)
@@ -271,6 +302,8 @@ describe('generator builderCode validation', () => {
       if (!multiPartGenerators.has(gen.id)) {
         expect(manifold.genus(), `${gen.name} should be watertight (genus >= 0)`).toBeGreaterThanOrEqual(0)
       }
+
+      manifold.delete()
     }
   })
 })

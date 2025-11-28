@@ -1,15 +1,53 @@
 import { describe, it, expect, beforeAll } from 'vitest'
-import type { ManifoldToplevel } from 'manifold-3d'
+import type { ManifoldToplevel, Manifold } from 'manifold-3d'
 import { getManifold, setCircularSegments } from '../../test/manifoldSetup'
 import { expectValid } from '../../test/geometryHelpers'
 import { MIN_WALL_THICKNESS } from '../manifold/printingConstants'
+import { shape, linearPattern, circularPattern, Compiler } from '../../geo'
+import type { Shape } from '../../geo'
 import generator from '../v8Engine.generator'
 
-// Create a build function that matches the worker's wrapper
-function createBuildFn(builderCode: string, M: ManifoldToplevel) {
-  return new Function('M', 'MIN_WALL_THICKNESS', 'params', `
+/**
+ * Recreate the createGeoContext function for testing
+ * This mirrors the logic in manifold.worker.ts
+ */
+function createGeoContext(M: ManifoldToplevel) {
+  const compiler = new Compiler(M)
+
+  return {
+    shape,
+    linearPattern,
+    circularPattern,
+    // Compile a geo Shape to a Manifold
+    build: (s: Shape) => compiler.compile(s.getNode())
+  }
+}
+
+/**
+ * Execute builder code in a sandboxed context with geo library support
+ */
+function executeBuilder(
+  M: ManifoldToplevel,
+  builderCode: string,
+  params: Record<string, number | string | boolean>
+): Manifold {
+  const geo = createGeoContext(M)
+
+  const fn = new Function('M', 'MIN_WALL_THICKNESS', 'params', 'geo', `
     ${builderCode}
-  `).bind(null, M, MIN_WALL_THICKNESS)
+  `)
+
+  const result = fn(M, MIN_WALL_THICKNESS, params, geo)
+
+  // Result can be a Manifold or a Shape (from geo library)
+  if (result && typeof result.getMesh === 'function') {
+    return result
+  } else if (result && typeof result.getNode === 'function') {
+    // It's a geo Shape - compile it to Manifold
+    return geo.build(result)
+  } else {
+    throw new Error('Builder must return a Manifold or geo Shape')
+  }
 }
 
 describe('v8Engine.generator', () => {
@@ -60,16 +98,14 @@ describe('v8Engine.generator', () => {
     }
 
     it('produces valid manifold geometry with default params', () => {
-      const buildFn = createBuildFn(generator.builderCode, M)
-      const result = buildFn(defaultParams)
+      const manifold = executeBuilder(M, generator.builderCode, defaultParams)
 
-      expectValid(result.build ? result.build() : result)
+      expectValid(manifold)
+      manifold.delete()
     })
 
     it('produces geometry larger than 150mm in at least one dimension', () => {
-      const buildFn = createBuildFn(generator.builderCode, M)
-      const result = buildFn(defaultParams)
-      const manifold = result.build ? result.build() : result
+      const manifold = executeBuilder(M, generator.builderCode, defaultParams)
 
       const bbox = manifold.boundingBox()
       const width = bbox.max[0] - bbox.min[0]
@@ -78,74 +114,68 @@ describe('v8Engine.generator', () => {
 
       const maxDimension = Math.max(width, depth, height)
       expect(maxDimension).toBeGreaterThanOrEqual(140) // Block is ~145mm long
+
+      manifold.delete()
     })
 
     it('respects bank angle parameter', () => {
-      const buildFn = createBuildFn(generator.builderCode, M)
-
       // Test with 90-degree bank angle
-      const result90 = buildFn({ ...defaultParams, bankAngle: 90 })
-      const manifold90 = result90.build ? result90.build() : result90
+      const manifold90 = executeBuilder(M, generator.builderCode, { ...defaultParams, bankAngle: 90 })
       expectValid(manifold90)
+      const volume90 = manifold90.volume()
+      manifold90.delete()
 
       // Test with 60-degree bank angle
-      const result60 = buildFn({ ...defaultParams, bankAngle: 60 })
-      const manifold60 = result60.build ? result60.build() : result60
+      const manifold60 = executeBuilder(M, generator.builderCode, { ...defaultParams, bankAngle: 60 })
       expectValid(manifold60)
+      const volume60 = manifold60.volume()
+      manifold60.delete()
 
       // Different bank angles should produce different geometry
-      expect(manifold90.volume()).not.toBeCloseTo(manifold60.volume(), 0)
+      expect(volume90).not.toBeCloseTo(volume60, 0)
     })
 
     it('enforces minimum wall thickness', () => {
-      const buildFn = createBuildFn(generator.builderCode, M)
-
       // Try with very thin wall - should be clamped to minimum
-      const result = buildFn({ ...defaultParams, wallThickness: 0.5 })
-      const manifold = result.build ? result.build() : result
+      const manifold = executeBuilder(M, generator.builderCode, { ...defaultParams, wallThickness: 0.5 })
       expectValid(manifold)
+      manifold.delete()
     })
 
     it('produces connected geometry (single piece)', () => {
-      const buildFn = createBuildFn(generator.builderCode, M)
-      const result = buildFn(defaultParams)
+      const manifold = executeBuilder(M, generator.builderCode, defaultParams)
 
       // build() without skipConnectivityCheck will throw if disconnected
-      const manifold = result.build ? result.build() : result
       expect(manifold.numVert()).toBeGreaterThan(0)
+      manifold.delete()
     })
 
     it('has 8 cylinder bores', () => {
-      const buildFn = createBuildFn(generator.builderCode, M)
-      const result = buildFn(defaultParams)
-      const manifold = result.build ? result.build() : result
+      const manifold = executeBuilder(M, generator.builderCode, defaultParams)
 
       // Engine block should have substantial volume for 8 cylinders
       expect(manifold.volume()).toBeGreaterThan(50000) // mm³
+      manifold.delete()
     })
 
     it('includes head bolt holes around cylinders', () => {
-      const buildFn = createBuildFn(generator.builderCode, M)
-
-      const result = buildFn(defaultParams)
-      const manifold = result.build ? result.build() : result
+      const manifold = executeBuilder(M, generator.builderCode, defaultParams)
       expectValid(manifold)
 
       // Engine block should have substantial volume even with head bolt holes subtracted
       // 8 cylinders with 4 holes each = 32 small holes
       expect(manifold.volume()).toBeGreaterThan(50000) // mm³
+      manifold.delete()
     })
 
     it('has lifter valley between cylinder banks', () => {
-      const buildFn = createBuildFn(generator.builderCode, M)
-
-      const result = buildFn(defaultParams)
-      const manifold = result.build ? result.build() : result
+      const manifold = executeBuilder(M, generator.builderCode, defaultParams)
       expectValid(manifold)
 
       // Lifter valley is carved out of the V between the banks
       // Block should still be valid and connected after valley subtraction
       expect(manifold.volume()).toBeGreaterThan(40000) // mm³ - valley removes material
+      manifold.delete()
     })
   })
 

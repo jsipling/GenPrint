@@ -145,7 +145,6 @@ const generator: Generator = {
     var SCISSORS_WIDTH = 55      // Width needed for embroidery scissors
     var ACCESSORIES_WIDTH = 40   // Width for threaders, thimbles
     var NEEDLES_WIDTH = 20       // Narrow slot for needles
-    var BOBBIN_CELL_SIZE = 28    // Standard bobbin is ~25mm, add margin
 
     // Calculate side column width (largest needed compartment)
     var sideColumnWidth = 0
@@ -170,53 +169,44 @@ const generator: Generator = {
 
     // Create the main box shell (outer walls)
     function buildBoxBase() {
-      var ob1 = M.Manifold.cube([length, width, totalHeight], false)
-      var outerBox = ob1.translate(-length / 2, -width / 2, 0)
-      ob1.delete()
-      var ib1 = M.Manifold.cube([innerLength, innerWidth, height + 1], false)
-      var innerBox = ib1.translate(-innerLength / 2, -innerWidth / 2, wallThickness)
-      ib1.delete()
-      var result = outerBox.subtract(innerBox)
-      outerBox.delete()
-      innerBox.delete()
-      return result
+      // geo.shape.box is centered, so we translate Z up by half height to sit on Z=0
+      var outerBox = geo.shape.box({ width: length, depth: width, height: totalHeight })
+        .translate(0, 0, totalHeight / 2)
+      var innerBox = geo.shape.box({ width: innerLength, depth: innerWidth, height: height + 1 })
+        .translate(0, 0, wallThickness + (height + 1) / 2)
+      return outerBox.subtract(innerBox)
     }
 
     // Build the bobbin grid compartments
     function buildBobbinGrid() {
       if (!includeBobbins) return null
 
-      var dividerList = []
+      var dividers = []
       var gridStartX = -innerLength / 2
-      var gridEndX = hasSideCompartments ? gridStartX + bobbinSectionWidth : innerLength / 2
       var cellWidth = bobbinSectionWidth / bobbinColumns
       var cellDepth = innerWidth / bobbinRows
 
       // Vertical dividers (separating columns)
       for (var col = 1; col < bobbinColumns; col++) {
         var xPos = gridStartX + col * cellWidth
-        var d1 = M.Manifold.cube([wallThickness, innerWidth, height], false)
-        var divider = d1.translate(xPos - wallThickness / 2, -innerWidth / 2, wallThickness)
-        d1.delete()
-        dividerList.push(divider)
+        var divider = geo.shape.box({ width: wallThickness, depth: innerWidth, height: height })
+          .translate(xPos, 0, wallThickness + height / 2)
+        dividers.push(divider)
       }
 
       // Horizontal dividers (separating rows)
       for (var row = 1; row < bobbinRows; row++) {
         var yPos = -innerWidth / 2 + row * cellDepth
-        var d1 = M.Manifold.cube([bobbinSectionWidth, wallThickness, height], false)
-        var divider = d1.translate(gridStartX, yPos - wallThickness / 2, wallThickness)
-        d1.delete()
-        dividerList.push(divider)
+        var divider = geo.shape.box({ width: bobbinSectionWidth, depth: wallThickness, height: height })
+          .translate(gridStartX + bobbinSectionWidth / 2, yPos, wallThickness + height / 2)
+        dividers.push(divider)
       }
 
-      if (dividerList.length === 0) return null
-      var result = dividerList[0]
-      for (var i = 1; i < dividerList.length; i++) {
-        var temp = result.add(dividerList[i])
-        result.delete()
-        dividerList[i].delete()
-        result = temp
+      if (dividers.length === 0) return null
+
+      var result = dividers[0]
+      for (var i = 1; i < dividers.length; i++) {
+        result = result.union(dividers[i])
       }
       return result
     }
@@ -225,18 +215,16 @@ const generator: Generator = {
     function buildMainDivider() {
       if (!hasSideCompartments || !includeBobbins) return null
 
-      var dividerX = -innerLength / 2 + bobbinSectionWidth
-      var d1 = M.Manifold.cube([wallThickness, innerWidth, height], false)
-      var result = d1.translate(dividerX, -innerWidth / 2, wallThickness)
-      d1.delete()
-      return result
+      var dividerX = -innerLength / 2 + bobbinSectionWidth + wallThickness / 2
+      return geo.shape.box({ width: wallThickness, depth: innerWidth, height: height })
+        .translate(dividerX, 0, wallThickness + height / 2)
     }
 
     // Build side compartment dividers (scissors, accessories, needles)
     function buildSideCompartments() {
       if (!hasSideCompartments) return null
 
-      var dividerList = []
+      var dividers = []
       var sideStartX = includeBobbins ? (-innerLength / 2 + bobbinSectionWidth + wallThickness) : -innerLength / 2
       var actualSideWidth = includeBobbins ? sideColumnWidth : innerLength
 
@@ -267,27 +255,23 @@ const generator: Generator = {
 
       if (includeScissors && (includeAccessories || includeNeedles)) {
         currentY += scissorsHeight
-        var d1 = M.Manifold.cube([actualSideWidth, wallThickness, height], false)
-        var divider = d1.translate(sideStartX, currentY - wallThickness / 2, wallThickness)
-        d1.delete()
-        dividerList.push(divider)
+        var divider = geo.shape.box({ width: actualSideWidth, depth: wallThickness, height: height })
+          .translate(sideStartX + actualSideWidth / 2, currentY, wallThickness + height / 2)
+        dividers.push(divider)
       }
 
       if (includeAccessories && includeNeedles) {
         currentY += accessoriesHeight
-        var d1 = M.Manifold.cube([actualSideWidth, wallThickness, height], false)
-        var divider = d1.translate(sideStartX, currentY - wallThickness / 2, wallThickness)
-        d1.delete()
-        dividerList.push(divider)
+        var divider = geo.shape.box({ width: actualSideWidth, depth: wallThickness, height: height })
+          .translate(sideStartX + actualSideWidth / 2, currentY, wallThickness + height / 2)
+        dividers.push(divider)
       }
 
-      if (dividerList.length === 0) return null
-      var result = dividerList[0]
-      for (var i = 1; i < dividerList.length; i++) {
-        var temp = result.add(dividerList[i])
-        result.delete()
-        dividerList[i].delete()
-        result = temp
+      if (dividers.length === 0) return null
+
+      var result = dividers[0]
+      for (var i = 1; i < dividers.length; i++) {
+        result = result.union(dividers[i])
       }
       return result
     }
@@ -296,12 +280,11 @@ const generator: Generator = {
     function buildNeedleRidges() {
       if (!includeNeedles) return null
 
-      var ridgeList = []
+      var ridges = []
       var sideStartX = includeBobbins ? (-innerLength / 2 + bobbinSectionWidth + wallThickness) : -innerLength / 2
       var actualSideWidth = includeBobbins ? sideColumnWidth : innerLength
 
       // Calculate needle section position
-      var compartmentCount = (includeScissors ? 1 : 0) + (includeAccessories ? 1 : 0) + (includeNeedles ? 1 : 0)
       var scissorsHeight = includeScissors ? innerWidth * 0.5 : 0
       var accessoriesHeight = includeAccessories ? innerWidth * 0.35 : 0
       var needlesHeight = includeNeedles ? innerWidth * 0.15 : 0
@@ -319,95 +302,82 @@ const generator: Generator = {
       var numRidges = Math.floor((actualSideWidth - wallThickness * 2) / ridgeSpacing)
 
       for (var i = 0; i < numRidges; i++) {
-        var ridgeX = sideStartX + wallThickness + i * ridgeSpacing
-        var r1 = M.Manifold.cube([ridgeWidth, needlesHeight - wallThickness, ridgeHeight], false)
-        var ridge = r1.translate(ridgeX, needleStartY + wallThickness / 2, wallThickness)
-        r1.delete()
-        ridgeList.push(ridge)
+        var ridgeX = sideStartX + wallThickness + i * ridgeSpacing + ridgeWidth / 2
+        var ridge = geo.shape.box({ width: ridgeWidth, depth: needlesHeight - wallThickness, height: ridgeHeight })
+          .translate(ridgeX, needleStartY + (needlesHeight - wallThickness) / 2 + wallThickness / 2, wallThickness + ridgeHeight / 2)
+        ridges.push(ridge)
       }
 
-      if (ridgeList.length === 0) return null
-      var result = ridgeList[0]
-      for (var i = 1; i < ridgeList.length; i++) {
-        var temp = result.add(ridgeList[i])
-        result.delete()
-        ridgeList[i].delete()
-        result = temp
+      if (ridges.length === 0) return null
+
+      var result = ridges[0]
+      for (var i = 1; i < ridges.length; i++) {
+        result = result.union(ridges[i])
       }
       return result
     }
 
     // Build hinge knuckles on the box (back edge)
     function buildBoxHingeKnuckles() {
-      var knuckleList = []
+      var knuckles = []
       var backEdgeY = width / 2
       var hingeZ = totalHeight - hingeRadius
       var startX = -hingeLength / 2
 
       for (var i = 0; i < 5; i += 2) {
         var segX = startX + i * hingeSegmentLength + hingeSegmentLength / 2
-        var k1 = M.Manifold.cylinder(hingeSegmentLength - hingeGap, hingeRadius, hingeRadius, 0)
-        var k2 = k1.rotate([0, 90, 0])
-        k1.delete()
-        var knuckle = k2.translate(segX, backEdgeY, hingeZ)
-        k2.delete()
-        knuckleList.push(knuckle)
+        var knuckle = geo.shape.cylinder({ diameter: hingeRadius * 2, height: hingeSegmentLength - hingeGap })
+          .rotate(0, 90, 0)
+          .translate(segX, backEdgeY, hingeZ)
+        knuckles.push(knuckle)
       }
-      if (knuckleList.length === 0) return null
-      var result = knuckleList[0]
-      for (var i = 1; i < knuckleList.length; i++) {
-        var temp = result.add(knuckleList[i])
-        result.delete()
-        knuckleList[i].delete()
-        result = temp
+
+      if (knuckles.length === 0) return null
+
+      var result = knuckles[0]
+      for (var i = 1; i < knuckles.length; i++) {
+        result = result.union(knuckles[i])
       }
       return result
     }
 
     // Build hinge knuckles on the lid (back edge)
     function buildLidHingeKnuckles() {
-      var knuckleList = []
+      var knuckles = []
       var backEdgeY = width / 2
       var hingeZ = totalHeight - hingeRadius
       var startX = -hingeLength / 2
 
       for (var i = 1; i < 5; i += 2) {
         var segX = startX + i * hingeSegmentLength + hingeSegmentLength / 2
-        var k1 = M.Manifold.cylinder(hingeSegmentLength - hingeGap, hingeRadius, hingeRadius, 0)
-        var k2 = k1.rotate([0, 90, 0])
-        k1.delete()
-        var knuckle = k2.translate(segX, backEdgeY, hingeZ)
-        k2.delete()
-        knuckleList.push(knuckle)
+        var knuckle = geo.shape.cylinder({ diameter: hingeRadius * 2, height: hingeSegmentLength - hingeGap })
+          .rotate(0, 90, 0)
+          .translate(segX, backEdgeY, hingeZ)
+        knuckles.push(knuckle)
       }
-      if (knuckleList.length === 0) return null
-      var result = knuckleList[0]
-      for (var i = 1; i < knuckleList.length; i++) {
-        var temp = result.add(knuckleList[i])
-        result.delete()
-        knuckleList[i].delete()
-        result = temp
+
+      if (knuckles.length === 0) return null
+
+      var result = knuckles[0]
+      for (var i = 1; i < knuckles.length; i++) {
+        result = result.union(knuckles[i])
       }
       return result
     }
 
     // Build the hinge pin hole through all knuckles
     function buildHingePinHole() {
-      var h1 = M.Manifold.cylinder(hingeLength + wallThickness * 4, hingePinRadius, hingePinRadius, 0)
-      var h2 = h1.rotate([0, 90, 0])
-      h1.delete()
-      var result = h2.translate(0, width / 2, totalHeight - hingeRadius)
-      h2.delete()
-      return result
+      return geo.shape.cylinder({ diameter: hingePinRadius * 2, height: hingeLength + wallThickness * 4 })
+        .rotate(0, 90, 0)
+        .translate(0, width / 2, totalHeight - hingeRadius)
     }
 
     // Build the lid with cross stitch pattern
     function buildLid() {
       var backEdgeY = width / 2
 
-      var lp1 = M.Manifold.cube([length - wallThickness * 2, width - wallThickness, lidThickness], true)
-      var lidPlate = lp1.translate(0, -width / 2 + (width - wallThickness) / 2, totalHeight + lidThickness / 2)
-      lp1.delete()
+      var lidPlate = geo.shape.box({ width: length - wallThickness * 2, depth: width - wallThickness, height: lidThickness })
+        .translate(0, -wallThickness / 2, totalHeight + lidThickness / 2)
 
       // Cross stitch pattern embossing
       var patternDepth = lidThickness * 0.3
@@ -420,63 +390,44 @@ const generator: Generator = {
 
       function createStitch(size) {
         var strokeWidth = size * 0.15
-        var d1 = M.Manifold.cube([size * 1.4, strokeWidth, patternDepth + 0.5], true)
-        var diag1 = d1.rotate([0, 0, 45])
-        d1.delete()
-        var d2 = M.Manifold.cube([size * 1.4, strokeWidth, patternDepth + 0.5], true)
-        var diag2 = d2.rotate([0, 0, -45])
-        d2.delete()
-        var result = diag1.add(diag2)
-        diag1.delete()
-        diag2.delete()
-        return result
+        var diag1 = geo.shape.box({ width: size * 1.4, depth: strokeWidth, height: patternDepth + 0.5 })
+          .rotate(0, 0, 45)
+        var diag2 = geo.shape.box({ width: size * 1.4, depth: strokeWidth, height: patternDepth + 0.5 })
+          .rotate(0, 0, -45)
+        return diag1.union(diag2)
       }
 
-      var stitchList = []
+      var stitches = []
       var patternStartX = -(numPatternX - 1) * patternSpacing / 2
-      var patternStartY = -width / 2 + (width - wallThickness) / 2 - (numPatternY - 1) * patternSpacing / 2 + patternSpacing
+      var patternStartY = -wallThickness / 2 - (numPatternY - 1) * patternSpacing / 2 + patternSpacing
 
       for (var px = 0; px < numPatternX; px++) {
         for (var py = 0; py < numPatternY; py++) {
-          var st1 = createStitch(gridSize)
-          var stitch = st1.translate(
-            patternStartX + px * patternSpacing,
-            patternStartY + py * patternSpacing,
-            totalHeight + lidThickness - patternDepth / 2
-          )
-          st1.delete()
-          stitchList.push(stitch)
+          var stitch = createStitch(gridSize)
+            .translate(
+              patternStartX + px * patternSpacing,
+              patternStartY + py * patternSpacing,
+              totalHeight + lidThickness - patternDepth / 2
+            )
+          stitches.push(stitch)
         }
       }
 
-      if (stitchList.length > 0) {
-        var stitchCuts = stitchList[0]
-        for (var i = 1; i < stitchList.length; i++) {
-          var temp = stitchCuts.add(stitchList[i])
-          stitchCuts.delete()
-          stitchList[i].delete()
-          stitchCuts = temp
+      if (stitches.length > 0) {
+        var stitchCuts = stitches[0]
+        for (var i = 1; i < stitches.length; i++) {
+          stitchCuts = stitchCuts.union(stitches[i])
         }
-        var lidPlate2 = lidPlate.subtract(stitchCuts)
-        lidPlate.delete()
-        stitchCuts.delete()
-        lidPlate = lidPlate2
+        lidPlate = lidPlate.subtract(stitchCuts)
       }
 
       var lidKnuckles = buildLidHingeKnuckles()
       if (lidKnuckles !== null) {
         var stripWidth = hingeRadius * 2
         var stripHeight = lidThickness
-        var s1 = M.Manifold.cube([hingeLength + hingeSegmentLength, stripWidth, stripHeight], true)
-        var strip = s1.translate(0, backEdgeY - stripWidth / 2, totalHeight + stripHeight / 2)
-        s1.delete()
-        var lp3 = lidPlate.add(strip)
-        lidPlate.delete()
-        strip.delete()
-        var lp4 = lp3.add(lidKnuckles)
-        lp3.delete()
-        lidKnuckles.delete()
-        lidPlate = lp4
+        var strip = geo.shape.box({ width: hingeLength + hingeSegmentLength, depth: stripWidth, height: stripHeight })
+          .translate(0, backEdgeY - stripWidth / 2, totalHeight + stripHeight / 2)
+        lidPlate = lidPlate.union(strip).union(lidKnuckles)
       }
 
       return lidPlate
@@ -486,12 +437,9 @@ const generator: Generator = {
     function buildFingerRecess() {
       var recessRadius = wallThickness * 3
       var recessLength = length * 0.3
-      var r1 = M.Manifold.cylinder(recessLength, recessRadius, recessRadius, 0)
-      var r2 = r1.rotate([0, 90, 0])
-      r1.delete()
-      var result = r2.translate(0, -width / 2 + wallThickness, totalHeight + lidThickness / 2)
-      r2.delete()
-      return result
+      return geo.shape.cylinder({ diameter: recessRadius * 2, height: recessLength })
+        .rotate(0, 90, 0)
+        .translate(0, -width / 2 + wallThickness, totalHeight + lidThickness / 2)
     }
 
     // Assemble the organizer
@@ -500,66 +448,41 @@ const generator: Generator = {
     // Add bobbin grid
     var bobbinGrid = buildBobbinGrid()
     if (bobbinGrid !== null) {
-      var org2 = organizer.add(bobbinGrid)
-      organizer.delete()
-      bobbinGrid.delete()
-      organizer = org2
+      organizer = organizer.union(bobbinGrid)
     }
 
     // Add main divider between bobbin section and side compartments
     var mainDivider = buildMainDivider()
     if (mainDivider !== null) {
-      var org3 = organizer.add(mainDivider)
-      organizer.delete()
-      mainDivider.delete()
-      organizer = org3
+      organizer = organizer.union(mainDivider)
     }
 
     // Add side compartment dividers
     var sideCompartments = buildSideCompartments()
     if (sideCompartments !== null) {
-      var org4 = organizer.add(sideCompartments)
-      organizer.delete()
-      sideCompartments.delete()
-      organizer = org4
+      organizer = organizer.union(sideCompartments)
     }
 
     // Add needle ridges
     var needleRidges = buildNeedleRidges()
     if (needleRidges !== null) {
-      var org5 = organizer.add(needleRidges)
-      organizer.delete()
-      needleRidges.delete()
-      organizer = org5
+      organizer = organizer.union(needleRidges)
     }
 
     if (showLid) {
       var boxKnuckles = buildBoxHingeKnuckles()
       if (boxKnuckles !== null) {
-        var org6 = organizer.add(boxKnuckles)
-        organizer.delete()
-        boxKnuckles.delete()
-        organizer = org6
+        organizer = organizer.union(boxKnuckles)
       }
 
       var lid = buildLid()
-      var org7 = organizer.add(lid)
-      organizer.delete()
-      lid.delete()
-      organizer = org7
+      organizer = organizer.union(lid)
 
       var pinHole = buildHingePinHole()
-      var org8 = organizer.subtract(pinHole)
-      organizer.delete()
-      pinHole.delete()
-      organizer = org8
+      organizer = organizer.subtract(pinHole)
 
       var fingerRecess = buildFingerRecess()
-      var org9 = organizer.subtract(fingerRecess)
-      organizer.delete()
-      fingerRecess.delete()
-
-      return org9
+      organizer = organizer.subtract(fingerRecess)
     }
 
     return organizer
