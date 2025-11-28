@@ -34,31 +34,37 @@ This app generates models for 3D printing. **Only create geometry that is visibl
 
 ### Use the Geo Library
 
-New generators should use the `src/geo/` library for declarative geometry:
+Generators use the geo library via the `geo` context in builderCode:
 
-```typescript
-import { shape, Compiler } from './geo';
+```javascript
+// In builderCode - geo is provided by the worker sandbox
 
-// Named parameters only
-const base = shape.box({ width: 50, depth: 50, height: 10 });
-const hole = shape.cylinder({ diameter: 5, height: 20 });
+// Create shapes (centered at origin)
+var base = geo.shape.box({ width: 50, depth: 50, height: 10 })
+var hole = geo.shape.cylinder({ diameter: 5, height: 20 })
 
-// Semantic alignment (replaces translate/rotate)
-hole.align({ self: 'center', target: base, to: 'center' });
+// Transform methods
+hole.translate(0, 0, 5)  // Move in X, Y, Z
+hole.rotate(90, 0, 0)    // Rotate in degrees (Euler XYZ)
+
+// Semantic alignment
+hole.align({ self: 'center', target: base, to: 'center' })
 
 // Boolean operations
-const part = base.subtract(hole);
+var part = base.subtract(hole)
 
-// Compile to Manifold
-const compiler = new Compiler(M);
-const manifold = compiler.compile(part.getNode());
+// Return the Shape - worker auto-compiles to Manifold
+return part
 ```
 
 Key features:
+- **Primitives:** `geo.shape.box({ width, depth, height })`, `geo.shape.cylinder({ diameter, height })`
+- **Transforms:** `.translate(x, y, z)`, `.rotate(rx, ry, rz)` - chainable
 - **Semantic anchors:** `top`, `bottom`, `left`, `right`, `front`, `back`, `center`, corners
 - **Alignment modes:** `mate` (face-to-face), `flush` (parallel)
-- **No memory management:** Compiler handles `.delete()` internally
-- **Validation:** Use `Validator` to check for thin walls
+- **Boolean ops:** `.union(other)`, `.subtract(other)`, `.intersect(other)`
+- **Patterns:** `geo.linearPattern(shape, count, spacing, 'x'|'y'|'z')`, `geo.circularPattern(shape, count, radius, 'x'|'y'|'z')`
+- **No memory management:** Worker handles `.delete()` automatically
 
 ## Creation Process
 

@@ -4,48 +4,54 @@ The terminology used in this app should be that of a 3D Model Engineer.
 
 ## Generator Design
 
-### Geo Library (Preferred)
+### Geo Library
 
-New generators should use the `src/geo/` library for declarative geometry:
+Generators use the `src/geo/` library via the `geo` context in builderCode:
 
-```typescript
-import { shape, Compiler } from './geo';
+```javascript
+// In builderCode - geo is provided by the worker sandbox
 
-// Named parameters only (no positional)
-const base = shape.box({ width: 50, depth: 50, height: 10 });
-const hole = shape.cylinder({ diameter: 5, height: 20 });
+// Create shapes (centered at origin)
+var base = geo.shape.box({ width: 50, depth: 50, height: 10 })
+var hole = geo.shape.cylinder({ diameter: 5, height: 20 })
 
-// Semantic alignment (replaces translate/rotate)
+// Transform methods
+hole.translate(0, 0, 5)  // Move in X, Y, Z
+hole.rotate(90, 0, 0)    // Rotate in degrees (Euler XYZ)
+
+// Semantic alignment
 hole.align({
   self: 'center',
   target: base,
   to: 'center',
   mode: 'mate'  // vectors oppose (face-to-face)
-});
+})
 
 // Boolean operations
-const part = base.subtract(hole);
+var part = base.subtract(hole)
 
-// Compile to Manifold
-const compiler = new Compiler(M);
-const manifold = compiler.compile(part.getNode());
+// Return the Shape - worker auto-compiles to Manifold
+return part
 ```
 
-Key features:
+**Key features:**
+- **Primitives:** `geo.shape.box({ width, depth, height })`, `geo.shape.cylinder({ diameter, height })`
+- **Transforms:** `.translate(x, y, z)`, `.rotate(rx, ry, rz)` - chainable, mutate in place
 - **Semantic anchors:** `top`, `bottom`, `left`, `right`, `front`, `back`, `center`, corners
 - **Alignment modes:** `mate` (face-to-face), `flush` (parallel)
-- **No memory management:** Compiler handles `.delete()` internally
-- **Validation:** Use `Validator` to check for thin walls, floating geometry
-- **Components:** Custom anchors via `shape.component({ shape, anchors: {...} })`
+- **Boolean ops:** `.union(other)`, `.subtract(other)`, `.intersect(other)`
+- **Patterns:** `geo.linearPattern(shape, count, spacing, 'x'|'y'|'z')`, `geo.circularPattern(shape, count, radius, 'x'|'y'|'z')`
+- **No memory management:** Worker handles `.delete()` automatically
+- **Components:** Custom anchors via `geo.shape.component({ shape, anchors: {...} })`
 
-### Direct Manifold (Legacy)
+### Direct Manifold API
 
-Existing generators use the Manifold-3D library directly:
+For advanced cases, the `M` (Manifold module) is still available in builderCode:
 
-- Use `M.Manifold.cube([width, depth, height], centered)` for boxes
-- Use `M.Manifold.cylinder(height, bottomRadius, topRadius, segments)` for cylinders
+- `M.Manifold.cube([width, depth, height], centered)` - box primitive
+- `M.Manifold.cylinder(height, bottomRadius, topRadius, segments)` - cylinder primitive
 - Manual memory management: call `.delete()` on intermediate manifolds
-- Return a Manifold directly (no wrapper `.build()` call)
+- Return a Manifold directly
 - Binary union: `manifold1.add(manifold2)`
 - Batch operations: `M.Manifold.union([array])` or `M.Manifold.difference(base, [tools])`
 
