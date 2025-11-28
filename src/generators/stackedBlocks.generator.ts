@@ -56,9 +56,10 @@ const generator: Generator = {
       name: 'Base Block',
       manifold: baseTranslated,
       dimensions: [
-        { label: 'Size', param: 'baseSize', format: '{value}mm' }
+        { label: 'Size', param: 'size', format: '{value}mm' },
+        { label: 'Height', param: 'height', format: '{value}mm' }
       ],
-      params: { baseSize: currentSize }
+      params: { size: currentSize, height: blockHeight }
     })
 
     currentZ += blockHeight
@@ -72,9 +73,10 @@ const generator: Generator = {
       name: 'Middle Block',
       manifold: middleTranslated,
       dimensions: [
-        { label: 'Size', param: 'size', format: '{value}mm' }
+        { label: 'Size', param: 'size', format: '{value}mm' },
+        { label: 'Height', param: 'height', format: '{value}mm' }
       ],
-      params: { size: currentSize }
+      params: { size: currentSize, height: blockHeight }
     })
 
     currentZ += blockHeight
@@ -88,9 +90,10 @@ const generator: Generator = {
       name: 'Top Block',
       manifold: topTranslated,
       dimensions: [
-        { label: 'Size', param: 'size', format: '{value}mm' }
+        { label: 'Size', param: 'size', format: '{value}mm' },
+        { label: 'Height', param: 'height', format: '{value}mm' }
       ],
-      params: { size: currentSize }
+      params: { size: currentSize, height: blockHeight }
     })
 
     return parts

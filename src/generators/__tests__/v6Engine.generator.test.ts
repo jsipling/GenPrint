@@ -1,9 +1,20 @@
 import { describe, it, expect, beforeAll } from 'vitest'
-import type { ManifoldToplevel } from 'manifold-3d'
+import type { ManifoldToplevel, Manifold } from 'manifold-3d'
 import { getManifold, setCircularSegments } from '../../test/manifoldSetup'
 import { expectValid } from '../../test/geometryHelpers'
 import { MIN_WALL_THICKNESS } from '../manifold/printingConstants'
 import generator from '../v6Engine.generator'
+import type { DisplayDimension, ParameterValues } from '../types'
+
+/**
+ * Shape returned by multi-part generators from builderCode.
+ */
+interface NamedManifoldResult {
+  name: string
+  manifold: Manifold
+  dimensions?: DisplayDimension[]
+  params?: ParameterValues
+}
 
 // Create a build function that matches the worker's wrapper
 function createBuildFn(builderCode: string, M: ManifoldToplevel) {
@@ -46,6 +57,75 @@ describe('v6Engine.generator', () => {
       const bankAngleParam = generator.parameters.find(p => p.name === 'bankAngle')
       expect(bankAngleParam).toBeUndefined()
     })
+
+    it('has optional intake manifold parameter', () => {
+      const intakeParam = generator.parameters.find(p => p.name === 'showIntakeManifold')
+      expect(intakeParam).toBeDefined()
+      expect(intakeParam?.type).toBe('boolean')
+      if (intakeParam?.type === 'boolean') {
+        expect(intakeParam.default).toBe(false)
+      }
+    })
+  })
+
+  describe('multi-part output', () => {
+    const defaultParams: Record<string, number | string | boolean> = {
+      bore: 30,
+      stroke: 25,
+      wallThickness: 3,
+      cylinderSpacing: 35,
+      oilPanDepth: 25,
+      showIntakeManifold: false
+    }
+
+    it('returns an array of 4 named parts without intake manifold', () => {
+      const buildFn = createBuildFn(generator.builderCode, M)
+      const result = buildFn(defaultParams) as NamedManifoldResult[]
+
+      expect(Array.isArray(result)).toBe(true)
+      expect(result.length).toBe(4)
+    })
+
+    it('returns an array of 5 named parts with intake manifold', () => {
+      const buildFn = createBuildFn(generator.builderCode, M)
+      const result = buildFn({ ...defaultParams, showIntakeManifold: true }) as NamedManifoldResult[]
+
+      expect(Array.isArray(result)).toBe(true)
+      expect(result.length).toBe(5)
+      expect(result[4]!.name).toBe('Intake Manifold')
+    })
+
+    it('parts have correct names', () => {
+      const buildFn = createBuildFn(generator.builderCode, M)
+      const result = buildFn(defaultParams) as NamedManifoldResult[]
+
+      expect(result[0]!.name).toBe('Engine Block')
+      expect(result[1]!.name).toBe('Oil Pan')
+      expect(result[2]!.name).toBe('Timing Cover')
+      expect(result[3]!.name).toBe('Rear Main Seal Housing')
+    })
+
+    it('each part produces valid manifold geometry', () => {
+      const buildFn = createBuildFn(generator.builderCode, M)
+      const result = buildFn(defaultParams) as NamedManifoldResult[]
+
+      for (const part of result) {
+        expectValid(part.manifold)
+      }
+    })
+
+    it('engine block has dimensions metadata', () => {
+      const buildFn = createBuildFn(generator.builderCode, M)
+      const result = buildFn(defaultParams) as NamedManifoldResult[]
+
+      const engineBlock = result[0]!
+      expect(engineBlock.dimensions).toBeDefined()
+      expect(Array.isArray(engineBlock.dimensions)).toBe(true)
+      expect(engineBlock.dimensions!.length).toBeGreaterThan(0)
+
+      const boreDisplay = engineBlock.dimensions?.find(d => d.param === 'bore')
+      expect(boreDisplay).toBeDefined()
+    })
   })
 
   describe('geometry generation', () => {
@@ -54,22 +134,17 @@ describe('v6Engine.generator', () => {
       stroke: 25,
       wallThickness: 3,
       cylinderSpacing: 35,
-      oilPanDepth: 25
+      oilPanDepth: 25,
+      showIntakeManifold: false
     }
-
-    it('produces valid manifold geometry with default params', () => {
-      const buildFn = createBuildFn(generator.builderCode, M)
-      const result = buildFn(defaultParams)
-
-      expectValid(result.build ? result.build() : result)
-    })
 
     it('produces geometry larger than 100mm in at least one dimension', () => {
       const buildFn = createBuildFn(generator.builderCode, M)
-      const result = buildFn(defaultParams)
-      const manifold = result.build ? result.build() : result
+      const result = buildFn(defaultParams) as NamedManifoldResult[]
 
-      const bbox = manifold.boundingBox()
+      // Check engine block dimensions
+      const engineBlock = result[0]!.manifold
+      const bbox = engineBlock.boundingBox()
       const width = bbox.max[0] - bbox.min[0]
       const depth = bbox.max[1] - bbox.min[1]
       const height = bbox.max[2] - bbox.min[2]
@@ -82,102 +157,63 @@ describe('v6Engine.generator', () => {
       const buildFn = createBuildFn(generator.builderCode, M)
 
       // Try with very thin wall - should be clamped to minimum
-      const result = buildFn({ ...defaultParams, wallThickness: 0.5 })
-      const manifold = result.build ? result.build() : result
-      expectValid(manifold)
-    })
-
-    it('produces connected geometry (single piece)', () => {
-      const buildFn = createBuildFn(generator.builderCode, M)
-      const result = buildFn(defaultParams)
-
-      // build() without skipConnectivityCheck will throw if disconnected
-      const manifold = result.build ? result.build() : result
-      expect(manifold.numVert()).toBeGreaterThan(0)
-    })
-
-    it('has 6 cylinder bores (3 per bank)', () => {
-      const buildFn = createBuildFn(generator.builderCode, M)
-      const result = buildFn(defaultParams)
-      const manifold = result.build ? result.build() : result
-
-      // V6 engine block should have substantial volume for 6 cylinders
-      // Smaller than V8 (which was >50000)
-      expect(manifold.volume()).toBeGreaterThan(35000) // mm³
-    })
-
-    it('includes head bolt holes around cylinders', () => {
-      const buildFn = createBuildFn(generator.builderCode, M)
-
-      const result = buildFn(defaultParams)
-      const manifold = result.build ? result.build() : result
-      expectValid(manifold)
-
-      // Engine block should have substantial volume even with head bolt holes subtracted
-      // 6 cylinders with 4 holes each = 24 small holes
-      expect(manifold.volume()).toBeGreaterThan(30000) // mm³
-    })
-
-    it('has lifter valley between cylinder banks', () => {
-      const buildFn = createBuildFn(generator.builderCode, M)
-
-      const result = buildFn(defaultParams)
-      const manifold = result.build ? result.build() : result
-      expectValid(manifold)
-
-      // Lifter valley is carved out of the V between the banks
-      // Block should still be valid and connected after valley subtraction
-      expect(manifold.volume()).toBeGreaterThan(25000) // mm³ - valley removes material
-    })
-
-    it('has optional intake manifold parameter', () => {
-      const intakeParam = generator.parameters.find(p => p.name === 'showIntakeManifold')
-      expect(intakeParam).toBeDefined()
-      expect(intakeParam?.type).toBe('boolean')
-      if (intakeParam?.type === 'boolean') {
-        expect(intakeParam.default).toBe(false)
+      const result = buildFn({ ...defaultParams, wallThickness: 0.5 }) as NamedManifoldResult[]
+      for (const part of result) {
+        expectValid(part.manifold)
       }
     })
 
-    it('adds intake manifold when enabled', () => {
+    it('engine block has 6 cylinder bores (3 per bank)', () => {
       const buildFn = createBuildFn(generator.builderCode, M)
+      const result = buildFn(defaultParams) as NamedManifoldResult[]
 
-      // Without intake manifold
-      const resultWithout = buildFn({ ...defaultParams, showIntakeManifold: false })
-      const manifoldWithout = resultWithout.build ? resultWithout.build() : resultWithout
-      expectValid(manifoldWithout)
-      const volumeWithout = manifoldWithout.volume()
-
-      // With intake manifold
-      const resultWith = buildFn({ ...defaultParams, showIntakeManifold: true })
-      const manifoldWith = resultWith.build ? resultWith.build() : resultWith
-      expectValid(manifoldWith)
-      const volumeWith = manifoldWith.volume()
-
-      // Intake manifold should add volume
-      expect(volumeWith).toBeGreaterThan(volumeWithout)
+      // V6 engine block should have substantial volume for 6 cylinders
+      const engineBlock = result[0]!.manifold
+      expect(engineBlock.volume()).toBeGreaterThan(35000) // mm³
     })
 
-    it('has exhaust ports on outer faces of cylinder banks', () => {
+    it('adds intake manifold part when enabled', () => {
       const buildFn = createBuildFn(generator.builderCode, M)
 
-      const result = buildFn(defaultParams)
-      const manifold = result.build ? result.build() : result
-      expectValid(manifold)
+      // Without intake manifold - 4 parts
+      const resultWithout = buildFn({ ...defaultParams, showIntakeManifold: false }) as NamedManifoldResult[]
+      expect(resultWithout.length).toBe(4)
+
+      // With intake manifold - 5 parts
+      const resultWith = buildFn({ ...defaultParams, showIntakeManifold: true }) as NamedManifoldResult[]
+      expect(resultWith.length).toBe(5)
+
+      // Intake manifold should be valid
+      const intakeManifold = resultWith[4]!
+      expectValid(intakeManifold.manifold)
+      expect(intakeManifold.manifold.volume()).toBeGreaterThan(0)
+    })
+
+    it('model sits on Z=0 (lowest point at Z=0)', () => {
+      const buildFn = createBuildFn(generator.builderCode, M)
+      const result = buildFn(defaultParams) as NamedManifoldResult[]
+
+      // Find the lowest Z across all parts
+      let minZ = Infinity
+      for (const part of result) {
+        const bbox = part.manifold.boundingBox()
+        minZ = Math.min(minZ, bbox.min[2])
+      }
+
+      // The lowest point of the assembly should be at Z=0
+      expect(minZ).toBeCloseTo(0, 1)
+    })
+
+    it('has exhaust ports on engine block', () => {
+      const buildFn = createBuildFn(generator.builderCode, M)
+      const result = buildFn(defaultParams) as NamedManifoldResult[]
+
+      const engineBlock = result[0]!.manifold
+      expectValid(engineBlock)
 
       // Exhaust ports are carved into the outer faces of each bank
-      // Block should still be valid and connected with 6 exhaust ports (3 per bank)
-      expect(manifold.volume()).toBeGreaterThan(20000) // mm³ - ports remove some material
-    })
-  })
-
-  describe('display dimensions', () => {
-    it('includes key dimensions for overlay', () => {
-      expect(generator.displayDimensions).toBeDefined()
-      expect(generator.displayDimensions?.length).toBeGreaterThan(0)
-
-      const boreDisplay = generator.displayDimensions?.find(d => d.param === 'bore')
-      expect(boreDisplay).toBeDefined()
+      // Block should still be valid with 6 exhaust ports (3 per bank)
+      expect(engineBlock.volume()).toBeGreaterThan(20000) // mm³
     })
   })
 })

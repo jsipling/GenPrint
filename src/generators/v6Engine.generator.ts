@@ -594,34 +594,13 @@ const generator: Generator = {
       }
     }
 
-    // Combine into one block
+    // Build engine block (banks + crankcase with bores and exhaust ports)
     var banks = leftBank.add(rightBank)
     leftBank.delete()
     rightBank.delete()
     var block = banks.add(crankcase)
     banks.delete()
     crankcase.delete()
-
-    // Add oil pan
-    var oilPan = buildOilPan()
-    var block2 = block.add(oilPan)
-    block.delete()
-    oilPan.delete()
-    block = block2
-
-    // Add timing cover
-    var timingCover = buildTimingCover()
-    var block3 = block.add(timingCover)
-    block.delete()
-    timingCover.delete()
-    block = block3
-
-    // Add rear main seal housing
-    var rearHousing = buildRearMainSealHousing()
-    var block4 = block.add(rearHousing)
-    block.delete()
-    rearHousing.delete()
-    block = block4
 
     // Bore cylinders on left bank - 3 cylinders for V6
     for (var i = 0; i < 3; i++) {
@@ -707,28 +686,78 @@ const generator: Generator = {
     rightExhaust.ports.delete()
     block = block12
 
-    // Add optional intake manifold
+    // Build accessories as separate parts
+    var oilPan = buildOilPan()
+    var timingCover = buildTimingCover()
+    var rearHousing = buildRearMainSealHousing()
+
+    // Find the lowest Z to center all parts on Z=0
+    var blockBbox = block.boundingBox()
+    var oilPanBbox = oilPan.boundingBox()
+    var timingBbox = timingCover.boundingBox()
+    var rearBbox = rearHousing.boundingBox()
+    var minZ = Math.min(blockBbox.min[2], oilPanBbox.min[2], timingBbox.min[2], rearBbox.min[2])
+
+    // Build optional intake manifold
+    var intakeManifold = null
     if (showIntakeManifold) {
-      var manifold = buildIntakeManifold()
-      var block13 = block.add(manifold)
-      block.delete()
-      manifold.delete()
-      block = block13
+      intakeManifold = buildIntakeManifold()
+      var intakeBbox = intakeManifold.boundingBox()
+      minZ = Math.min(minZ, intakeBbox.min[2])
     }
 
-    // Center the model on Z=0 for printing
-    var bbox = block.boundingBox()
-    var result = block.translate(0, 0, -bbox.min[2])
+    // Translate all parts to sit on Z=0
+    var blockFinal = block.translate(0, 0, -minZ)
     block.delete()
+    var oilPanFinal = oilPan.translate(0, 0, -minZ)
+    oilPan.delete()
+    var timingFinal = timingCover.translate(0, 0, -minZ)
+    timingCover.delete()
+    var rearFinal = rearHousing.translate(0, 0, -minZ)
+    rearHousing.delete()
 
-    return result
-  `,
-  displayDimensions: [
-    { label: 'Bore', param: 'bore', format: '⌀{value}mm' },
-    { label: 'Stroke', param: 'stroke', format: '{value}mm' },
-    { label: 'Bank Angle', param: 'bankAngle', format: '60°' },
-    { label: 'Oil Pan', param: 'oilPanDepth', format: '{value}mm' }
-  ]
+    // Build parts array
+    var parts = [
+      {
+        name: 'Engine Block',
+        manifold: blockFinal,
+        dimensions: [
+          { label: 'Bore', param: 'bore', format: '⌀{value}mm' },
+          { label: 'Stroke', param: 'stroke', format: '{value}mm' },
+          { label: 'Bank Angle', param: 'bankAngle', format: '{value}°' }
+        ],
+        params: { bore: bore, stroke: stroke, bankAngle: bankAngle }
+      },
+      {
+        name: 'Oil Pan',
+        manifold: oilPanFinal,
+        dimensions: [
+          { label: 'Depth', param: 'depth', format: '{value}mm' }
+        ],
+        params: { depth: oilPanDepth }
+      },
+      {
+        name: 'Timing Cover',
+        manifold: timingFinal
+      },
+      {
+        name: 'Rear Main Seal Housing',
+        manifold: rearFinal
+      }
+    ]
+
+    // Add intake manifold if enabled
+    if (intakeManifold !== null) {
+      var intakeFinal = intakeManifold.translate(0, 0, -minZ)
+      intakeManifold.delete()
+      parts.push({
+        name: 'Intake Manifold',
+        manifold: intakeFinal
+      })
+    }
+
+    return parts
+  `
 }
 
 export default generator

@@ -399,34 +399,13 @@ const generator: Generator = {
       return result
     }
 
-    // Combine into one block
+    // Build engine block (banks + crankcase with bores)
     const banks = leftBank.add(rightBank)
     leftBank.delete()
     rightBank.delete()
     let block = banks.add(crankcase)
     banks.delete()
     crankcase.delete()
-
-    // Add oil pan
-    const oilPan = buildOilPan()
-    const block2 = block.add(oilPan)
-    block.delete()
-    oilPan.delete()
-    block = block2
-
-    // Add timing cover
-    const timingCover = buildTimingCover()
-    const block3 = block.add(timingCover)
-    block.delete()
-    timingCover.delete()
-    block = block3
-
-    // Add rear main seal housing
-    const rearHousing = buildRearMainSealHousing()
-    const block4 = block.add(rearHousing)
-    block.delete()
-    rearHousing.delete()
-    block = block4
 
     // Bore cylinders on left bank
     for (let i = 0; i < 4; i++) {
@@ -493,19 +472,58 @@ const generator: Generator = {
     rightHoles.delete()
     block = block8
 
-    // Center the model on Z=0 for printing
-    const bbox = block.boundingBox()
-    const result = block.translate(0, 0, -bbox.min[2])
-    block.delete()
+    // Build accessories as separate parts
+    const oilPan = buildOilPan()
+    const timingCover = buildTimingCover()
+    const rearHousing = buildRearMainSealHousing()
 
-    return result
-  `,
-  displayDimensions: [
-    { label: 'Bore', param: 'bore', format: '⌀{value}mm' },
-    { label: 'Stroke', param: 'stroke', format: '{value}mm' },
-    { label: 'Bank Angle', param: 'bankAngle', format: '{value}°' },
-    { label: 'Oil Pan', param: 'oilPanDepth', format: '{value}mm' }
-  ]
+    // Find the lowest Z to center all parts on Z=0
+    const blockBbox = block.boundingBox()
+    const oilPanBbox = oilPan.boundingBox()
+    const timingBbox = timingCover.boundingBox()
+    const rearBbox = rearHousing.boundingBox()
+    const minZ = Math.min(blockBbox.min[2], oilPanBbox.min[2], timingBbox.min[2], rearBbox.min[2])
+
+    // Translate all parts to sit on Z=0
+    const blockFinal = block.translate(0, 0, -minZ)
+    block.delete()
+    const oilPanFinal = oilPan.translate(0, 0, -minZ)
+    oilPan.delete()
+    const timingFinal = timingCover.translate(0, 0, -minZ)
+    timingCover.delete()
+    const rearFinal = rearHousing.translate(0, 0, -minZ)
+    rearHousing.delete()
+
+    // Return multi-part result
+    return [
+      {
+        name: 'Engine Block',
+        manifold: blockFinal,
+        dimensions: [
+          { label: 'Bore', param: 'bore', format: '⌀{value}mm' },
+          { label: 'Stroke', param: 'stroke', format: '{value}mm' },
+          { label: 'Bank Angle', param: 'bankAngle', format: '{value}°' }
+        ],
+        params: { bore: bore, stroke: stroke, bankAngle: bankAngle }
+      },
+      {
+        name: 'Oil Pan',
+        manifold: oilPanFinal,
+        dimensions: [
+          { label: 'Depth', param: 'depth', format: '{value}mm' }
+        ],
+        params: { depth: oilPanDepth }
+      },
+      {
+        name: 'Timing Cover',
+        manifold: timingFinal
+      },
+      {
+        name: 'Rear Main Seal Housing',
+        manifold: rearFinal
+      }
+    ]
+  `
 }
 
 export default generator

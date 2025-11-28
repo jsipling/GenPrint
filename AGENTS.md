@@ -112,13 +112,16 @@ return [
   {
     name: 'Base Block',
     manifold: baseManifold,
-    dimensions: [{ label: 'Size', param: 'size', format: '{value}mm' }],
-    params: { size: 50 }
+    dimensions: [
+      { label: 'Size', param: 'size', format: '{value}mm' },
+      { label: 'Height', param: 'height', format: '{value}mm' }
+    ],
+    params: { size: 50, height: 20 }
   },
   {
     name: 'Top Block',
     manifold: topManifold,
-    // dimensions and params are optional
+    // dimensions and params are optional - will show bounding box if omitted
   }
 ]
 ```

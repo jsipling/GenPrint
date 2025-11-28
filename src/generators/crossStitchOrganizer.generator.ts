@@ -494,82 +494,128 @@ const generator: Generator = {
       return result
     }
 
-    // Assemble the organizer
-    var organizer = buildBoxBase()
-
-    // Add bobbin grid
-    var bobbinGrid = buildBobbinGrid()
-    if (bobbinGrid !== null) {
-      var org2 = organizer.add(bobbinGrid)
-      organizer.delete()
-      bobbinGrid.delete()
-      organizer = org2
-    }
-
-    // Add main divider between bobbin section and side compartments
-    var mainDivider = buildMainDivider()
-    if (mainDivider !== null) {
-      var org3 = organizer.add(mainDivider)
-      organizer.delete()
-      mainDivider.delete()
-      organizer = org3
-    }
-
-    // Add side compartment dividers
-    var sideCompartments = buildSideCompartments()
-    if (sideCompartments !== null) {
-      var org4 = organizer.add(sideCompartments)
-      organizer.delete()
-      sideCompartments.delete()
-      organizer = org4
-    }
-
-    // Add needle ridges
-    var needleRidges = buildNeedleRidges()
-    if (needleRidges !== null) {
-      var org5 = organizer.add(needleRidges)
-      organizer.delete()
-      needleRidges.delete()
-      organizer = org5
-    }
+    // Build box base with optional hinge knuckles
+    var box = buildBoxBase()
 
     if (showLid) {
       var boxKnuckles = buildBoxHingeKnuckles()
       if (boxKnuckles !== null) {
-        var org6 = organizer.add(boxKnuckles)
-        organizer.delete()
+        var box2 = box.add(boxKnuckles)
+        box.delete()
         boxKnuckles.delete()
-        organizer = org6
+        box = box2
       }
 
-      var lid = buildLid()
-      var org7 = organizer.add(lid)
-      organizer.delete()
-      lid.delete()
-      organizer = org7
-
+      // Cut pin hole through box knuckles
       var pinHole = buildHingePinHole()
-      var org8 = organizer.subtract(pinHole)
-      organizer.delete()
+      var box3 = box.subtract(pinHole)
+      box.delete()
       pinHole.delete()
-      organizer = org8
-
-      var fingerRecess = buildFingerRecess()
-      var org9 = organizer.subtract(fingerRecess)
-      organizer.delete()
-      fingerRecess.delete()
-
-      return org9
+      box = box3
     }
 
-    return organizer
-  `,
-  displayDimensions: [
-    { label: 'Length', param: 'length', format: '{value}mm' },
-    { label: 'Width', param: 'width', format: '{value}mm' },
-    { label: 'Height', param: 'height', format: '{value}mm' },
-    { label: 'Bobbins', param: 'bobbinRows', format: '{value} rows' }
-  ]
+    // Build internal dividers as a single part
+    var dividers = null
+    var bobbinGrid = buildBobbinGrid()
+    var mainDivider = buildMainDivider()
+    var sideCompartments = buildSideCompartments()
+    var needleRidges = buildNeedleRidges()
+
+    // Combine all dividers
+    if (bobbinGrid !== null) {
+      dividers = bobbinGrid
+    }
+    if (mainDivider !== null) {
+      if (dividers !== null) {
+        var temp = dividers.add(mainDivider)
+        dividers.delete()
+        mainDivider.delete()
+        dividers = temp
+      } else {
+        dividers = mainDivider
+      }
+    }
+    if (sideCompartments !== null) {
+      if (dividers !== null) {
+        var temp = dividers.add(sideCompartments)
+        dividers.delete()
+        sideCompartments.delete()
+        dividers = temp
+      } else {
+        dividers = sideCompartments
+      }
+    }
+    if (needleRidges !== null) {
+      if (dividers !== null) {
+        var temp = dividers.add(needleRidges)
+        dividers.delete()
+        needleRidges.delete()
+        dividers = temp
+      } else {
+        dividers = needleRidges
+      }
+    }
+
+    // Build parts array
+    var parts = [
+      {
+        name: 'Box',
+        manifold: box,
+        dimensions: [
+          { label: 'Length', param: 'length', format: '{value}mm' },
+          { label: 'Width', param: 'width', format: '{value}mm' },
+          { label: 'Height', param: 'height', format: '{value}mm' }
+        ],
+        params: { length: length, width: width, height: height }
+      }
+    ]
+
+    // Add dividers if any exist
+    if (dividers !== null) {
+      var dividerDimensions = []
+      var dividerParams = {}
+      if (includeBobbins) {
+        dividerDimensions.push({ label: 'Bobbin Grid', param: 'grid', format: '{value}' })
+        dividerParams.grid = bobbinRows + 'x' + bobbinColumns
+      }
+      parts.push({
+        name: 'Dividers',
+        manifold: dividers,
+        dimensions: dividerDimensions.length > 0 ? dividerDimensions : undefined,
+        params: dividerDimensions.length > 0 ? dividerParams : undefined
+      })
+    }
+
+    // Build and add lid if enabled
+    if (showLid) {
+      var lid = buildLid()
+
+      // Cut pin hole through lid knuckles
+      var lidPinHole = buildHingePinHole()
+      var lid2 = lid.subtract(lidPinHole)
+      lid.delete()
+      lidPinHole.delete()
+      lid = lid2
+
+      // Cut finger recess
+      var fingerRecess = buildFingerRecess()
+      var lid3 = lid.subtract(fingerRecess)
+      lid.delete()
+      fingerRecess.delete()
+      lid = lid3
+
+      parts.push({
+        name: 'Lid',
+        manifold: lid,
+        dimensions: [
+          { label: 'Thickness', param: 'thickness', format: '{value}mm' }
+        ],
+        params: { thickness: lidThickness }
+      })
+    }
+
+    return parts
+  `
 }
 
 export default generator
