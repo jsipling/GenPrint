@@ -6,6 +6,7 @@ import { generators } from './generators'
 
 // Get the first generator (sorted alphabetically) for App default selection tests
 const firstGenerator = generators[0]
+if (!firstGenerator) throw new Error('No generators available for testing')
 
 // Mock the components and hooks to isolate App logic
 vi.mock('./components/Viewer', () => ({
