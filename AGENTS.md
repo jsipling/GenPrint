@@ -72,3 +72,29 @@ Parameter validation strategy:
 2. **Builder layer:** Silently clamp out-of-range values to safe defaults—always produce valid geometry
 3. **Dev warnings:** Use `console.warn` in dev mode for edge cases that may cause print issues (e.g., thin walls)
 4. **Never throw:** Builders should never throw exceptions for parameter issues. Invalid input → valid fallback geometry.
+
+## Printability Analyzer
+
+Use the CLI tool to verify generators produce printable geometry:
+
+```bash
+npm run analyze:print <generator-id> [--param=value ...]
+```
+
+**Example:**
+```bash
+npm run analyze:print v8-engine
+npm run analyze:print v6-engine --bore=40 --stroke=30
+```
+
+**Output:** JSON with status (PASS/FAIL/ERROR), stats, and issues:
+- `thinWalls` - Walls below 1.2mm minimum
+- `smallFeatures` - Features below 1.5mm minimum
+- `disconnected` - Multiple separate components (won't print as one piece)
+- `parameterCorrelations` - Which parameters may be causing issues
+
+**Use this tool to:**
+1. Verify new generators produce valid geometry
+2. Test edge cases (min/max parameter values)
+3. Debug printability issues during development
+4. Validate fixes for geometry problems

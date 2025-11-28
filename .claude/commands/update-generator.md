@@ -142,12 +142,41 @@ After making code changes:
 *[Use AskUserQuestion tool:]*
 "Does the description need updating?" - Options: "Yes, update it", "No, it's still accurate"
 
-### Step 6: Final Validation
+### Step 6: Run Printability Analyzer
+
+After making changes, run the printability analyzer to verify the generator still produces valid geometry:
+
+```bash
+npm run analyze:print <generator-id>
+```
+
+The analyzer will check for:
+- **Thin walls** - Walls below 1.2mm minimum
+- **Small features** - Features below 1.5mm minimum
+- **Disconnected geometry** - Multiple separate components
+
+**If the analyzer reports FAIL:**
+1. Review the issues in the JSON output
+2. Check `parameterCorrelations` to see which parameters may be causing problems
+3. Fix the geometry issues
+4. Re-run the analyzer until it returns PASS
+
+**Test edge cases with any changed parameters:**
+```bash
+# Test with minimum parameter values
+npm run analyze:print <generator-id> --changedParam=minValue
+
+# Test with maximum parameter values
+npm run analyze:print <generator-id> --changedParam=maxValue
+```
+
+### Step 7: Final Validation
 
 Before completing:
 - [ ] All geometry is visible on the surface
 - [ ] No hidden internal features
 - [ ] All tests pass
+- [ ] Printability analyzer returns PASS
 - [ ] Geometry is connected (single piece)
 - [ ] Model centered for printing
 - [ ] Description accurately describes the output
