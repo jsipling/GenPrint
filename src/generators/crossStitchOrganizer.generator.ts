@@ -197,7 +197,8 @@ const generator: Generator = {
         if (dividers === null) {
           dividers = divider
         } else {
-          dividers = dividers.add(divider)
+          // Grid dividers may not all touch each other until assembled with main box
+          dividers = dividers.add(divider, { skipConnectionCheck: true })
         }
       }
 
@@ -209,7 +210,8 @@ const generator: Generator = {
         if (dividers === null) {
           dividers = divider
         } else {
-          dividers = dividers.add(divider)
+          // Grid dividers may not all touch each other until assembled with main box
+          dividers = dividers.add(divider, { skipConnectionCheck: true })
         }
       }
 
@@ -265,7 +267,8 @@ const generator: Generator = {
         if (dividers === null) {
           dividers = divider
         } else {
-          dividers = dividers.add(divider)
+          // Dividers may not touch each other until assembled
+          dividers = dividers.add(divider, { skipConnectionCheck: true })
         }
       }
 
@@ -276,7 +279,8 @@ const generator: Generator = {
         if (dividers === null) {
           dividers = divider
         } else {
-          dividers = dividers.add(divider)
+          // Dividers may not touch each other until assembled
+          dividers = dividers.add(divider, { skipConnectionCheck: true })
         }
       }
 
@@ -316,7 +320,8 @@ const generator: Generator = {
         if (ridges === null) {
           ridges = ridge
         } else {
-          ridges = ridges.add(ridge)
+          // Ridges don't touch each other - they're spaced apart
+          ridges = ridges.add(ridge, { skipConnectionCheck: true })
         }
       }
 
@@ -338,7 +343,8 @@ const generator: Generator = {
         if (knuckles === null) {
           knuckles = knuckle
         } else {
-          knuckles = knuckles.add(knuckle)
+          // Hinge knuckles are spaced apart - they don't touch each other
+          knuckles = knuckles.add(knuckle, { skipConnectionCheck: true })
         }
       }
       return knuckles
@@ -359,7 +365,8 @@ const generator: Generator = {
         if (knuckles === null) {
           knuckles = knuckle
         } else {
-          knuckles = knuckles.add(knuckle)
+          // Hinge knuckles are spaced apart - they don't touch each other
+          knuckles = knuckles.add(knuckle, { skipConnectionCheck: true })
         }
       }
       return knuckles
@@ -410,7 +417,8 @@ const generator: Generator = {
           if (stitchCuts === null) {
             stitchCuts = stitch
           } else {
-            stitchCuts = stitchCuts.add(stitch)
+            // Stitch pattern elements are separate cuts - they don't touch each other
+            stitchCuts = stitchCuts.add(stitch, { skipConnectionCheck: true })
           }
         }
       }

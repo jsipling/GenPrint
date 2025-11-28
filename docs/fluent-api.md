@@ -180,28 +180,41 @@ Subtract shapes from a base shape.
 const withHoles = difference(plate, hole1, hole2, hole3)
 ```
 
-#### union(...shapes)
+#### union(...shapes, options?)
 Combine multiple shapes into one.
-When using `union()`, input parts are automatically tracked for assembly diagnostics with `assertConnected()`.
+
+**Fail-fast validation**: By default, `union()` validates that all shapes form a connected assembly before performing the union. This catches disconnected geometry immediately.
 
 ```typescript
-const assembly = union(base, boss1, boss2)
+const assembly = union(base, boss1, boss2)  // Throws if any part is disconnected
 ```
 
-Part tracking enables detailed error messages when parts are disconnected:
+If shapes don't form a connected graph, throws an error:
+```
+Error: union() contains disconnected parts. Part(s) at index 2 do not connect to the assembly.
+```
+
+For intentionally disconnected geometry (patterns, exploded views):
+```typescript
+union(partA, partB, floatingPart, { skipConnectionCheck: true })
+```
+
+When using `union()`, input parts are automatically tracked for assembly diagnostics with `assertConnected()`:
 
 ```typescript
 const engine = union(
   block.name('block'),
   piston.name('piston'),
   sparkPlug.name('sparkPlug')
-).assertConnected()
-// If sparkPlug doesn't overlap: "Disconnected parts: sparkPlug (genus: -1)"
+)
+// If sparkPlug doesn't overlap at union time: throws immediately
 ```
 
-#### unionAll(shapes)
+#### unionAll(shapes, options?)
 Combine multiple shapes from an array, filtering out null/undefined values.
 Returns `null` if the array is empty or contains only nulls.
+
+**Fail-fast validation**: Like `union()`, validates connectivity by default.
 
 ```typescript
 // Common pattern: accumulate shapes conditionally
@@ -214,10 +227,15 @@ for (const config of configs) {
   }
 }
 
-const result = unionAll(parts)  // null-safe union
+const result = unionAll(parts)  // null-safe union, throws if disconnected
 if (result) {
   return result.build()
 }
+```
+
+For intentionally disconnected geometry:
+```typescript
+const result = unionAll(parts, { skipConnectionCheck: true })
 ```
 
 Replaces the common null-accumulator pattern:
@@ -245,11 +263,27 @@ const overlap = intersection(shape1, shape2)
 
 ### Chainable Methods
 
-#### .add(other)
+#### .add(other, options?)
 Union with another shape. Both shapes are consumed.
 
+**Fail-fast validation**: By default, `.add()` checks that shapes are connected (touching or overlapping) before performing the union. This catches disconnected geometry at call time rather than build time, making debugging easier.
+
 ```typescript
-const combined = base.add(boss)
+const combined = base.add(boss)  // Throws if boss doesn't touch base
+```
+
+If shapes are disconnected, throws an error with helpful suggestions:
+```
+Error: Shape does not connect to assembly.
+  - No overlap or contact detected
+  - Use .overlapWith(target, amount) to position with overlap
+  - Use .connectTo(target, options) for precise positioning
+  - Or use .add(shape, { skipConnectionCheck: true }) for intentional gaps
+```
+
+For intentionally disconnected geometry (patterns, exploded views):
+```typescript
+base.add(floatingPart, { skipConnectionCheck: true })
 ```
 
 #### .subtract(other)
@@ -1175,6 +1209,9 @@ Summary of how invalid inputs are handled:
 
 | Method | Invalid Input | Behavior |
 |--------|--------------|----------|
+| `.add()` | Disconnected shapes | **Throws** `Error` with positioning hints (use `skipConnectionCheck` to bypass) |
+| `union()` | Disconnected shapes | **Throws** `Error` identifying disconnected part indices (use `skipConnectionCheck` to bypass) |
+| `unionAll()` | Disconnected shapes | **Throws** `Error` (delegated to `union()`) |
 | `.alignToPoint()` | Nonexistent point name | Returns clone unchanged + `console.warn` in dev |
 | `.assertConnected()` | Disconnected geometry | **Throws** `Error` with part names + `skipConnectivityCheck` hint |
 | `.overlapWith()` | Ambiguous direction | **Throws** `Error` suggesting explicit direction |

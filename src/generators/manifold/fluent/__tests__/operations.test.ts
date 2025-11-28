@@ -19,6 +19,80 @@ describe('operations', () => {
     ops = createOperations(M)
   })
 
+  describe('union() connectivity validation', () => {
+    it('union() succeeds for overlapping shapes', () => {
+      const part1 = p.box(10, 10, 10).name('partA')
+      const part2 = p.box(10, 10, 10).translate(5, 0, 0).name('partB')
+      const result = ops.union(part1, part2)
+
+      expectValid(result.build())
+      result.delete()
+    })
+
+    it('union() succeeds for touching shapes (bounding boxes adjacent)', () => {
+      const part1 = p.box(10, 10, 10).name('left')
+      const part2 = p.box(10, 10, 10).translate(10, 0, 0).name('right') // adjacent
+
+      const result = ops.union(part1, part2)
+
+      expectValid(result.build())
+      result.delete()
+    })
+
+    it('union() throws for disconnected shapes', () => {
+      const part1 = p.box(10, 10, 10).name('partA')
+      const part2 = p.box(10, 10, 10).translate(50, 0, 0).name('partB') // far apart
+
+      expect(() => ops.union(part1, part2)).toThrow(/disconnected/i)
+    })
+
+    it('union() error identifies disconnected part by index', () => {
+      const connected1 = p.box(10, 10, 10).name('main')
+      const connected2 = p.box(10, 10, 10).translate(5, 0, 0).name('attached')
+      const disconnected = p.box(10, 10, 10).translate(50, 0, 0).name('floating')
+
+      try {
+        ops.union(connected1, connected2, disconnected)
+        expect.fail('Should have thrown')
+      } catch (e) {
+        const message = (e as Error).message
+        expect(message).toMatch(/index.*2/i)
+      }
+    })
+
+    it('union() allows disconnected shapes with skipConnectionCheck option', () => {
+      const part1 = p.box(10, 10, 10).name('partA')
+      const part2 = p.box(10, 10, 10).translate(50, 0, 0).name('partB')
+
+      const result = ops.union(part1, part2, { skipConnectionCheck: true })
+
+      // Geometry is valid (though disconnected)
+      expect(result.getVolume()).toBeCloseTo(2000, 0)
+      result.delete()
+    })
+
+    it('union() validates entire connectivity graph', () => {
+      // Three shapes where A-B connected, C disconnected from both
+      const a = p.box(10, 10, 10).name('a')
+      const b = p.box(10, 10, 10).translate(5, 0, 0).name('b') // overlaps a
+      const c = p.box(10, 10, 10).translate(50, 0, 0).name('c') // disconnected
+
+      expect(() => ops.union(a, b, c)).toThrow(/disconnected/i)
+    })
+
+    it('union() succeeds for chain of touching shapes', () => {
+      // Three shapes in a row, each touching the next
+      const a = p.box(10, 10, 10).name('a')
+      const b = p.box(10, 10, 10).translate(10, 0, 0).name('b') // touches a
+      const c = p.box(10, 10, 10).translate(20, 0, 0).name('c') // touches b
+
+      const result = ops.union(a, b, c)
+
+      expectValid(result.build())
+      result.delete()
+    })
+  })
+
   describe('union() part tracking', () => {
     it('union() returns Shape that tracks input part names', () => {
       const part1 = p.box(10, 10, 10).name('partA')
@@ -94,7 +168,7 @@ describe('operations', () => {
   })
 
   describe('unionAll()', () => {
-    it('unionAll() combines array of shapes', () => {
+    it('unionAll() combines array of connected shapes', () => {
       const shapes = [
         p.box(10, 10, 10).name('a'),
         p.box(10, 10, 10).translate(5, 0, 0).name('b'),
@@ -104,6 +178,29 @@ describe('operations', () => {
 
       expect(result).not.toBeNull()
       expect(result!.getVolume()).toBeGreaterThan(0)
+      result!.delete()
+    })
+
+    it('unionAll() throws for disconnected shapes', () => {
+      const shapes = [
+        p.box(10, 10, 10).name('a'),
+        p.box(10, 10, 10).translate(5, 0, 0).name('b'),
+        p.box(10, 10, 10).translate(50, 0, 0).name('c') // disconnected
+      ]
+
+      expect(() => ops.unionAll(shapes)).toThrow(/disconnected/i)
+    })
+
+    it('unionAll() allows disconnected shapes with skipConnectionCheck option', () => {
+      const shapes = [
+        p.box(10, 10, 10).name('a'),
+        p.box(10, 10, 10).translate(50, 0, 0).name('b')
+      ]
+
+      const result = ops.unionAll(shapes, { skipConnectionCheck: true })
+
+      expect(result).not.toBeNull()
+      expect(result!.getVolume()).toBeCloseTo(2000, 0)
       result!.delete()
     })
 

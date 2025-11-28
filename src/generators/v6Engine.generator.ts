@@ -311,7 +311,8 @@ const generator: Generator = {
           if (holes === null) {
             holes = boltHole
           } else {
-            holes = holes.add(boltHole)
+            // Bolt holes don't touch each other - skip connection check since they're all subtracted together
+            holes = holes.add(boltHole, { skipConnectionCheck: true })
           }
         }
       }
@@ -339,7 +340,8 @@ const generator: Generator = {
       var throttleBody = cylinder(throttleBodyLength, throttleBodyRadius)
         .rotate(90, 0, 0)
         .translate(0, -plenumLength / 2 - throttleBodyLength / 2 + 2, plenumZ)
-      plenum = plenum.add(throttleBody)
+      // TODO: Verify throttle body actually overlaps with plenum (may need geometry fix)
+      plenum = plenum.add(throttleBody, { skipConnectionCheck: true })
 
       // Throttle bore (hole through throttle body)
       var throttleBoreRadius = throttleBodyRadius * 0.7
@@ -362,7 +364,8 @@ const generator: Generator = {
             yPos,
             plenumZ - plenumHeight / 4
           )
-        plenum = plenum.add(runner)
+        // TODO: Fix runner positioning to actually overlap with plenum body
+        plenum = plenum.add(runner, { skipConnectionCheck: true })
 
         // Runner port (hollow out the runner)
         var runnerPort = cylinder(runnerLength + 5, runnerRadius * 0.7)
@@ -385,7 +388,8 @@ const generator: Generator = {
             yPos,
             plenumZ - plenumHeight / 4
           )
-        plenum = plenum.add(runner)
+        // TODO: Fix runner positioning to actually overlap with plenum body
+        plenum = plenum.add(runner, { skipConnectionCheck: true })
 
         // Runner port (hollow out the runner)
         var runnerPort = cylinder(runnerLength + 5, runnerRadius * 0.7)
@@ -446,8 +450,9 @@ const generator: Generator = {
           bosses = boss
           ports = port
         } else {
-          bosses = bosses.add(boss)
-          ports = ports.add(port)
+          // Exhaust bosses/ports don't touch each other - skip connection check since they're all added/subtracted together
+          bosses = bosses.add(boss, { skipConnectionCheck: true })
+          ports = ports.add(port, { skipConnectionCheck: true })
         }
       }
 

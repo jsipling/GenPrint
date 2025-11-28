@@ -74,7 +74,8 @@ describe('BuilderContext', () => {
       const { box, cylinder, hole, union } = ctx
 
       const base = box(30, 20, 5)
-      const post = cylinder(10, 5).translate(0, 0, 5)
+      // Position post so it touches the top of the base (base top at z=2.5)
+      const post = cylinder(10, 5).translate(0, 0, 2.5)
       const mountHole = hole(4, 20).translate(10, 5, 0)
 
       const result = union(base, post).subtract(mountHole)

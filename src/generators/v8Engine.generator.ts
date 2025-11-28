@@ -314,7 +314,8 @@ const generator: Generator = {
           if (holes === null) {
             holes = boltHole
           } else {
-            holes = holes.add(boltHole)
+            // Bolt holes don't touch each other - skip connection check since they're all subtracted together
+            holes = holes.add(boltHole, { skipConnectionCheck: true })
           }
         }
       }

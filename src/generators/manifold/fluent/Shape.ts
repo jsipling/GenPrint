@@ -47,6 +47,14 @@ export interface OverlapOptions {
 }
 
 /**
+ * Options for add() operation
+ */
+export interface AddOptions {
+  /** Skip connection validation (for intentional gaps) */
+  skipConnectionCheck?: boolean
+}
+
+/**
  * Direction for connectTo operation
  */
 export type Direction = '-x' | '+x' | '-y' | '+y' | '-z' | '+z'
@@ -231,10 +239,27 @@ export class Shape {
   /**
    * Union with another shape (add)
    * Both input shapes are consumed and cleaned up
+   * @param other - Shape to add (consumed)
+   * @param options - Connection validation options
+   * @throws Error if shapes are not connected (unless skipConnectionCheck is true)
    */
-  add(other: Shape): Shape {
+  add(other: Shape, options?: AddOptions): Shape {
     this.assertNotConsumed()
     other.assertNotConsumed()
+
+    // Fail-fast connection validation
+    if (!options?.skipConnectionCheck) {
+      if (!this.touches(other) && !this.overlaps(other)) {
+        throw new Error(
+          'Shape does not connect to assembly.\n' +
+          '  - No overlap or contact detected\n' +
+          '  - Use .overlapWith(target, amount) to position with overlap\n' +
+          '  - Use .connectTo(target, options) for precise positioning\n' +
+          '  - Or use .add(shape, { skipConnectionCheck: true }) for intentional gaps'
+        )
+      }
+    }
+
     try {
       const result = this.manifold.add(other.manifold)
       return new Shape(this.M, result)
