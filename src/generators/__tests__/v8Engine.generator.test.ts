@@ -2,16 +2,14 @@ import { describe, it, expect, beforeAll } from 'vitest'
 import type { ManifoldToplevel } from 'manifold-3d'
 import { getManifold, setCircularSegments } from '../../test/manifoldSetup'
 import { expectValid } from '../../test/geometryHelpers'
-import { createBuilderContext } from '../manifold/fluent/BuilderContext'
+import { MIN_WALL_THICKNESS } from '../manifold/printingConstants'
 import generator from '../v8Engine.generator'
 
 // Create a build function that matches the worker's wrapper
-function createBuildFn(builderCode: string) {
-  return new Function('ctx', 'params', `
-    const { box, cylinder, sphere, cone, roundedBox, tube, hole, counterboredHole, countersunkHole, extrude, revolve, union, unionAll, difference, intersection, linearArray, polarArray, gridArray, ensureMinWall, ensureMinFeature, group, compartmentGrid } = ctx
-    const { constants, ops, primitives } = ctx
+function createBuildFn(builderCode: string, M: ManifoldToplevel) {
+  return new Function('M', 'MIN_WALL_THICKNESS', 'params', `
     ${builderCode}
-  `)
+  `).bind(null, M, MIN_WALL_THICKNESS)
 }
 
 describe('v8Engine.generator', () => {
@@ -62,17 +60,15 @@ describe('v8Engine.generator', () => {
     }
 
     it('produces valid manifold geometry with default params', () => {
-      const ctx = createBuilderContext(M)
-      const buildFn = createBuildFn(generator.builderCode)
-      const result = buildFn(ctx, defaultParams)
+      const buildFn = createBuildFn(generator.builderCode, M)
+      const result = buildFn(defaultParams)
 
       expectValid(result.build ? result.build() : result)
     })
 
     it('produces geometry larger than 150mm in at least one dimension', () => {
-      const ctx = createBuilderContext(M)
-      const buildFn = createBuildFn(generator.builderCode)
-      const result = buildFn(ctx, defaultParams)
+      const buildFn = createBuildFn(generator.builderCode, M)
+      const result = buildFn(defaultParams)
       const manifold = result.build ? result.build() : result
 
       const bbox = manifold.boundingBox()
@@ -85,17 +81,15 @@ describe('v8Engine.generator', () => {
     })
 
     it('respects bank angle parameter', () => {
-      const ctx = createBuilderContext(M)
-      const buildFn = createBuildFn(generator.builderCode)
+      const buildFn = createBuildFn(generator.builderCode, M)
 
       // Test with 90-degree bank angle
-      const result90 = buildFn(ctx, { ...defaultParams, bankAngle: 90 })
+      const result90 = buildFn({ ...defaultParams, bankAngle: 90 })
       const manifold90 = result90.build ? result90.build() : result90
       expectValid(manifold90)
 
       // Test with 60-degree bank angle
-      const ctx2 = createBuilderContext(M)
-      const result60 = buildFn(ctx2, { ...defaultParams, bankAngle: 60 })
+      const result60 = buildFn({ ...defaultParams, bankAngle: 60 })
       const manifold60 = result60.build ? result60.build() : result60
       expectValid(manifold60)
 
@@ -104,19 +98,17 @@ describe('v8Engine.generator', () => {
     })
 
     it('enforces minimum wall thickness', () => {
-      const ctx = createBuilderContext(M)
-      const buildFn = createBuildFn(generator.builderCode)
+      const buildFn = createBuildFn(generator.builderCode, M)
 
       // Try with very thin wall - should be clamped to minimum
-      const result = buildFn(ctx, { ...defaultParams, wallThickness: 0.5 })
+      const result = buildFn({ ...defaultParams, wallThickness: 0.5 })
       const manifold = result.build ? result.build() : result
       expectValid(manifold)
     })
 
     it('produces connected geometry (single piece)', () => {
-      const ctx = createBuilderContext(M)
-      const buildFn = createBuildFn(generator.builderCode)
-      const result = buildFn(ctx, defaultParams)
+      const buildFn = createBuildFn(generator.builderCode, M)
+      const result = buildFn(defaultParams)
 
       // build() without skipConnectivityCheck will throw if disconnected
       const manifold = result.build ? result.build() : result
@@ -124,9 +116,8 @@ describe('v8Engine.generator', () => {
     })
 
     it('has 8 cylinder bores', () => {
-      const ctx = createBuilderContext(M)
-      const buildFn = createBuildFn(generator.builderCode)
-      const result = buildFn(ctx, defaultParams)
+      const buildFn = createBuildFn(generator.builderCode, M)
+      const result = buildFn(defaultParams)
       const manifold = result.build ? result.build() : result
 
       // Engine block should have substantial volume for 8 cylinders
@@ -134,10 +125,9 @@ describe('v8Engine.generator', () => {
     })
 
     it('includes head bolt holes around cylinders', () => {
-      const ctx = createBuilderContext(M)
-      const buildFn = createBuildFn(generator.builderCode)
+      const buildFn = createBuildFn(generator.builderCode, M)
 
-      const result = buildFn(ctx, defaultParams)
+      const result = buildFn(defaultParams)
       const manifold = result.build ? result.build() : result
       expectValid(manifold)
 
@@ -147,10 +137,9 @@ describe('v8Engine.generator', () => {
     })
 
     it('has lifter valley between cylinder banks', () => {
-      const ctx = createBuilderContext(M)
-      const buildFn = createBuildFn(generator.builderCode)
+      const buildFn = createBuildFn(generator.builderCode, M)
 
-      const result = buildFn(ctx, defaultParams)
+      const result = buildFn(defaultParams)
       const manifold = result.build ? result.build() : result
       expectValid(manifold)
 

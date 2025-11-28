@@ -94,7 +94,7 @@ export interface MeshData {
 
 /**
  * Generator definition with inline builder code.
- * The builderCode runs in a web worker with access to the fluent geometry API.
+ * The builderCode runs in a web worker with direct access to the Manifold-3D API.
  */
 export interface Generator {
   id: string
@@ -102,9 +102,9 @@ export interface Generator {
   description: string
   parameters: ParameterDef[]
   /**
-   * Builder code as a string that uses the fluent geometry API.
-   * Has access to: ctx methods (box, cylinder, etc.), params object.
-   * Must return a Shape or Manifold.
+   * Builder code as a string that uses direct Manifold API operations.
+   * Has access to: M (ManifoldToplevel), MIN_WALL_THICKNESS, params object.
+   * Must return a Manifold.
    */
   builderCode: string
   /**

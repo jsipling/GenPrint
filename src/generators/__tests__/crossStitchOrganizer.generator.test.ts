@@ -1,16 +1,14 @@
 import { describe, it, expect, beforeAll } from 'vitest'
 import type { ManifoldToplevel, Manifold } from 'manifold-3d'
 import { getManifold, setCircularSegments } from '../../test/manifoldSetup'
-import { createBuilderContext } from '../manifold/fluent/BuilderContext'
+import { MIN_WALL_THICKNESS } from '../manifold/printingConstants'
 import generator from '../crossStitchOrganizer.generator'
 
 // Create a build function that matches the worker's wrapper
-function createBuildFn(builderCode: string) {
-  return new Function('ctx', 'params', `
-    const { box, cylinder, sphere, cone, roundedBox, tube, hole, counterboredHole, countersunkHole, extrude, revolve, union, unionAll, difference, intersection, linearArray, polarArray, gridArray, ensureMinWall, ensureMinFeature, group, compartmentGrid } = ctx
-    const { constants, ops, primitives } = ctx
+function createBuildFn(builderCode: string, M: ManifoldToplevel) {
+  return new Function('M', 'MIN_WALL_THICKNESS', 'params', `
     ${builderCode}
-  `)
+  `).bind(null, M, MIN_WALL_THICKNESS)
 }
 
 describe('crossStitchOrganizer.generator', () => {
@@ -96,9 +94,8 @@ describe('crossStitchOrganizer.generator', () => {
     }
 
     it('produces valid manifold geometry with default params', () => {
-      const ctx = createBuilderContext(M)
-      const buildFn = createBuildFn(generator.builderCode)
-      const result = buildFn(ctx, defaultParams)
+      const buildFn = createBuildFn(generator.builderCode, M)
+      const result = buildFn(defaultParams)
       const manifold = getResult(result)
 
       expect(manifold.volume()).toBeGreaterThan(0)
@@ -106,9 +103,8 @@ describe('crossStitchOrganizer.generator', () => {
     })
 
     it('produces geometry with correct approximate dimensions', () => {
-      const ctx = createBuilderContext(M)
-      const buildFn = createBuildFn(generator.builderCode)
-      const result = buildFn(ctx, defaultParams)
+      const buildFn = createBuildFn(generator.builderCode, M)
+      const result = buildFn(defaultParams)
       const manifold = getResult(result)
 
       const bbox = manifold.boundingBox()
@@ -122,19 +118,17 @@ describe('crossStitchOrganizer.generator', () => {
     })
 
     it('enforces minimum wall thickness', () => {
-      const ctx = createBuilderContext(M)
-      const buildFn = createBuildFn(generator.builderCode)
+      const buildFn = createBuildFn(generator.builderCode, M)
 
-      const result = buildFn(ctx, { ...defaultParams, wallThickness: 0.5 })
+      const result = buildFn({ ...defaultParams, wallThickness: 0.5 })
       const manifold = getResult(result)
 
       expect(manifold.volume()).toBeGreaterThan(0)
     })
 
     it('produces multi-part geometry for assembly', () => {
-      const ctx = createBuilderContext(M)
-      const buildFn = createBuildFn(generator.builderCode)
-      const result = buildFn(ctx, defaultParams)
+      const buildFn = createBuildFn(generator.builderCode, M)
+      const result = buildFn(defaultParams)
       const manifold = getResult(result)
 
       expect(manifold.numVert()).toBeGreaterThan(0)
@@ -142,16 +136,15 @@ describe('crossStitchOrganizer.generator', () => {
     })
 
     it('creates bobbin compartments when enabled', () => {
-      const ctx = createBuilderContext(M)
-      const buildFn = createBuildFn(generator.builderCode)
-      const result = buildFn(ctx, { ...defaultParams, includeBobbins: true })
+      const buildFn = createBuildFn(generator.builderCode, M)
+      const result = buildFn({ ...defaultParams, includeBobbins: true })
       const manifold = getResult(result)
 
       expect(manifold.volume()).toBeGreaterThan(10000)
     })
 
     it('handles different bobbin grid configurations', () => {
-      const buildFn = createBuildFn(generator.builderCode)
+      const buildFn = createBuildFn(generator.builderCode, M)
 
       const configs = [
         { bobbinRows: 2, bobbinColumns: 3 },
@@ -160,8 +153,7 @@ describe('crossStitchOrganizer.generator', () => {
       ]
 
       for (const config of configs) {
-        const ctx = createBuilderContext(M)
-        const result = buildFn(ctx, { ...defaultParams, ...config })
+        const result = buildFn({ ...defaultParams, ...config })
         const manifold = getResult(result)
 
         expect(manifold.volume()).toBeGreaterThan(0)
@@ -169,9 +161,8 @@ describe('crossStitchOrganizer.generator', () => {
     })
 
     it('produces single-piece geometry when lid is disabled', () => {
-      const ctx = createBuilderContext(M)
-      const buildFn = createBuildFn(generator.builderCode)
-      const result = buildFn(ctx, { ...defaultParams, showLid: false })
+      const buildFn = createBuildFn(generator.builderCode, M)
+      const result = buildFn({ ...defaultParams, showLid: false })
 
       const manifold = result.build ? result.build() : result
 
@@ -180,15 +171,13 @@ describe('crossStitchOrganizer.generator', () => {
     })
 
     it('lid toggle affects volume', () => {
-      const buildFn = createBuildFn(generator.builderCode)
+      const buildFn = createBuildFn(generator.builderCode, M)
 
-      const ctx1 = createBuilderContext(M)
-      const resultWithLid = buildFn(ctx1, { ...defaultParams, showLid: true })
+      const resultWithLid = buildFn({ ...defaultParams, showLid: true })
       const manifoldWithLid = getResult(resultWithLid)
       const volumeWithLid = manifoldWithLid.volume()
 
-      const ctx2 = createBuilderContext(M)
-      const resultNoLid = buildFn(ctx2, { ...defaultParams, showLid: false })
+      const resultNoLid = buildFn({ ...defaultParams, showLid: false })
       const manifoldNoLid = resultNoLid.build ? resultNoLid.build() : resultNoLid
       const volumeNoLid = manifoldNoLid.volume()
 
@@ -196,9 +185,8 @@ describe('crossStitchOrganizer.generator', () => {
     })
 
     it('can disable all side compartments for bobbins-only mode', () => {
-      const ctx = createBuilderContext(M)
-      const buildFn = createBuildFn(generator.builderCode)
-      const result = buildFn(ctx, {
+      const buildFn = createBuildFn(generator.builderCode, M)
+      const result = buildFn({
         ...defaultParams,
         includeScissors: false,
         includeAccessories: false,
@@ -213,9 +201,8 @@ describe('crossStitchOrganizer.generator', () => {
     })
 
     it('can enable only side compartments without bobbins', () => {
-      const ctx = createBuilderContext(M)
-      const buildFn = createBuildFn(generator.builderCode)
-      const result = buildFn(ctx, {
+      const buildFn = createBuildFn(generator.builderCode, M)
+      const result = buildFn({
         ...defaultParams,
         includeBobbins: false,
         includeScissors: true,

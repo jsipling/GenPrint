@@ -8,18 +8,16 @@ import {
 } from './types'
 import { generators } from './index'
 import { getManifold, setCircularSegments } from '../test/manifoldSetup'
-import { createBuilderContext } from './manifold/fluent/BuilderContext'
+import { MIN_WALL_THICKNESS } from './manifold/printingConstants'
 
 // Find v8-engine generator from the auto-discovered generators
 const v8EngineGenerator = generators.find(g => g.id === 'v8-engine')!
 
 // Worker wrapper - matches src/workers/manifold.worker.ts executeUserBuilder()
-function createWorkerBuildFn(builderCode: string) {
-  return new Function('ctx', 'params', `
-    const { box, cylinder, sphere, cone, roundedBox, tube, hole, counterboredHole, countersunkHole, extrude, revolve, union, unionAll, difference, intersection, linearArray, polarArray, gridArray, ensureMinWall, ensureMinFeature, group, compartmentGrid } = ctx
-    const { constants, ops, primitives } = ctx
+function createWorkerBuildFn(builderCode: string, M: ManifoldToplevel) {
+  return new Function('M', 'MIN_WALL_THICKNESS', 'params', `
     ${builderCode}
-  `)
+  `).bind(null, M, MIN_WALL_THICKNESS)
 }
 
 describe('flattenParameters', () => {
@@ -235,12 +233,11 @@ describe('generator builderCode validation', () => {
       }
 
       // Execute builderCode with worker wrapper (catches redeclaration errors, etc.)
-      const ctx = createBuilderContext(M)
-      const buildFn = createWorkerBuildFn(gen.builderCode)
+      const buildFn = createWorkerBuildFn(gen.builderCode, M)
 
       // This will throw if there are syntax errors or runtime errors
       expect(() => {
-        const result = buildFn(ctx, params)
+        const result = buildFn(params)
         // Ensure it returns something (Shape or Manifold)
         expect(result).toBeDefined()
       }).not.toThrow()
@@ -258,9 +255,8 @@ describe('generator builderCode validation', () => {
         params[param.name] = param.default
       }
 
-      const ctx = createBuilderContext(M)
-      const buildFn = createWorkerBuildFn(gen.builderCode)
-      const result = buildFn(ctx, params)
+      const buildFn = createWorkerBuildFn(gen.builderCode, M)
+      const result = buildFn(params)
 
       // Get the manifold (handle both Shape and raw Manifold returns)
       // Don't skip connectivity check - catch disconnected geometry

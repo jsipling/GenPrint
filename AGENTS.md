@@ -4,10 +4,17 @@ The terminology used in this app should be that of a 3D Model Engineer.
 
 ## Generator Design
 
-When designing or implementing generators, read `docs/fluent-api.md` first. It documents the fluent API patterns and conventions used for building 3D geometry.
+Generators use the Manifold-3D library directly for building 3D geometry. Key patterns:
 
-We should always strive to keep things simple and clean.  Implementing new
-features properly instead of tacking them on.  Always consider refactoring if it
+- Use `M.Manifold.cube([width, depth, height], centered)` for boxes
+- Use `M.Manifold.cylinder(height, bottomRadius, topRadius, segments)` for cylinders
+- Manual memory management: call `.delete()` on intermediate manifolds
+- Return a Manifold directly (no wrapper `.build()` call)
+- Binary union: `manifold1.add(manifold2)`
+- Batch operations: `M.Manifold.union([array])` or `M.Manifold.difference(base, [tools])`
+
+We should always strive to keep things simple and clean. Implementing new
+features properly instead of tacking them on. Always consider refactoring if it
 helps us achieve these goals better.
 
 ## Visible Geometry Only

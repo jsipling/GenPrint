@@ -1,7 +1,7 @@
 import Module, { type ManifoldToplevel, type Manifold, type Mesh } from 'manifold-3d'
 // Import WASM file URL for proper loading in worker context
 import wasmUrl from 'manifold-3d/manifold.wasm?url'
-import { BuilderContext } from '../generators/manifold/fluent/BuilderContext'
+import { MIN_WALL_THICKNESS } from '../generators/manifold/printingConstants'
 import type { MeshData, BoundingBox } from '../generators/types'
 import type {
   BuildRequest,
@@ -117,27 +117,19 @@ function executeUserBuilder(
   builderCode: string,
   params: Record<string, number | string | boolean>
 ): Manifold {
-  const ctx = new BuilderContext(M)
-
-  // Create a sandboxed function with access only to ctx and params
-  // The code is expected to use ctx methods and return a Manifold
-  const fn = new Function('ctx', 'params', `
-    const { box, cylinder, sphere, cone, roundedBox, tube, hole, counterboredHole, countersunkHole, extrude, revolve, union, unionAll, difference, intersection, linearArray, polarArray, gridArray, ensureMinWall, ensureMinFeature, group, compartmentGrid } = ctx
-    const { constants, ops, primitives } = ctx
+  // Create a sandboxed function with access to M, MIN_WALL_THICKNESS, and params
+  // The code is expected to use M.Manifold methods and return a Manifold
+  const fn = new Function('M', 'MIN_WALL_THICKNESS', 'params', `
     ${builderCode}
   `)
 
-  const result = fn(ctx, params)
+  const result = fn(M, MIN_WALL_THICKNESS, params)
 
-  // Handle both Shape and Manifold returns
-  if (result && typeof result.build === 'function') {
-    // It's a Shape - get the underlying Manifold
-    return result.build()
-  } else if (result && typeof result.getMesh === 'function') {
-    // It's already a Manifold
+  // Result should be a Manifold
+  if (result && typeof result.getMesh === 'function') {
     return result
   } else {
-    throw new Error('Builder must return a Shape or Manifold')
+    throw new Error('Builder must return a Manifold')
   }
 }
 

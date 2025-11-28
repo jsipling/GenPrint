@@ -10,7 +10,7 @@ The generator to update is: $ARGUMENTS
 
 1. **Read the generator file** - Find and read the generator file matching the argument (check `src/generators/*.generator.ts`)
 2. **Read AGENTS.md** - Review the guidelines in `AGENTS.md` and `src/generators/AGENTS.md`
-3. **Read fluent-api.md** - Review `docs/fluent-api.md` for API patterns
+3. **Read manifold-api-guide.md** - Review `docs/manifold-api-guide.md` for direct Manifold API patterns
 4. **Summarize the current generator** - Present to the user:
    - Generator ID, name, and description
    - Current parameters
@@ -52,8 +52,12 @@ This app generates models for 3D printing. **Only create geometry that is visibl
 ```javascript
 // 1. Create shell by subtracting cavity
 var shell = outerBox.subtract(innerCavity)
+outerBox.delete()
 // 2. Add internal features - FAILS: features float in empty space
-shell = shell.add(post)
+var temp = shell.add(post)
+shell.delete()
+post.delete()
+shell = temp
 ```
 
 **Correct approach** (ensures connectivity):
@@ -61,9 +65,19 @@ shell = shell.add(post)
 // 1. Start with solid outer shape
 var solid = outerBox
 // 2. Add internal features while still solid
-solid = solid.add(post1).add(post2).add(rib)
+var temp1 = solid.add(post1)
+solid.delete()
+post1.delete()
+var temp2 = temp1.add(post2)
+temp1.delete()
+post2.delete()
+var temp3 = temp2.add(rib)
+temp2.delete()
+rib.delete()
 // 3. THEN carve out the hollow
-var shell = solid.subtract(innerCavity)
+var shell = temp3.subtract(innerCavity)
+temp3.delete()
+innerCavity.delete()
 ```
 
 **Why this matters:** When you subtract a cavity first, internal features added later sit in empty space with no volumetric overlap to the shell walls or floor.

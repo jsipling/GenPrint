@@ -1,4 +1,6 @@
-# Fail-Fast Connection Validation for Fluent API
+# Fail-Fast Connection Validation (Historical Document - Fluent API Removed)
+
+**Note:** This document describes a historical design for the fluent API, which has been removed from GenPrint. Generators now use direct Manifold operations.
 
 ## Problem
 
