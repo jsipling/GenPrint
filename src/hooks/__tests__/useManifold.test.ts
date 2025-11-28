@@ -416,5 +416,212 @@ describe('ManifoldWorkerManager', () => {
       expect(entry!.boundingBox).toBeDefined()
       expect('timestamp' in entry!).toBe(false)
     })
+
+    it('CacheEntry can store multi-part results with parts array', () => {
+      const cache = getMeshCache()
+
+      const multiPartEntry = {
+        boundingBox: mockBoundingBox,
+        parts: [
+          {
+            name: 'part1',
+            meshData: createMockMeshData(1),
+            boundingBox: mockBoundingBox
+          },
+          {
+            name: 'part2',
+            meshData: createMockMeshData(2),
+            boundingBox: mockBoundingBox
+          }
+        ]
+      }
+
+      cache.set('multiPartKey', multiPartEntry)
+      const entry = cache.get('multiPartKey')
+
+      expect(entry).toBeDefined()
+      expect(entry!.parts).toBeDefined()
+      expect(entry!.parts!.length).toBe(2)
+      expect(entry!.parts?.[0]?.name).toBe('part1')
+      expect(entry!.parts?.[1]?.name).toBe('part2')
+      // meshData should be undefined for multi-part entries
+      expect(entry!.meshData).toBeUndefined()
+    })
+
+    it('CacheEntry can store single-part results with meshData', () => {
+      const cache = getMeshCache()
+
+      const singlePartEntry = {
+        meshData: createMockMeshData(1),
+        boundingBox: mockBoundingBox
+      }
+
+      cache.set('singlePartKey', singlePartEntry)
+      const entry = cache.get('singlePartKey')
+
+      expect(entry).toBeDefined()
+      expect(entry!.meshData).toBeDefined()
+      expect(entry!.boundingBox).toBeDefined()
+      // parts should be undefined for single-part entries
+      expect(entry!.parts).toBeUndefined()
+    })
+  })
+
+  describe('multi-part response handling', () => {
+    const createMockMeshData = (id: number) => ({
+      positions: new Float32Array([id]),
+      normals: new Float32Array([id]),
+      indices: new Uint32Array([id])
+    })
+
+    const mockBoundingBox = {
+      min: [0, 0, 0] as [number, number, number],
+      max: [10, 10, 10] as [number, number, number]
+    }
+
+    it('resolves with parts array when worker sends multi-part response', async () => {
+      const manager = ManifoldWorkerManager.getInstance()
+
+      // Get worker and wait for ready
+      const workerPromise = manager.getWorker()
+      const mockWorker = mockWorkerInstances[0]!
+      mockWorker.simulateReady()
+      await workerPromise
+
+      // Register a build
+      const buildId = manager.getNextBuildId()
+      const buildPromise = new Promise<unknown>((resolve, reject) => {
+        manager.registerBuild(buildId, {
+          resolve,
+          reject,
+          onTiming: vi.fn(),
+          onError: vi.fn()
+        })
+      })
+
+      // Simulate multi-part build response
+      const multiPartResponse = {
+        type: 'build-result',
+        id: buildId,
+        success: true,
+        boundingBox: mockBoundingBox,
+        parts: [
+          {
+            name: 'engine-block',
+            meshData: createMockMeshData(1),
+            boundingBox: mockBoundingBox
+          },
+          {
+            name: 'crankshaft',
+            meshData: createMockMeshData(2),
+            boundingBox: mockBoundingBox
+          }
+        ]
+      }
+      mockWorker.onmessage!(new MessageEvent('message', { data: multiPartResponse }))
+
+      const result = await buildPromise
+      expect(result).toBeDefined()
+      expect((result as { parts: unknown[] }).parts).toBeDefined()
+      expect((result as { parts: unknown[] }).parts.length).toBe(2)
+      expect((result as { boundingBox: typeof mockBoundingBox }).boundingBox).toEqual(mockBoundingBox)
+    })
+
+    it('resolves with meshData when worker sends single-part response', async () => {
+      const manager = ManifoldWorkerManager.getInstance()
+
+      // Get worker and wait for ready
+      const workerPromise = manager.getWorker()
+      const mockWorker = mockWorkerInstances[0]!
+      mockWorker.simulateReady()
+      await workerPromise
+
+      // Register a build
+      const buildId = manager.getNextBuildId()
+      const buildPromise = new Promise<unknown>((resolve, reject) => {
+        manager.registerBuild(buildId, {
+          resolve,
+          reject,
+          onTiming: vi.fn(),
+          onError: vi.fn()
+        })
+      })
+
+      // Simulate single-part build response
+      const singlePartResponse = {
+        type: 'build-result',
+        id: buildId,
+        success: true,
+        meshData: createMockMeshData(1),
+        boundingBox: mockBoundingBox
+      }
+      mockWorker.onmessage!(new MessageEvent('message', { data: singlePartResponse }))
+
+      const result = await buildPromise
+      expect(result).toBeDefined()
+      expect((result as { meshData: unknown }).meshData).toBeDefined()
+      expect((result as { boundingBox: typeof mockBoundingBox }).boundingBox).toEqual(mockBoundingBox)
+      expect((result as { parts?: unknown }).parts).toBeUndefined()
+    })
+
+    it('distinguishes between single-part and multi-part responses correctly', async () => {
+      const manager = ManifoldWorkerManager.getInstance()
+
+      // Get worker and wait for ready
+      const workerPromise = manager.getWorker()
+      const mockWorker = mockWorkerInstances[0]!
+      mockWorker.simulateReady()
+      await workerPromise
+
+      // Test multi-part response
+      const buildId1 = manager.getNextBuildId()
+      const buildPromise1 = new Promise<unknown>((resolve, reject) => {
+        manager.registerBuild(buildId1, {
+          resolve,
+          reject,
+          onTiming: vi.fn(),
+          onError: vi.fn()
+        })
+      })
+
+      mockWorker.onmessage!(new MessageEvent('message', {
+        data: {
+          type: 'build-result',
+          id: buildId1,
+          success: true,
+          boundingBox: mockBoundingBox,
+          parts: [{ name: 'part1', meshData: createMockMeshData(1), boundingBox: mockBoundingBox }]
+        }
+      }))
+
+      const result1 = await buildPromise1
+      const isMultiPart1 = (result1 as { parts?: unknown }).parts !== undefined
+      expect(isMultiPart1).toBe(true)
+
+      // Test single-part response
+      const buildId2 = manager.getNextBuildId()
+      const buildPromise2 = new Promise<unknown>((resolve, reject) => {
+        manager.registerBuild(buildId2, {
+          resolve,
+          reject,
+          onTiming: vi.fn(),
+          onError: vi.fn()
+        })
+      })
+
+      mockWorker.onmessage!(new MessageEvent('message', {
+        data: {
+          type: 'build-result',
+          id: buildId2,
+          success: true,
+          meshData: createMockMeshData(2),
+          boundingBox: mockBoundingBox
+        }
+      }))
+
+      const result2 = await buildPromise2
+      const isMultiPart2 = (result2 as { parts?: unknown }).parts !== undefined
+      expect(isMultiPart2).toBe(false)
+    })
   })
 })

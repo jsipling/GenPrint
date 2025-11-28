@@ -1,11 +1,13 @@
-import { useRef, useEffect, useState, useMemo, Component, type ReactNode } from 'react'
+import { useRef, useEffect, useState, useMemo, useCallback, Component, type ReactNode, type MouseEvent } from 'react'
 import { Canvas, useThree, useFrame } from '@react-three/fiber'
 import { OrbitControls, Html, Line } from '@react-three/drei'
 import * as THREE from 'three'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import { calculateTicksAndLabels, calculateGridParams } from './gridUtils'
 import { validateMeshData, MeshValidationError, type MeshData } from './meshValidation'
-import type { BoundingBox, DisplayDimension, ParameterValues } from '../generators'
+import type { BoundingBox, DisplayDimension, ParameterValues, NamedPart } from '../generators'
+import { MultiPartModel } from './MultiPartModel'
+import { PartTooltip } from './PartTooltip'
 import {
   GRID_LINE_Z_OFFSET,
   AXIS_LABEL_OFFSET,
@@ -365,8 +367,10 @@ function DimensionPanel({ boundingBox, displayDimensions, params, isLoading }: D
 }
 
 interface ViewerProps {
-  /** Mesh data from Manifold builder */
+  /** Mesh data from Manifold builder (single-part) */
   meshData?: MeshData | null
+  /** Named parts from Manifold builder (multi-part) */
+  parts?: NamedPart[] | null
   isCompiling: boolean
   /** Generator ID - camera resets only when this changes */
   generatorId?: string
@@ -376,18 +380,73 @@ interface ViewerProps {
   displayDimensions?: DisplayDimension[]
   /** Current parameter values */
   params?: ParameterValues
+  /** Callback when hovered part changes (for tooltip in Phase 5) */
+  onHoveredPartChange?: (part: NamedPart | null) => void
 }
 
-export function Viewer({ meshData, isCompiling, generatorId, boundingBox, displayDimensions, params }: ViewerProps) {
+export function Viewer({ meshData, parts, isCompiling, generatorId, boundingBox, displayDimensions, params, onHoveredPartChange }: ViewerProps) {
   const [geometry, setGeometry] = useState<THREE.BufferGeometry | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [modelMaxDim, setModelMaxDim] = useState<number>(0)
   const [errorBoundaryKey, setErrorBoundaryKey] = useState(0)
+  const [hoveredPart, setHoveredPart] = useState<NamedPart | null>(null)
+  const [mousePosition, setMousePosition] = useState<{ x: number; y: number } | null>(null)
+  const viewerRef = useRef<HTMLDivElement>(null)
   const meshDataIdRef = useRef(0)
 
-  // Handle direct mesh data from Manifold (takes precedence)
+  // Handle mouse move to track position for tooltip
+  const handleMouseMove = useCallback((e: MouseEvent<HTMLDivElement>) => {
+    if (!viewerRef.current) return
+    const rect = viewerRef.current.getBoundingClientRect()
+    setMousePosition({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
+    })
+  }, [])
+
+  // Clear mouse position when leaving viewer
+  const handleMouseLeave = useCallback(() => {
+    setMousePosition(null)
+  }, [])
+
+  // Notify parent when hovered part changes
   useEffect(() => {
-    if (!meshData) return
+    onHoveredPartChange?.(hoveredPart)
+  }, [hoveredPart, onHoveredPartChange])
+
+  // Determine if we have multi-part or single-part data
+  const hasMultiPart = parts && parts.length > 0
+  const hasSinglePart = !hasMultiPart && meshData
+
+  // Calculate model max dimension from parts for grid sizing
+  useEffect(() => {
+    if (!hasMultiPart || !parts || parts.length === 0) return
+
+    // Calculate combined bounds from all parts
+    let minX = Infinity, minY = Infinity, minZ = Infinity
+    let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity
+
+    for (const part of parts) {
+      const [pMinX, pMinY, pMinZ] = part.boundingBox.min
+      const [pMaxX, pMaxY, pMaxZ] = part.boundingBox.max
+      minX = Math.min(minX, pMinX)
+      minY = Math.min(minY, pMinY)
+      minZ = Math.min(minZ, pMinZ)
+      maxX = Math.max(maxX, pMaxX)
+      maxY = Math.max(maxY, pMaxY)
+      maxZ = Math.max(maxZ, pMaxZ)
+    }
+
+    const sizeX = maxX - minX
+    const sizeY = maxY - minY
+    const sizeZ = maxZ - minZ
+    setModelMaxDim(Math.max(sizeX, sizeY, sizeZ))
+    setErrorBoundaryKey(k => k + 1)
+  }, [parts, hasMultiPart])
+
+  // Handle direct mesh data from Manifold (single-part mode)
+  useEffect(() => {
+    if (!meshData || hasMultiPart) return
 
     const currentId = ++meshDataIdRef.current
 
@@ -445,13 +504,27 @@ export function Viewer({ meshData, isCompiling, generatorId, boundingBox, displa
   const { gridSize, gridDivisions } = calculateGridParams(modelMaxDim)
 
   return (
-    <div className="relative w-full h-full bg-gray-900">
+    <div
+      ref={viewerRef}
+      className="relative w-full h-full bg-gray-900"
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+    >
       {/* Always render Canvas to preserve WebGL context */}
       <CanvasErrorBoundary resetKey={errorBoundaryKey}>
         <Canvas camera={{ position: [50, -50, 40], fov: 50, up: [0, 0, 1] }}>
           <ambientLight intensity={AMBIENT_LIGHT_INTENSITY} />
           <CameraLight />
-          {geometry && <Model geometry={geometry} generatorId={generatorId} />}
+          {hasMultiPart && parts && (
+            <MultiPartModel
+              parts={parts}
+              generatorId={generatorId}
+              onPartHover={setHoveredPart}
+            />
+          )}
+          {hasSinglePart && geometry && (
+            <Model geometry={geometry} generatorId={generatorId} />
+          )}
           <DynamicControls />
           <MeasuredGrid size={gridSize} divisions={gridDivisions} />
         </Canvas>
@@ -462,8 +535,11 @@ export function Viewer({ meshData, isCompiling, generatorId, boundingBox, displa
         boundingBox={boundingBox}
         displayDimensions={displayDimensions}
         params={params}
-        isLoading={isCompiling || !geometry}
+        isLoading={isCompiling || (!hasMultiPart && !geometry)}
       />
+
+      {/* Part hover tooltip */}
+      <PartTooltip part={hoveredPart} position={mousePosition} />
 
       {/* Overlay states */}
       {loadError && (
@@ -472,8 +548,7 @@ export function Viewer({ meshData, isCompiling, generatorId, boundingBox, displa
         </div>
       )}
 
-
-      {!geometry && !isCompiling && !loadError && (
+      {!hasMultiPart && !geometry && !isCompiling && !loadError && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none" role="status" aria-live="polite">
           <div className="text-gray-500">Waiting for model...</div>
         </div>

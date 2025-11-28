@@ -2,13 +2,14 @@ import Module, { type ManifoldToplevel, type Manifold, type Mesh } from 'manifol
 // Import WASM file URL for proper loading in worker context
 import wasmUrl from 'manifold-3d/manifold.wasm?url'
 import { MIN_WALL_THICKNESS } from '../generators/manifold/printingConstants'
-import type { MeshData, BoundingBox } from '../generators/types'
+import type { MeshData, BoundingBox, NamedPart } from '../generators/types'
 import type {
   BuildRequest,
   BuildResponse,
   ReadyMessage,
   InitErrorMessage,
-  WorkerMessage
+  WorkerMessage,
+  NamedManifoldResult
 } from './types'
 
 let manifoldModule: ManifoldToplevel | null = null
@@ -109,27 +110,122 @@ function manifoldToMeshData(manifold: Manifold): MeshData {
 }
 
 /**
- * Execute user-generated builder code in a sandboxed context
- * Returns the built Manifold or throws an error
+ * Type guard to check if builder result is an array of named manifold results.
+ */
+function isNamedManifoldArray(result: unknown): result is NamedManifoldResult[] {
+  if (!Array.isArray(result)) return false
+  if (result.length === 0) return false
+  // Check first element has required shape
+  const first = result[0]
+  return (
+    typeof first === 'object' &&
+    first !== null &&
+    'name' in first &&
+    typeof first.name === 'string' &&
+    'manifold' in first &&
+    typeof (first.manifold as Manifold).getMesh === 'function'
+  )
+}
+
+/**
+ * Compute combined bounding box from multiple bounding boxes.
+ */
+function computeCombinedBoundingBox(boxes: BoundingBox[]): BoundingBox {
+  if (boxes.length === 0) {
+    return { min: [0, 0, 0], max: [0, 0, 0] }
+  }
+  const combined: BoundingBox = {
+    min: [...boxes[0]!.min] as [number, number, number],
+    max: [...boxes[0]!.max] as [number, number, number]
+  }
+  for (let i = 1; i < boxes.length; i++) {
+    const box = boxes[i]!
+    combined.min[0] = Math.min(combined.min[0], box.min[0])
+    combined.min[1] = Math.min(combined.min[1], box.min[1])
+    combined.min[2] = Math.min(combined.min[2], box.min[2])
+    combined.max[0] = Math.max(combined.max[0], box.max[0])
+    combined.max[1] = Math.max(combined.max[1], box.max[1])
+    combined.max[2] = Math.max(combined.max[2], box.max[2])
+  }
+  return combined
+}
+
+/**
+ * Process an array of named manifold results into named parts.
+ * Converts each manifold to MeshData and extracts bounding boxes.
+ * Cleans up manifold WASM memory after conversion.
+ */
+function processNamedManifolds(results: NamedManifoldResult[]): {
+  parts: NamedPart[]
+  boundingBox: BoundingBox
+  transferBuffers: ArrayBuffer[]
+} {
+  const parts: NamedPart[] = []
+  const boundingBoxes: BoundingBox[] = []
+  const transferBuffers: ArrayBuffer[] = []
+
+  for (const result of results) {
+    const bbox = result.manifold.boundingBox()
+    const boundingBox: BoundingBox = {
+      min: [bbox.min[0], bbox.min[1], bbox.min[2]],
+      max: [bbox.max[0], bbox.max[1], bbox.max[2]]
+    }
+    boundingBoxes.push(boundingBox)
+
+    const meshData = manifoldToMeshData(result.manifold)
+    parts.push({
+      name: result.name,
+      meshData,
+      boundingBox,
+      dimensions: result.dimensions,
+      params: result.params
+    })
+
+    // Collect buffers for transfer
+    transferBuffers.push(
+      meshData.positions.buffer,
+      meshData.normals.buffer,
+      meshData.indices.buffer
+    )
+
+    // Clean up manifold WASM memory
+    result.manifold.delete()
+  }
+
+  return {
+    parts,
+    boundingBox: computeCombinedBoundingBox(boundingBoxes),
+    transferBuffers
+  }
+}
+
+/**
+ * Execute user-generated builder code in a sandboxed context.
+ * Returns either a single Manifold or an array of NamedManifoldResult for multi-part models.
  */
 function executeUserBuilder(
   M: ManifoldToplevel,
   builderCode: string,
   params: Record<string, number | string | boolean>
-): Manifold {
+): Manifold | NamedManifoldResult[] {
   // Create a sandboxed function with access to M, MIN_WALL_THICKNESS, and params
-  // The code is expected to use M.Manifold methods and return a Manifold
+  // The code is expected to use M.Manifold methods and return a Manifold or array of named parts
   const fn = new Function('M', 'MIN_WALL_THICKNESS', 'params', `
     ${builderCode}
   `)
 
   const result = fn(M, MIN_WALL_THICKNESS, params)
 
+  // Check for multi-part result first
+  if (isNamedManifoldArray(result)) {
+    return result
+  }
+
   // Result should be a Manifold
   if (result && typeof result.getMesh === 'function') {
     return result
   } else {
-    throw new Error('Builder must return a Manifold')
+    throw new Error('Builder must return a Manifold or array of NamedManifoldResult')
   }
 }
 
@@ -156,43 +252,64 @@ onmessage = async (event: MessageEvent<WorkerMessage>) => {
       manifoldModule.setCircularSegments(circularSegments)
 
       // Execute the builder code
-      const manifold = executeUserBuilder(manifoldModule, builderCode, params)
-
-      // Get bounding box before cleanup
-      const bbox = manifold.boundingBox()
-      const boundingBox: BoundingBox = {
-        min: [bbox.min[0], bbox.min[1], bbox.min[2]],
-        max: [bbox.max[0], bbox.max[1], bbox.max[2]]
-      }
-
-      // Convert to mesh data
-      const meshData = manifoldToMeshData(manifold)
-
-      // Clean up WASM memory
-      manifold.delete()
+      const result = executeUserBuilder(manifoldModule, builderCode, params)
 
       const timing = performance.now() - startTime
       if (import.meta.env.DEV) {
         console.log(`[Manifold] Build time: ${timing.toFixed(1)}ms`)
       }
 
-      const response: BuildResponse = {
-        type: 'build-result',
-        id,
-        success: true,
-        meshData,
-        boundingBox,
-        timing
-      }
+      // Check if multi-part result
+      if (Array.isArray(result)) {
+        // Multi-part result: process each named manifold
+        const { parts, boundingBox, transferBuffers } = processNamedManifolds(result)
 
-      // Transfer buffers to avoid copying
-      postMessage(response, {
-        transfer: [
-          meshData.positions.buffer,
-          meshData.normals.buffer,
-          meshData.indices.buffer
-        ]
-      })
+        const response: BuildResponse = {
+          type: 'build-result',
+          id,
+          success: true,
+          parts,
+          boundingBox,
+          timing
+        }
+
+        // Transfer all buffers to avoid copying
+        postMessage(response, { transfer: transferBuffers })
+      } else {
+        // Single-part result: backwards compatible path
+        const manifold = result
+
+        // Get bounding box before cleanup
+        const bbox = manifold.boundingBox()
+        const boundingBox: BoundingBox = {
+          min: [bbox.min[0], bbox.min[1], bbox.min[2]],
+          max: [bbox.max[0], bbox.max[1], bbox.max[2]]
+        }
+
+        // Convert to mesh data
+        const meshData = manifoldToMeshData(manifold)
+
+        // Clean up WASM memory
+        manifold.delete()
+
+        const response: BuildResponse = {
+          type: 'build-result',
+          id,
+          success: true,
+          meshData,
+          boundingBox,
+          timing
+        }
+
+        // Transfer buffers to avoid copying
+        postMessage(response, {
+          transfer: [
+            meshData.positions.buffer,
+            meshData.normals.buffer,
+            meshData.indices.buffer
+          ]
+        })
+      }
 
     } catch (err) {
       const response: BuildResponse = {

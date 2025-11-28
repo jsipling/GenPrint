@@ -95,6 +95,7 @@ export default function App() {
     status,
     error,
     meshData,
+    parts,
     boundingBox,
     build: manifoldBuild
   } = useManifold()
@@ -208,8 +209,46 @@ export default function App() {
   }
 
   const handleDownload = () => {
-    // Convert meshData to STL
-    if (meshData) {
+    // Convert meshData or parts to STL
+    if (parts && parts.length > 0) {
+      // Combine all parts into a single mesh for STL export
+      let totalPositions = 0
+      let totalIndices = 0
+      for (const part of parts) {
+        totalPositions += part.meshData.positions.length
+        totalIndices += part.meshData.indices.length
+      }
+
+      const combinedPositions = new Float32Array(totalPositions)
+      const combinedNormals = new Float32Array(totalPositions)
+      const combinedIndices = new Uint32Array(totalIndices)
+
+      let posOffset = 0
+      let idxOffset = 0
+      let vertexOffset = 0
+
+      for (const part of parts) {
+        const { positions, normals, indices } = part.meshData
+        combinedPositions.set(positions, posOffset)
+        combinedNormals.set(normals, posOffset)
+
+        // Offset indices by current vertex count
+        for (let i = 0; i < indices.length; i++) {
+          combinedIndices[idxOffset + i] = (indices[i] ?? 0) + vertexOffset
+        }
+
+        posOffset += positions.length
+        idxOffset += indices.length
+        vertexOffset += positions.length / 3
+      }
+
+      const stl = meshToStl({
+        positions: combinedPositions,
+        normals: combinedNormals,
+        indices: combinedIndices
+      })
+      downloadBlob(stl, `${selectedGenerator.id}.stl`)
+    } else if (meshData) {
       const stl = meshToStl(meshData)
       downloadBlob(stl, `${selectedGenerator.id}.stl`)
     }
@@ -250,7 +289,7 @@ export default function App() {
           onParamChange={handleParamChange}
           onDownload={handleDownload}
           onReset={handleReset}
-          canDownload={meshData !== null && status === 'ready'}
+          canDownload={(meshData !== null || (parts !== null && parts.length > 0)) && status === 'ready'}
         />
       </div>
 
@@ -263,6 +302,7 @@ export default function App() {
           }>
             <Viewer
               meshData={meshData}
+              parts={parts}
               isCompiling={status === 'building'}
               generatorId={selectedGenerator.id}
               boundingBox={boundingBox}

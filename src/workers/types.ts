@@ -3,7 +3,8 @@
  * Used by both the worker and the main thread
  */
 
-import type { MeshData, ParameterValues, BoundingBox } from '../generators/types'
+import type { Manifold } from 'manifold-3d'
+import type { MeshData, ParameterValues, BoundingBox, NamedPart, DisplayDimension } from '../generators/types'
 
 /**
  * Request to build geometry using builder code.
@@ -21,10 +22,28 @@ export interface BuildResponse {
   type: 'build-result'
   id: number
   success: boolean
+  // Single-part result (existing, backwards compatible)
   meshData?: MeshData
   boundingBox?: BoundingBox
+  // Multi-part result (new)
+  parts?: NamedPart[]
   error?: string
   timing?: number
+}
+
+/**
+ * What a generator returns for a named part (before conversion to MeshData).
+ * Used when a generator returns multiple distinct parts.
+ */
+export interface NamedManifoldResult {
+  /** Unique identifier for this part within the model */
+  name: string
+  /** The manifold geometry for this part */
+  manifold: Manifold
+  /** Optional dimensions to show in tooltip */
+  dimensions?: DisplayDimension[]
+  /** Optional parameter values for dimension formatting */
+  params?: ParameterValues
 }
 
 export interface ReadyMessage {

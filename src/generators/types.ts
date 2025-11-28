@@ -128,3 +128,53 @@ export function flattenParameters(params: ParameterDef[]): ParameterDef[] {
   }
   return result
 }
+
+/**
+ * A named part with its own geometry and display metadata.
+ * Used for multi-part models where individual components need identification.
+ */
+export interface NamedPart {
+  /** Unique identifier for this part within the model */
+  name: string
+  /** Mesh data for this part's geometry */
+  meshData: MeshData
+  /** Bounding box for this part */
+  boundingBox: BoundingBox
+  /** Optional dimensions to show in tooltip */
+  dimensions?: DisplayDimension[]
+  /** Optional parameter values for dimension formatting */
+  params?: ParameterValues
+}
+
+/**
+ * Result from a multi-part generator build.
+ * Contains array of named parts plus overall model bounds.
+ */
+export interface MultiPartResult {
+  parts: NamedPart[]
+  /** Combined bounding box of all parts */
+  boundingBox: BoundingBox
+}
+
+/**
+ * Type guard to check if a result is a MultiPartResult.
+ * Returns true if the result has a parts array and boundingBox.
+ */
+export function isMultiPartResult(result: unknown): result is MultiPartResult {
+  if (result === null || result === undefined) {
+    return false
+  }
+  if (typeof result !== 'object') {
+    return false
+  }
+  const obj = result as Record<string, unknown>
+  return Array.isArray(obj.parts) && obj.boundingBox !== undefined
+}
+
+/**
+ * Type guard to check if a result is a single-part result (has meshData, no parts).
+ * Used to distinguish between single-part and multi-part generator results.
+ */
+export function isSinglePartResult(result: { meshData?: MeshData; parts?: NamedPart[] }): boolean {
+  return result.meshData !== undefined && !result.parts
+}

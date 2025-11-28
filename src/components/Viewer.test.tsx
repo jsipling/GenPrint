@@ -302,3 +302,147 @@ describe('DimensionPanel', () => {
     expect(screen.queryByText('Bore')).toBeNull()
   })
 })
+
+describe('Viewer multi-part support', () => {
+  // Helper to create test mesh data
+  const createMeshData = () => ({
+    positions: new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]),
+    normals: new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1]),
+    indices: new Uint32Array([0, 1, 2])
+  })
+
+  // Helper to create a test NamedPart
+  const createTestPart = (name: string) => ({
+    name,
+    meshData: createMeshData(),
+    boundingBox: { min: [0, 0, 0] as [number, number, number], max: [10, 10, 10] as [number, number, number] }
+  })
+
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('renders with parts array without error', async () => {
+    const { Viewer } = await import('./Viewer')
+    const parts = [createTestPart('part-1'), createTestPart('part-2')]
+
+    expect(() => {
+      render(<Viewer parts={parts} isCompiling={false} />)
+    }).not.toThrow()
+  })
+
+  it('renders MultiPartModel when parts exist', async () => {
+    const { Viewer } = await import('./Viewer')
+    const parts = [createTestPart('part-1')]
+
+    // In jsdom, R3F elements like <group> are rendered but not queryable like DOM elements
+    // We just verify it renders without throwing
+    expect(() => {
+      render(<Viewer parts={parts} isCompiling={false} />)
+    }).not.toThrow()
+  })
+
+  it('renders single-part Model when meshData exists but no parts', async () => {
+    const { Viewer } = await import('./Viewer')
+    const meshData = createMeshData()
+
+    const { container } = render(
+      <Viewer meshData={meshData} isCompiling={false} />
+    )
+
+    // Should render without throwing
+    expect(container).toBeTruthy()
+  })
+
+  it('prefers parts over meshData when both provided', async () => {
+    const { Viewer } = await import('./Viewer')
+    const meshData = createMeshData()
+    const parts = [createTestPart('part-1')]
+
+    // Should not throw - parts take precedence
+    expect(() => {
+      render(<Viewer meshData={meshData} parts={parts} isCompiling={false} />)
+    }).not.toThrow()
+  })
+
+  it('does not show waiting message when parts exist', async () => {
+    const { Viewer } = await import('./Viewer')
+    const parts = [createTestPart('part-1')]
+
+    render(<Viewer parts={parts} isCompiling={false} />)
+
+    // Should not show waiting message when parts exist
+    expect(screen.queryByText('Waiting for model...')).toBeNull()
+  })
+
+  it('handles empty parts array as no geometry', async () => {
+    const { Viewer } = await import('./Viewer')
+
+    render(<Viewer parts={[]} isCompiling={false} />)
+
+    // Empty parts array should show waiting message
+    expect(screen.getByText('Waiting for model...')).toBeTruthy()
+  })
+
+  it('passes generatorId to MultiPartModel', async () => {
+    const { Viewer } = await import('./Viewer')
+    const parts = [createTestPart('part-1')]
+
+    // Should not throw when generatorId is provided with parts
+    expect(() => {
+      render(<Viewer parts={parts} generatorId="test-gen" isCompiling={false} />)
+    }).not.toThrow()
+  })
+})
+
+describe('Viewer mouse tracking', () => {
+  // Helper to create test mesh data
+  const createMeshData = () => ({
+    positions: new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]),
+    normals: new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1]),
+    indices: new Uint32Array([0, 1, 2])
+  })
+
+  // Helper to create a test NamedPart
+  const createTestPart = (name: string) => ({
+    name,
+    meshData: createMeshData(),
+    boundingBox: { min: [0, 0, 0] as [number, number, number], max: [10, 10, 10] as [number, number, number] }
+  })
+
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('has mouse event handlers on outer div', async () => {
+    const { Viewer } = await import('./Viewer')
+    const parts = [createTestPart('test-part')]
+
+    const { container } = render(<Viewer parts={parts} isCompiling={false} />)
+
+    // Get the outer div that has the event handlers
+    const outerDiv = container.querySelector('.bg-gray-900')
+    expect(outerDiv).toBeTruthy()
+  })
+
+  it('renders PartTooltip component', async () => {
+    const { Viewer } = await import('./Viewer')
+    const parts = [createTestPart('test-part')]
+
+    // Render should include PartTooltip (even if hidden when no hovered part)
+    expect(() => {
+      render(<Viewer parts={parts} isCompiling={false} />)
+    }).not.toThrow()
+  })
+
+  it('calls onHoveredPartChange callback when hovered part changes', async () => {
+    const { Viewer } = await import('./Viewer')
+    const parts = [createTestPart('test-part')]
+    const onHoveredPartChange = vi.fn()
+
+    render(<Viewer parts={parts} isCompiling={false} onHoveredPartChange={onHoveredPartChange} />)
+
+    // Initial call with null (no part hovered initially)
+    expect(onHoveredPartChange).toHaveBeenCalledWith(null)
+  })
+})

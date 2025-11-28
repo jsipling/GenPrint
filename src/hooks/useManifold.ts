@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
-import type { MeshData, ParameterValues, BoundingBox } from '../generators'
+import type { MeshData, ParameterValues, BoundingBox, NamedPart } from '../generators'
 import type { BuildRequest, WorkerResponse } from '../workers/types'
 
 export type ManifoldStatus = 'idle' | 'loading' | 'ready' | 'building' | 'error'
@@ -16,8 +16,11 @@ function hashCode(str: string): string {
 }
 
 interface CacheEntry {
-  meshData: MeshData
+  // Single-part result (existing, backwards compatible)
+  meshData?: MeshData
   boundingBox: BoundingBox
+  // Multi-part result (new)
+  parts?: NamedPart[]
 }
 
 export const MAX_CACHE_SIZE = 20
@@ -44,15 +47,21 @@ export const DEFAULT_BUILD_TIMEOUT = 30000
 export interface UseManifoldReturn {
   status: ManifoldStatus
   error: string | null
+  // Single-part (backwards compatible)
   meshData: MeshData | null
   boundingBox: BoundingBox | null
+  // Multi-part (new)
+  parts: NamedPart[] | null
   timing: number | null
-  build: (builderCode: string, params: ParameterValues, options?: BuildOptions) => Promise<{ meshData: MeshData; boundingBox: BoundingBox } | null>
+  build: (builderCode: string, params: ParameterValues, options?: BuildOptions) => Promise<BuildResult | null>
 }
 
-interface BuildResult {
-  meshData: MeshData
+export interface BuildResult {
+  // Single-part result (existing, backwards compatible)
+  meshData?: MeshData
   boundingBox: BoundingBox
+  // Multi-part result (new)
+  parts?: NamedPart[]
 }
 
 interface PendingBuild {
@@ -152,8 +161,18 @@ class ManifoldWorkerManager {
               pending.onTiming(data.timing)
             }
 
-            if (data.success && data.meshData && data.boundingBox) {
-              pending.resolve({ meshData: data.meshData, boundingBox: data.boundingBox })
+            // Handle both single-part and multi-part responses
+            if (data.success && data.boundingBox) {
+              if (data.parts) {
+                // Multi-part response
+                pending.resolve({ parts: data.parts, boundingBox: data.boundingBox })
+              } else if (data.meshData) {
+                // Single-part response (backwards compatible)
+                pending.resolve({ meshData: data.meshData, boundingBox: data.boundingBox })
+              } else {
+                pending.onError('Build succeeded but no mesh data returned')
+                pending.resolve(null)
+              }
             } else {
               pending.onError(data.error || 'Build failed')
               pending.resolve(null)
@@ -226,6 +245,7 @@ export function useManifold(): UseManifoldReturn {
   const [error, setError] = useState<string | null>(null)
   const [meshData, setMeshData] = useState<MeshData | null>(null)
   const [boundingBox, setBoundingBox] = useState<BoundingBox | null>(null)
+  const [parts, setParts] = useState<NamedPart[] | null>(null)
   const [timing, setTiming] = useState<number | null>(null)
   const currentBuildIdRef = useRef<number | null>(null)
   const managerRef = useRef(ManifoldWorkerManager.getInstance())
@@ -273,10 +293,19 @@ export function useManifold(): UseManifoldReturn {
       // Move to end of Map (most recently used)
       meshCache.delete(cacheKey)
       meshCache.set(cacheKey, cached)
-      setMeshData(cached.meshData)
+      // Set appropriate state based on cache entry type
+      if (cached.parts) {
+        // Multi-part cache hit
+        setParts(cached.parts)
+        setMeshData(null)
+      } else if (cached.meshData) {
+        // Single-part cache hit
+        setMeshData(cached.meshData)
+        setParts(null)
+      }
       setBoundingBox(cached.boundingBox)
       if (!silent) setStatus('ready')
-      return { meshData: cached.meshData, boundingBox: cached.boundingBox }
+      return { meshData: cached.meshData, parts: cached.parts, boundingBox: cached.boundingBox }
     }
 
     if (!silent) {
@@ -335,7 +364,12 @@ export function useManifold(): UseManifoldReturn {
       }
 
       if (import.meta.env.DEV) {
-        console.log('Manifold build complete, vertices:', result.meshData.positions.length / 3)
+        if (result.parts) {
+          const totalVerts = result.parts.reduce((sum, p) => sum + p.meshData.positions.length / 3, 0)
+          console.log('Manifold build complete (multi-part), total vertices:', totalVerts)
+        } else if (result.meshData) {
+          console.log('Manifold build complete, vertices:', result.meshData.positions.length / 3)
+        }
       }
 
       // LRU eviction: Map maintains insertion order, first key is oldest
@@ -343,9 +377,24 @@ export function useManifold(): UseManifoldReturn {
         const oldestKey = meshCache.keys().next().value
         if (oldestKey) meshCache.delete(oldestKey)
       }
-      meshCache.set(cacheKey, { meshData: result.meshData, boundingBox: result.boundingBox })
 
-      setMeshData(result.meshData)
+      // Cache the result (single-part or multi-part)
+      meshCache.set(cacheKey, {
+        meshData: result.meshData,
+        parts: result.parts,
+        boundingBox: result.boundingBox
+      })
+
+      // Set appropriate state based on result type
+      if (result.parts) {
+        // Multi-part result
+        setParts(result.parts)
+        setMeshData(null)
+      } else if (result.meshData) {
+        // Single-part result
+        setMeshData(result.meshData)
+        setParts(null)
+      }
       setBoundingBox(result.boundingBox)
       if (!silent) setStatus('ready')
       return result
@@ -362,7 +411,7 @@ export function useManifold(): UseManifoldReturn {
     }
   }, [])
 
-  return { status, error, meshData, boundingBox, timing, build }
+  return { status, error, meshData, boundingBox, parts, timing, build }
 }
 
 // Export for testing

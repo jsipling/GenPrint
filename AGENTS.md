@@ -10,6 +10,7 @@ Generators use the Manifold-3D library directly for building 3D geometry. Key pa
 - Use `M.Manifold.cylinder(height, bottomRadius, topRadius, segments)` for cylinders
 - Manual memory management: call `.delete()` on intermediate manifolds
 - Return a Manifold directly (no wrapper `.build()` call)
+- For multi-part models, return an array of `{ name, manifold, dimensions?, params? }`
 - Binary union: `manifold1.add(manifold2)`
 - Batch operations: `M.Manifold.union([array])` or `M.Manifold.difference(base, [tools])`
 
@@ -98,3 +99,30 @@ npm run analyze:print v6-engine --bore=40 --stroke=30
 2. Test edge cases (min/max parameter values)
 3. Debug printability issues during development
 4. Validate fixes for geometry problems
+
+## Multi-Part Generators
+
+Generators can return an array of named parts instead of a single Manifold. This enables:
+- **Hover highlighting:** Each part is highlighted when the mouse hovers over it
+- **Part info tooltips:** Shows the part name and dimensions on hover
+
+**Return format:**
+```javascript
+return [
+  {
+    name: 'Base Block',
+    manifold: baseManifold,
+    dimensions: [{ label: 'Size', param: 'size', format: '{value}mm' }],
+    params: { size: 50 }
+  },
+  {
+    name: 'Top Block',
+    manifold: topManifold,
+    // dimensions and params are optional
+  }
+]
+```
+
+**Memory management:** The worker handles cleanup of all manifolds after conversion to MeshData.
+
+**Example:** See `stackedBlocks.generator.ts` for a simple multi-part generator example.

@@ -5,7 +5,8 @@
 import { describe, it, expect, beforeAll } from 'vitest'
 import type { ManifoldToplevel, Manifold, Mesh } from 'manifold-3d'
 import { getManifold, setCircularSegments } from '../test/manifoldSetup'
-import type { MeshData } from '../generators/types'
+import type { MeshData, BoundingBox, NamedPart } from '../generators/types'
+import type { NamedManifoldResult } from './types'
 
 /**
  * Recreate the manifoldToMeshData function for testing
@@ -209,5 +210,288 @@ describe('bounding box calculation', () => {
     expect(typeof bbox.max[0]).toBe('number')
 
     cube.delete()
+  })
+})
+
+/**
+ * Type guard to check if builder result is an array of named manifold results.
+ * This mirrors the logic in manifold.worker.ts
+ */
+function isNamedManifoldArray(result: unknown): result is NamedManifoldResult[] {
+  if (!Array.isArray(result)) return false
+  if (result.length === 0) return false
+  // Check first element has required shape
+  const first = result[0]
+  return (
+    typeof first === 'object' &&
+    first !== null &&
+    'name' in first &&
+    typeof first.name === 'string' &&
+    'manifold' in first &&
+    typeof (first.manifold as Manifold).getMesh === 'function'
+  )
+}
+
+/**
+ * Compute combined bounding box from multiple bounding boxes.
+ * This mirrors the logic in manifold.worker.ts
+ */
+function computeCombinedBoundingBox(boxes: BoundingBox[]): BoundingBox {
+  if (boxes.length === 0) {
+    return { min: [0, 0, 0], max: [0, 0, 0] }
+  }
+  const combined: BoundingBox = {
+    min: [...boxes[0]!.min] as [number, number, number],
+    max: [...boxes[0]!.max] as [number, number, number]
+  }
+  for (let i = 1; i < boxes.length; i++) {
+    const box = boxes[i]!
+    combined.min[0] = Math.min(combined.min[0], box.min[0])
+    combined.min[1] = Math.min(combined.min[1], box.min[1])
+    combined.min[2] = Math.min(combined.min[2], box.min[2])
+    combined.max[0] = Math.max(combined.max[0], box.max[0])
+    combined.max[1] = Math.max(combined.max[1], box.max[1])
+    combined.max[2] = Math.max(combined.max[2], box.max[2])
+  }
+  return combined
+}
+
+/**
+ * Process an array of named manifold results into named parts.
+ * Converts each manifold to MeshData and extracts bounding boxes.
+ * This mirrors the logic in manifold.worker.ts
+ */
+function processNamedManifolds(results: NamedManifoldResult[]): {
+  parts: NamedPart[]
+  boundingBox: BoundingBox
+} {
+  const parts: NamedPart[] = []
+  const boundingBoxes: BoundingBox[] = []
+
+  for (const result of results) {
+    const bbox = result.manifold.boundingBox()
+    const boundingBox: BoundingBox = {
+      min: [bbox.min[0], bbox.min[1], bbox.min[2]],
+      max: [bbox.max[0], bbox.max[1], bbox.max[2]]
+    }
+    boundingBoxes.push(boundingBox)
+
+    const meshData = manifoldToMeshData(result.manifold)
+    parts.push({
+      name: result.name,
+      meshData,
+      boundingBox,
+      dimensions: result.dimensions,
+      params: result.params
+    })
+
+    // Clean up manifold WASM memory
+    result.manifold.delete()
+  }
+
+  return {
+    parts,
+    boundingBox: computeCombinedBoundingBox(boundingBoxes)
+  }
+}
+
+describe('isNamedManifoldArray type guard', () => {
+  let M: ManifoldToplevel
+
+  beforeAll(async () => {
+    M = await getManifold()
+    setCircularSegments(M, 32)
+  })
+
+  it('returns true for valid array of named manifolds', () => {
+    const cube = M.Manifold.cube([10, 10, 10], true)
+    const result: NamedManifoldResult[] = [{ name: 'test-part', manifold: cube }]
+
+    expect(isNamedManifoldArray(result)).toBe(true)
+
+    cube.delete()
+  })
+
+  it('returns true for array with multiple named manifolds', () => {
+    const cube1 = M.Manifold.cube([10, 10, 10], true)
+    const cube2 = M.Manifold.cube([5, 5, 5], true)
+    const result: NamedManifoldResult[] = [
+      { name: 'part-a', manifold: cube1 },
+      { name: 'part-b', manifold: cube2 }
+    ]
+
+    expect(isNamedManifoldArray(result)).toBe(true)
+
+    cube1.delete()
+    cube2.delete()
+  })
+
+  it('returns false for single Manifold (backwards compat)', () => {
+    const cube = M.Manifold.cube([10, 10, 10], true)
+    expect(isNamedManifoldArray(cube)).toBe(false)
+    cube.delete()
+  })
+
+  it('returns false for empty array', () => {
+    expect(isNamedManifoldArray([])).toBe(false)
+  })
+
+  it('returns false for array without name property', () => {
+    const cube = M.Manifold.cube([10, 10, 10], true)
+    const result = [{ manifold: cube }]
+    expect(isNamedManifoldArray(result)).toBe(false)
+    cube.delete()
+  })
+
+  it('returns false for array without manifold property', () => {
+    const result = [{ name: 'test' }]
+    expect(isNamedManifoldArray(result)).toBe(false)
+  })
+
+  it('returns false for non-array values', () => {
+    expect(isNamedManifoldArray(null)).toBe(false)
+    expect(isNamedManifoldArray(undefined)).toBe(false)
+    expect(isNamedManifoldArray({})).toBe(false)
+    expect(isNamedManifoldArray('string')).toBe(false)
+    expect(isNamedManifoldArray(123)).toBe(false)
+  })
+})
+
+describe('processNamedManifolds', () => {
+  let M: ManifoldToplevel
+
+  beforeAll(async () => {
+    M = await getManifold()
+    setCircularSegments(M, 32)
+  })
+
+  it('produces correct parts array from named manifolds', () => {
+    const cube1 = M.Manifold.cube([10, 10, 10], true)
+    const cube2 = M.Manifold.cube([5, 5, 5], false).translate([20, 0, 0])
+    const input: NamedManifoldResult[] = [
+      { name: 'cube-centered', manifold: cube1 },
+      { name: 'cube-offset', manifold: cube2 }
+    ]
+
+    const result = processNamedManifolds(input)
+
+    expect(result.parts).toHaveLength(2)
+    expect(result.parts[0]!.name).toBe('cube-centered')
+    expect(result.parts[1]!.name).toBe('cube-offset')
+  })
+
+  it('preserves optional dimensions and params', () => {
+    const cube = M.Manifold.cube([10, 20, 30], false)
+    const input: NamedManifoldResult[] = [
+      {
+        name: 'test-part',
+        manifold: cube,
+        dimensions: [{ label: 'Width', param: 'width' }],
+        params: { width: 10 }
+      }
+    ]
+
+    const result = processNamedManifolds(input)
+
+    expect(result.parts[0]!.dimensions).toEqual([{ label: 'Width', param: 'width' }])
+    expect(result.parts[0]!.params).toEqual({ width: 10 })
+  })
+
+  it('computes per-part bounding boxes correctly', () => {
+    // Cube 1: centered at origin, size 10 -> bounds [-5, 5] on each axis
+    const cube1 = M.Manifold.cube([10, 10, 10], true)
+    // Cube 2: corner at [20, 0, 0], size 5 -> bounds [20, 25] on x, [0, 5] on y/z
+    const cube2 = M.Manifold.cube([5, 5, 5], false).translate([20, 0, 0])
+
+    const input: NamedManifoldResult[] = [
+      { name: 'cube-centered', manifold: cube1 },
+      { name: 'cube-offset', manifold: cube2 }
+    ]
+
+    const result = processNamedManifolds(input)
+
+    // Check cube 1 bounding box
+    expect(result.parts[0]!.boundingBox.min[0]).toBeCloseTo(-5, 5)
+    expect(result.parts[0]!.boundingBox.max[0]).toBeCloseTo(5, 5)
+
+    // Check cube 2 bounding box
+    expect(result.parts[1]!.boundingBox.min[0]).toBeCloseTo(20, 5)
+    expect(result.parts[1]!.boundingBox.max[0]).toBeCloseTo(25, 5)
+  })
+
+  it('computes combined bounding box correctly', () => {
+    // Cube 1: centered at origin, size 10 -> bounds [-5, 5] on each axis
+    const cube1 = M.Manifold.cube([10, 10, 10], true)
+    // Cube 2: corner at [20, 0, 0], size 5 -> bounds [20, 25] on x, [0, 5] on y/z
+    const cube2 = M.Manifold.cube([5, 5, 5], false).translate([20, 0, 0])
+
+    const input: NamedManifoldResult[] = [
+      { name: 'cube-centered', manifold: cube1 },
+      { name: 'cube-offset', manifold: cube2 }
+    ]
+
+    const result = processNamedManifolds(input)
+
+    // Combined: min from cube1, max from cube2 (on x), cube1 (on y/z)
+    expect(result.boundingBox.min[0]).toBeCloseTo(-5, 5)
+    expect(result.boundingBox.min[1]).toBeCloseTo(-5, 5)
+    expect(result.boundingBox.min[2]).toBeCloseTo(-5, 5)
+    expect(result.boundingBox.max[0]).toBeCloseTo(25, 5) // cube2 extends further on x
+    expect(result.boundingBox.max[1]).toBeCloseTo(5, 5)
+    expect(result.boundingBox.max[2]).toBeCloseTo(5, 5)
+  })
+
+  it('produces valid MeshData for each part', () => {
+    const cube = M.Manifold.cube([10, 10, 10], true)
+    const sphere = M.Manifold.sphere(5, 16).translate([30, 0, 0])
+
+    const input: NamedManifoldResult[] = [
+      { name: 'cube', manifold: cube },
+      { name: 'sphere', manifold: sphere }
+    ]
+
+    const result = processNamedManifolds(input)
+
+    // Verify each part has valid MeshData
+    for (const part of result.parts) {
+      expect(part.meshData.positions).toBeInstanceOf(Float32Array)
+      expect(part.meshData.normals).toBeInstanceOf(Float32Array)
+      expect(part.meshData.indices).toBeInstanceOf(Uint32Array)
+      expect(part.meshData.positions.length).toBeGreaterThan(0)
+    }
+  })
+})
+
+describe('computeCombinedBoundingBox', () => {
+  it('returns zero box for empty array', () => {
+    const result = computeCombinedBoundingBox([])
+    expect(result.min).toEqual([0, 0, 0])
+    expect(result.max).toEqual([0, 0, 0])
+  })
+
+  it('returns same box for single input', () => {
+    const input: BoundingBox[] = [{ min: [1, 2, 3], max: [4, 5, 6] }]
+    const result = computeCombinedBoundingBox(input)
+    expect(result.min).toEqual([1, 2, 3])
+    expect(result.max).toEqual([4, 5, 6])
+  })
+
+  it('combines multiple boxes correctly', () => {
+    const input: BoundingBox[] = [
+      { min: [0, 0, 0], max: [10, 10, 10] },
+      { min: [-5, 5, -3], max: [5, 15, 7] },
+      { min: [20, -10, 0], max: [30, 5, 20] }
+    ]
+    const result = computeCombinedBoundingBox(input)
+
+    // min should be the minimum of all mins
+    expect(result.min[0]).toBe(-5)  // from box 2
+    expect(result.min[1]).toBe(-10) // from box 3
+    expect(result.min[2]).toBe(-3)  // from box 2
+
+    // max should be the maximum of all maxs
+    expect(result.max[0]).toBe(30) // from box 3
+    expect(result.max[1]).toBe(15) // from box 2
+    expect(result.max[2]).toBe(20) // from box 3
   })
 })

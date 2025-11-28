@@ -8,5 +8,5 @@ export const generators: Generator[] = Object.values(modules)
   .filter(Boolean)
   .sort((a, b) => a.name.localeCompare(b.name))
 
-export type { Generator, ParameterDef, ParameterValues, NumberParameterDef, StringParameterDef, SelectParameterDef, BooleanParameterDef, MeshData, DisplayDimension, BoundingBox } from './types'
-export { isNumberParam, isStringParam, isSelectParam, isBooleanParam, flattenParameters } from './types'
+export type { Generator, ParameterDef, ParameterValues, NumberParameterDef, StringParameterDef, SelectParameterDef, BooleanParameterDef, MeshData, DisplayDimension, BoundingBox, NamedPart, MultiPartResult } from './types'
+export { isNumberParam, isStringParam, isSelectParam, isBooleanParam, flattenParameters, isMultiPartResult, isSinglePartResult } from './types'

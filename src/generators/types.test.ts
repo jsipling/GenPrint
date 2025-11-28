@@ -3,8 +3,14 @@ import type { ManifoldToplevel } from 'manifold-3d'
 import {
   flattenParameters,
   isBooleanParam,
+  isMultiPartResult,
+  isSinglePartResult,
   type ParameterDef,
-  type BooleanParameterDef
+  type BooleanParameterDef,
+  type MeshData,
+  type BoundingBox,
+  type NamedPart,
+  type MultiPartResult
 } from './types'
 import { generators } from './index'
 import { getManifold, setCircularSegments } from '../test/manifoldSetup'
@@ -258,6 +264,20 @@ describe('generator builderCode validation', () => {
       const buildFn = createWorkerBuildFn(gen.builderCode, M)
       const result = buildFn(params)
 
+      // Check if result is multi-part (array of named parts)
+      if (Array.isArray(result) && result.length > 0 && result[0].name && result[0].manifold) {
+        // Multi-part generator: validate each part's manifold
+        for (const part of result) {
+          expect(part.manifold.volume(), `${gen.name}/${part.name} should have positive volume`).toBeGreaterThan(0)
+          // Multi-part generators are inherently disconnected (each part is separate)
+        }
+        // Clean up manifolds
+        for (const part of result) {
+          part.manifold.delete()
+        }
+        continue
+      }
+
       // Get the manifold (handle both Shape and raw Manifold returns)
       // Don't skip connectivity check - catch disconnected geometry
       const manifold = result.build
@@ -272,5 +292,179 @@ describe('generator builderCode validation', () => {
         expect(manifold.genus(), `${gen.name} should be watertight (genus >= 0)`).toBeGreaterThanOrEqual(0)
       }
     }
+  })
+})
+
+// Helper to create valid MeshData for testing
+function createTestMeshData(): MeshData {
+  return {
+    positions: new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]),
+    normals: new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1]),
+    indices: new Uint32Array([0, 1, 2])
+  }
+}
+
+// Helper to create valid BoundingBox for testing
+function createTestBoundingBox(): BoundingBox {
+  return {
+    min: [0, 0, 0],
+    max: [10, 10, 10]
+  }
+}
+
+// Helper to create valid NamedPart for testing
+function createTestNamedPart(name: string): NamedPart {
+  return {
+    name,
+    meshData: createTestMeshData(),
+    boundingBox: createTestBoundingBox()
+  }
+}
+
+describe('isMultiPartResult', () => {
+  it('returns true for valid MultiPartResult with parts array', () => {
+    const result: MultiPartResult = {
+      parts: [createTestNamedPart('part1'), createTestNamedPart('part2')],
+      boundingBox: createTestBoundingBox()
+    }
+
+    expect(isMultiPartResult(result)).toBe(true)
+  })
+
+  it('returns true for MultiPartResult with empty parts array', () => {
+    const result: MultiPartResult = {
+      parts: [],
+      boundingBox: createTestBoundingBox()
+    }
+
+    expect(isMultiPartResult(result)).toBe(true)
+  })
+
+  it('returns false for null', () => {
+    expect(isMultiPartResult(null)).toBe(false)
+  })
+
+  it('returns false for undefined', () => {
+    expect(isMultiPartResult(undefined)).toBe(false)
+  })
+
+  it('returns false for primitive values', () => {
+    expect(isMultiPartResult(42)).toBe(false)
+    expect(isMultiPartResult('string')).toBe(false)
+    expect(isMultiPartResult(true)).toBe(false)
+  })
+
+  it('returns false for object without parts property', () => {
+    const result = {
+      meshData: createTestMeshData(),
+      boundingBox: createTestBoundingBox()
+    }
+
+    expect(isMultiPartResult(result)).toBe(false)
+  })
+
+  it('returns false when parts is not an array', () => {
+    const result = {
+      parts: 'not an array',
+      boundingBox: createTestBoundingBox()
+    }
+
+    expect(isMultiPartResult(result)).toBe(false)
+  })
+
+  it('returns false for object without boundingBox', () => {
+    const result = {
+      parts: [createTestNamedPart('part1')]
+    }
+
+    expect(isMultiPartResult(result)).toBe(false)
+  })
+})
+
+describe('isSinglePartResult', () => {
+  it('returns true for result with meshData and no parts', () => {
+    const result = {
+      meshData: createTestMeshData(),
+      boundingBox: createTestBoundingBox()
+    }
+
+    expect(isSinglePartResult(result)).toBe(true)
+  })
+
+  it('returns false for result with parts array', () => {
+    const result = {
+      meshData: createTestMeshData(),
+      parts: [createTestNamedPart('part1')],
+      boundingBox: createTestBoundingBox()
+    }
+
+    expect(isSinglePartResult(result)).toBe(false)
+  })
+
+  it('returns false for result without meshData', () => {
+    // Type assertion to test runtime behavior with malformed input
+    const result = {
+      boundingBox: createTestBoundingBox()
+    } as { meshData?: MeshData; parts?: NamedPart[] }
+
+    expect(isSinglePartResult(result)).toBe(false)
+  })
+
+  it('returns true when parts is undefined', () => {
+    const result = {
+      meshData: createTestMeshData(),
+      parts: undefined,
+      boundingBox: createTestBoundingBox()
+    }
+
+    expect(isSinglePartResult(result)).toBe(true)
+  })
+})
+
+describe('NamedPart type structure', () => {
+  it('creates valid NamedPart with required fields', () => {
+    const part: NamedPart = {
+      name: 'cylinder-bore',
+      meshData: createTestMeshData(),
+      boundingBox: createTestBoundingBox()
+    }
+
+    expect(part.name).toBe('cylinder-bore')
+    expect(part.meshData).toBeDefined()
+    expect(part.boundingBox).toBeDefined()
+    expect(part.dimensions).toBeUndefined()
+    expect(part.params).toBeUndefined()
+  })
+
+  it('creates valid NamedPart with optional fields', () => {
+    const part: NamedPart = {
+      name: 'cylinder-bore',
+      meshData: createTestMeshData(),
+      boundingBox: createTestBoundingBox(),
+      dimensions: [{ label: 'Bore', param: 'bore', format: '{value}mm' }],
+      params: { bore: 50 }
+    }
+
+    expect(part.name).toBe('cylinder-bore')
+    expect(part.dimensions).toHaveLength(1)
+    expect(part.dimensions![0]!.label).toBe('Bore')
+    expect(part.params).toEqual({ bore: 50 })
+  })
+})
+
+describe('MultiPartResult type structure', () => {
+  it('creates valid MultiPartResult', () => {
+    const result: MultiPartResult = {
+      parts: [
+        createTestNamedPart('part-a'),
+        createTestNamedPart('part-b')
+      ],
+      boundingBox: createTestBoundingBox()
+    }
+
+    expect(result.parts).toHaveLength(2)
+    expect(result.parts[0]!.name).toBe('part-a')
+    expect(result.parts[1]!.name).toBe('part-b')
+    expect(result.boundingBox).toBeDefined()
   })
 })
