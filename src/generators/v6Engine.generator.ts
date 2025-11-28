@@ -127,7 +127,7 @@ const generator: Generator = {
       // Sump (deeper section in rear for oil collection)
       var sump = box(panWidth - wallThickness * 4, sumpLength, sumpDepth)
         .translate(0, (panLength - sumpLength) / 4, -crankcaseHeight - panRailHeight - sumpDepth / 2)
-      pan = pan.add(sump)
+      pan = group([pan, sump]).unionAll()
 
       // Hollow out the inside
       var innerWidth = panWidth - wallThickness * 2
@@ -143,7 +143,7 @@ const generator: Generator = {
       var drainBossRadius = bore * 0.15
       var drainBoss = cylinder(wallThickness * 2, drainBossRadius)
         .translate(0, (panLength - sumpLength) / 4, -crankcaseHeight - panRailHeight - sumpDepth)
-      pan = pan.add(drainBoss)
+      pan = group([pan, drainBoss]).unionAll()
 
       // Drain hole
       var drainHole = cylinder(wallThickness * 3, drainBossRadius * 0.5)
@@ -175,7 +175,7 @@ const generator: Generator = {
       var sealBoss = cylinder(sealBossDepth, sealBossRadius)
         .rotate(90, 0, 0)
         .translate(0, coverFront - sealBossDepth / 2, 0)
-      cover = cover.add(sealBoss)
+      cover = group([cover, sealBoss]).unionAll()
 
       // Crank snout hole (for pulley/damper)
       var snoutHoleRadius = mainJournalRadius * 0.8
@@ -189,7 +189,7 @@ const generator: Generator = {
       var waterPumpBoss = cylinder(wallThickness * 2, waterPumpBossRadius)
         .rotate(90, 0, 0)
         .translate(0, coverFront - wallThickness, blockHeight * 0.5)
-      cover = cover.add(waterPumpBoss)
+      cover = group([cover, waterPumpBoss]).unionAll()
 
       // Water pump inlet hole
       var waterPumpHole = cylinder(coverDepth + wallThickness * 3 + overlap, waterPumpBossRadius * 0.6)
@@ -222,7 +222,7 @@ const generator: Generator = {
       var sealBoss = cylinder(sealBossDepth, sealBossRadius)
         .rotate(90, 0, 0)
         .translate(0, housingRear + sealBossDepth / 2, 0)
-      housing = housing.add(sealBoss)
+      housing = group([housing, sealBoss]).unionAll()
 
       // Crankshaft exit hole (rear main seal bore)
       var sealHoleRadius = mainJournalRadius * 1.2
@@ -242,7 +242,7 @@ const generator: Generator = {
         var boltBoss = cylinder(wallThickness * 1.5, boltBossRadius)
           .rotate(90, 0, 0)
           .translate(bx, housingRear + wallThickness * 0.75, bz)
-        housing = housing.add(boltBoss)
+        housing = group([housing, boltBoss]).unionAll()
 
         // Bolt hole
         var boltHole = cylinder(housingDepth + overlap + wallThickness * 2, boltBossRadius * 0.5)
@@ -277,7 +277,7 @@ const generator: Generator = {
       var camBore = cylinder(valleyLength + wallThickness * 8, camBoreRadius)
         .rotate(90, 0, 0)
         .translate(0, 0, wallThickness * 2)
-      valley = valley.add(camBore)
+      valley = group([valley, camBore]).unionAll()
 
       return valley
     }
@@ -451,16 +451,16 @@ const generator: Generator = {
     }
 
     // Combine into one block
-    var block = union(leftBank, rightBank).add(crankcase)
+    var block = group([union(leftBank, rightBank), crankcase]).unionAll()
 
     // Add oil pan
-    block = block.add(buildOilPan())
+    block = group([block, buildOilPan()]).unionAll()
 
     // Add timing cover
-    block = block.add(buildTimingCover())
+    block = group([block, buildTimingCover()]).unionAll()
 
     // Add rear main seal housing
-    block = block.add(buildRearMainSealHousing())
+    block = group([block, buildRearMainSealHousing()]).unionAll()
 
     // Bore cylinders on left bank - 3 cylinders for V6
     for (var i = 0; i < 3; i++) {
@@ -503,12 +503,12 @@ const generator: Generator = {
     // Add exhaust port bosses and drill exhaust ports on both banks
     var leftExhaust = buildExhaustPorts(true)
     var rightExhaust = buildExhaustPorts(false)
-    block = block.add(leftExhaust.bosses).add(rightExhaust.bosses)
+    block = group([block, leftExhaust.bosses, rightExhaust.bosses]).unionAll()
     block = block.subtract(leftExhaust.ports).subtract(rightExhaust.ports)
 
     // Add optional intake manifold
     if (showIntakeManifold) {
-      block = block.add(buildIntakeManifold())
+      block = group([block, buildIntakeManifold()]).unionAll()
     }
 
     // Center the model on Z=0 for printing

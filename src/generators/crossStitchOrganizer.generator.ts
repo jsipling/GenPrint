@@ -364,7 +364,7 @@ const generator: Generator = {
         var strokeWidth = size * 0.15
         var diag1 = box(size * 1.4, strokeWidth, patternDepth + 0.5).rotate(0, 0, 45)
         var diag2 = box(size * 1.4, strokeWidth, patternDepth + 0.5).rotate(0, 0, -45)
-        return diag1.add(diag2)
+        return group([diag1, diag2]).unionAll()
       }
 
       var stitchList = []
@@ -394,7 +394,7 @@ const generator: Generator = {
         var stripHeight = lidThickness
         var strip = box(hingeLength + hingeSegmentLength, stripWidth, stripHeight)
           .translate(0, backEdgeY - stripWidth / 2, totalHeight + stripHeight / 2)
-        lidPlate = lidPlate.add(strip).add(lidKnuckles)
+        lidPlate = group([lidPlate, strip, lidKnuckles]).unionAll()
       }
 
       return lidPlate
@@ -415,35 +415,35 @@ const generator: Generator = {
     // Add bobbin grid
     var bobbinGrid = buildBobbinGrid()
     if (bobbinGrid !== null) {
-      organizer = organizer.add(bobbinGrid)
+      organizer = group([organizer, bobbinGrid]).unionAll()
     }
 
     // Add main divider between bobbin section and side compartments
     var mainDivider = buildMainDivider()
     if (mainDivider !== null) {
-      organizer = organizer.add(mainDivider)
+      organizer = group([organizer, mainDivider]).unionAll()
     }
 
     // Add side compartment dividers
     var sideCompartments = buildSideCompartments()
     if (sideCompartments !== null) {
-      organizer = organizer.add(sideCompartments)
+      organizer = group([organizer, sideCompartments]).unionAll()
     }
 
     // Add needle ridges
     var needleRidges = buildNeedleRidges()
     if (needleRidges !== null) {
-      organizer = organizer.add(needleRidges)
+      organizer = group([organizer, needleRidges]).unionAll()
     }
 
     if (showLid) {
       var boxKnuckles = buildBoxHingeKnuckles()
       if (boxKnuckles !== null) {
-        organizer = organizer.add(boxKnuckles)
+        organizer = group([organizer, boxKnuckles]).unionAll()
       }
 
       var lid = buildLid()
-      organizer = organizer.add(lid)
+      organizer = group([organizer, lid]).unionAll()
 
       var pinHole = buildHingePinHole()
       organizer = organizer.subtract(pinHole)

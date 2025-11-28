@@ -229,39 +229,6 @@ export class Shape {
   // ============================================================
 
   /**
-   * Union with another shape (add)
-   * Both input shapes are consumed and cleaned up
-   * @param other - Shape to add (consumed)
-   * @throws Error if shapes are not connected (bounding boxes don't touch/overlap)
-   */
-  add(other: Shape): Shape {
-    this.assertNotConsumed()
-    other.assertNotConsumed()
-
-    // Fail-fast connection validation (pre-union bounding box check)
-    // This catches obvious cases where shapes are completely separate
-    // Final connectivity is validated at build() time using decompose()
-    if (!this.touches(other) && !this.overlaps(other)) {
-      throw new Error(
-        'Shape does not connect to assembly.\n' +
-        '  - No overlap or contact detected\n' +
-        '  - Use .overlapWith(target, amount) to position with overlap\n' +
-        '  - Use .connectTo(target, options) for precise positioning'
-      )
-    }
-
-    try {
-      const result = this.manifold.add(other.manifold)
-      return new Shape(this.M, result)
-    } finally {
-      this.manifold.delete()
-      this.markConsumed('add()')
-      other.manifold.delete()
-      other.markConsumed('add()')
-    }
-  }
-
-  /**
    * Subtract another shape from this one
    * Both input shapes are consumed and cleaned up
    */
@@ -528,6 +495,254 @@ export class Shape {
    */
   offset(x: number, y: number, z: number): Shape {
     return this.translate(x, y, z)
+  }
+
+  // ============================================================
+  // Attachment Operations - position and union with guaranteed overlap
+  // These replace .add() and guarantee connectivity by construction
+  // ============================================================
+
+  /** Default overlap amount for attachment operations (mm) */
+  private static readonly DEFAULT_OVERLAP = 0.5
+
+  /**
+   * Position another shape above this one and union them with overlap.
+   * The shape is positioned so its bottom surface overlaps this shape's top surface.
+   * Both shapes are consumed.
+   * @param other - Shape to attach above (consumed)
+   * @param overlap - How much the shapes should overlap (default: 0.5mm)
+   * @returns The unioned shape
+   */
+  attachAbove(other: Shape, overlap: number = Shape.DEFAULT_OVERLAP): Shape {
+    this.assertNotConsumed()
+    other.assertNotConsumed()
+
+    const thisBbox = this.getBoundingBox()
+    const otherBbox = other.getBoundingBox()
+
+    // Center other on this shape (X, Y)
+    const thisCenterX = (thisBbox.min[0] + thisBbox.max[0]) / 2
+    const thisCenterY = (thisBbox.min[1] + thisBbox.max[1]) / 2
+    const otherCenterX = (otherBbox.min[0] + otherBbox.max[0]) / 2
+    const otherCenterY = (otherBbox.min[1] + otherBbox.max[1]) / 2
+
+    // Position other so its bottom is `overlap` mm below this top
+    const dx = thisCenterX - otherCenterX
+    const dy = thisCenterY - otherCenterY
+    const dz = thisBbox.max[2] - otherBbox.min[2] - overlap
+
+    const positioned = other.manifold.translate(dx, dy, dz)
+
+    try {
+      const result = this.manifold.add(positioned)
+      return new Shape(this.M, result)
+    } finally {
+      this.manifold.delete()
+      this.markConsumed('attachAbove()')
+      positioned.delete()
+      other.manifold.delete()
+      other.markConsumed('attachAbove()')
+    }
+  }
+
+  /**
+   * Position another shape below this one and union them with overlap.
+   * The shape is positioned so its top surface overlaps this shape's bottom surface.
+   * Both shapes are consumed.
+   * @param other - Shape to attach below (consumed)
+   * @param overlap - How much the shapes should overlap (default: 0.5mm)
+   * @returns The unioned shape
+   */
+  attachBelow(other: Shape, overlap: number = Shape.DEFAULT_OVERLAP): Shape {
+    this.assertNotConsumed()
+    other.assertNotConsumed()
+
+    const thisBbox = this.getBoundingBox()
+    const otherBbox = other.getBoundingBox()
+
+    // Center other on this shape (X, Y)
+    const thisCenterX = (thisBbox.min[0] + thisBbox.max[0]) / 2
+    const thisCenterY = (thisBbox.min[1] + thisBbox.max[1]) / 2
+    const otherCenterX = (otherBbox.min[0] + otherBbox.max[0]) / 2
+    const otherCenterY = (otherBbox.min[1] + otherBbox.max[1]) / 2
+
+    // Position other so its top is `overlap` mm above this bottom
+    const dx = thisCenterX - otherCenterX
+    const dy = thisCenterY - otherCenterY
+    const dz = thisBbox.min[2] - otherBbox.max[2] + overlap
+
+    const positioned = other.manifold.translate(dx, dy, dz)
+
+    try {
+      const result = this.manifold.add(positioned)
+      return new Shape(this.M, result)
+    } finally {
+      this.manifold.delete()
+      this.markConsumed('attachBelow()')
+      positioned.delete()
+      other.manifold.delete()
+      other.markConsumed('attachBelow()')
+    }
+  }
+
+  /**
+   * Position another shape to the left (-X) of this one and union them with overlap.
+   * The shape is positioned so its right surface overlaps this shape's left surface.
+   * Both shapes are consumed.
+   * @param other - Shape to attach to the left (consumed)
+   * @param overlap - How much the shapes should overlap (default: 0.5mm)
+   * @returns The unioned shape
+   */
+  attachLeft(other: Shape, overlap: number = Shape.DEFAULT_OVERLAP): Shape {
+    this.assertNotConsumed()
+    other.assertNotConsumed()
+
+    const thisBbox = this.getBoundingBox()
+    const otherBbox = other.getBoundingBox()
+
+    // Center other on this shape (Y, Z)
+    const thisCenterY = (thisBbox.min[1] + thisBbox.max[1]) / 2
+    const thisCenterZ = (thisBbox.min[2] + thisBbox.max[2]) / 2
+    const otherCenterY = (otherBbox.min[1] + otherBbox.max[1]) / 2
+    const otherCenterZ = (otherBbox.min[2] + otherBbox.max[2]) / 2
+
+    // Position other so its right edge is `overlap` mm to the right of this left edge
+    const dx = thisBbox.min[0] - otherBbox.max[0] + overlap
+    const dy = thisCenterY - otherCenterY
+    const dz = thisCenterZ - otherCenterZ
+
+    const positioned = other.manifold.translate(dx, dy, dz)
+
+    try {
+      const result = this.manifold.add(positioned)
+      return new Shape(this.M, result)
+    } finally {
+      this.manifold.delete()
+      this.markConsumed('attachLeft()')
+      positioned.delete()
+      other.manifold.delete()
+      other.markConsumed('attachLeft()')
+    }
+  }
+
+  /**
+   * Position another shape to the right (+X) of this one and union them with overlap.
+   * The shape is positioned so its left surface overlaps this shape's right surface.
+   * Both shapes are consumed.
+   * @param other - Shape to attach to the right (consumed)
+   * @param overlap - How much the shapes should overlap (default: 0.5mm)
+   * @returns The unioned shape
+   */
+  attachRight(other: Shape, overlap: number = Shape.DEFAULT_OVERLAP): Shape {
+    this.assertNotConsumed()
+    other.assertNotConsumed()
+
+    const thisBbox = this.getBoundingBox()
+    const otherBbox = other.getBoundingBox()
+
+    // Center other on this shape (Y, Z)
+    const thisCenterY = (thisBbox.min[1] + thisBbox.max[1]) / 2
+    const thisCenterZ = (thisBbox.min[2] + thisBbox.max[2]) / 2
+    const otherCenterY = (otherBbox.min[1] + otherBbox.max[1]) / 2
+    const otherCenterZ = (otherBbox.min[2] + otherBbox.max[2]) / 2
+
+    // Position other so its left edge is `overlap` mm to the left of this right edge
+    const dx = thisBbox.max[0] - otherBbox.min[0] - overlap
+    const dy = thisCenterY - otherCenterY
+    const dz = thisCenterZ - otherCenterZ
+
+    const positioned = other.manifold.translate(dx, dy, dz)
+
+    try {
+      const result = this.manifold.add(positioned)
+      return new Shape(this.M, result)
+    } finally {
+      this.manifold.delete()
+      this.markConsumed('attachRight()')
+      positioned.delete()
+      other.manifold.delete()
+      other.markConsumed('attachRight()')
+    }
+  }
+
+  /**
+   * Position another shape in front (-Y) of this one and union them with overlap.
+   * The shape is positioned so its back surface overlaps this shape's front surface.
+   * Both shapes are consumed.
+   * @param other - Shape to attach to the front (consumed)
+   * @param overlap - How much the shapes should overlap (default: 0.5mm)
+   * @returns The unioned shape
+   */
+  attachFront(other: Shape, overlap: number = Shape.DEFAULT_OVERLAP): Shape {
+    this.assertNotConsumed()
+    other.assertNotConsumed()
+
+    const thisBbox = this.getBoundingBox()
+    const otherBbox = other.getBoundingBox()
+
+    // Center other on this shape (X, Z)
+    const thisCenterX = (thisBbox.min[0] + thisBbox.max[0]) / 2
+    const thisCenterZ = (thisBbox.min[2] + thisBbox.max[2]) / 2
+    const otherCenterX = (otherBbox.min[0] + otherBbox.max[0]) / 2
+    const otherCenterZ = (otherBbox.min[2] + otherBbox.max[2]) / 2
+
+    // Position other so its back edge is `overlap` mm to the back of this front edge
+    const dx = thisCenterX - otherCenterX
+    const dy = thisBbox.min[1] - otherBbox.max[1] + overlap
+    const dz = thisCenterZ - otherCenterZ
+
+    const positioned = other.manifold.translate(dx, dy, dz)
+
+    try {
+      const result = this.manifold.add(positioned)
+      return new Shape(this.M, result)
+    } finally {
+      this.manifold.delete()
+      this.markConsumed('attachFront()')
+      positioned.delete()
+      other.manifold.delete()
+      other.markConsumed('attachFront()')
+    }
+  }
+
+  /**
+   * Position another shape behind (+Y) this one and union them with overlap.
+   * The shape is positioned so its front surface overlaps this shape's back surface.
+   * Both shapes are consumed.
+   * @param other - Shape to attach to the back (consumed)
+   * @param overlap - How much the shapes should overlap (default: 0.5mm)
+   * @returns The unioned shape
+   */
+  attachBack(other: Shape, overlap: number = Shape.DEFAULT_OVERLAP): Shape {
+    this.assertNotConsumed()
+    other.assertNotConsumed()
+
+    const thisBbox = this.getBoundingBox()
+    const otherBbox = other.getBoundingBox()
+
+    // Center other on this shape (X, Z)
+    const thisCenterX = (thisBbox.min[0] + thisBbox.max[0]) / 2
+    const thisCenterZ = (thisBbox.min[2] + thisBbox.max[2]) / 2
+    const otherCenterX = (otherBbox.min[0] + otherBbox.max[0]) / 2
+    const otherCenterZ = (otherBbox.min[2] + otherBbox.max[2]) / 2
+
+    // Position other so its front edge is `overlap` mm to the front of this back edge
+    const dx = thisCenterX - otherCenterX
+    const dy = thisBbox.max[1] - otherBbox.min[1] - overlap
+    const dz = thisCenterZ - otherCenterZ
+
+    const positioned = other.manifold.translate(dx, dy, dz)
+
+    try {
+      const result = this.manifold.add(positioned)
+      return new Shape(this.M, result)
+    } finally {
+      this.manifold.delete()
+      this.markConsumed('attachBack()')
+      positioned.delete()
+      other.manifold.delete()
+      other.markConsumed('attachBack()')
+    }
   }
 
   // ============================================================

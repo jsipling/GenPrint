@@ -246,7 +246,7 @@ for (const part of parts) {
   if (result === null) {
     result = part
   } else {
-    result = result.add(part)
+    result = group([result, part]).unionAll()
   }
 }
 
@@ -263,26 +263,62 @@ const overlap = intersection(shape1, shape2)
 
 ### Chainable Methods
 
-#### .add(other)
-Union with another shape. Both shapes are consumed.
+### Attachment Methods (Union with Guaranteed Overlap)
 
-**Fail-fast validation**: `.add()` checks that shapes are connected (touching or overlapping) before performing the union. This catches disconnected geometry at call time rather than build time, making debugging easier.
+These methods position AND union shapes with automatic 0.5mm overlap, guaranteeing connectivity by construction. Both shapes are consumed.
+
+#### .attachAbove(shape, overlap?)
+Position shape above this one and union with overlap.
 
 ```typescript
-const combined = base.add(boss)  // Throws if boss doesn't touch base
+const stacked = base.attachAbove(lid)  // lid 0.5mm into base top
+const stacked = base.attachAbove(lid, 2)  // 2mm overlap
 ```
 
-If shapes are disconnected, throws an error with helpful suggestions:
-```
-Error: Shape does not connect to assembly.
-  - No overlap or contact detected
-  - Use .overlapWith(target, amount) to position with overlap
-  - Use .connectTo(target, options) for precise positioning
-```
+#### .attachBelow(shape, overlap?)
+Position shape below this one and union.
 
-For intentionally disconnected geometry (patterns, exploded views), use `group().unionAll()`:
 ```typescript
-const disconnected = group([base, floatingPart]).unionAll()
+const withStand = body.attachBelow(stand)
+```
+
+#### .attachLeft(shape, overlap?)
+Position shape to the left and union.
+
+```typescript
+const extended = main.attachLeft(handle)
+```
+
+#### .attachRight(shape, overlap?)
+Position shape to the right and union.
+
+```typescript
+const extended = main.attachRight(handle)
+```
+
+#### .attachFront(shape, overlap?)
+Position shape in front (-Y) and union.
+
+```typescript
+const withDisplay = case.attachFront(panel)
+```
+
+#### .attachBack(shape, overlap?)
+Position shape behind (+Y) and union.
+
+```typescript
+const withHinge = lid.attachBack(hingeMount)
+```
+
+### Legacy Union (group().unionAll())
+
+For shapes that are already positioned with proper overlaps, use `group().unionAll()`:
+
+```typescript
+// Shapes positioned with calculated overlaps
+const positioned1 = box(10, 10, 10).translate(0, 0, 0)
+const positioned2 = box(10, 10, 10).translate(0, 0, 9.5)  // 0.5mm overlap
+const combined = group([positioned1, positioned2]).unionAll()
 ```
 
 #### .subtract(other)

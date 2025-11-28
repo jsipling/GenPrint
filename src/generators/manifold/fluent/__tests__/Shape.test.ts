@@ -34,49 +34,39 @@ describe('Shape', () => {
   })
 
   describe('CSG operations', () => {
-    it('add() unions two overlapping shapes', () => {
-      const cube1 = new Shape(M, M.Manifold.cube([10, 10, 10], true))
-      const cube2 = new Shape(M, M.Manifold.cube([10, 10, 10], true).translate(5, 0, 0))
+    describe('group().unionAll() for batch unions', () => {
+      it('unions multiple overlapping shapes', () => {
+        const cube1 = p.box(10, 10, 10)
+        const cube2 = p.box(10, 10, 10).translate(5, 0, 0)
 
-      const result = cube1.add(cube2)
+        const result = group([cube1, cube2]).unionAll()!
 
-      expectValid(result.build())
-      // Combined width should be 15 (10 + 5 overlap)
-      expectDimensions(result.build(), { width: 15, depth: 10, height: 10 })
-      result.delete()
-    })
+        expectValid(result.build())
+        // Combined width should be 15 (10 + 5 overlap)
+        expectDimensions(result.build(), { width: 15, depth: 10, height: 10 })
+        result.delete()
+      })
 
-    it('add() unions two touching shapes (bounding boxes adjacent)', () => {
-      // Two cubes that touch at a face but don't overlap
-      const cube1 = new Shape(M, M.Manifold.cube([10, 10, 10], true))
-      const cube2 = new Shape(M, M.Manifold.cube([10, 10, 10], true).translate(10, 0, 0)) // adjacent
+      it('validates connectivity at build time', () => {
+        const cube1 = p.box(10, 10, 10)
+        const cube2 = p.box(10, 10, 10).translate(50, 0, 0) // far apart
 
-      const result = cube1.add(cube2)
+        const result = group([cube1, cube2]).unionAll()!
 
-      expectValid(result.build())
-      expectDimensions(result.build(), { width: 20, depth: 10, height: 10 })
-      result.delete()
-    })
+        // Should throw at build() time due to disconnected components
+        expect(() => result.build()).toThrow(/disconnected/i)
+      })
 
-    it('add() throws for disconnected shapes by default', () => {
-      const cube1 = new Shape(M, M.Manifold.cube([10, 10, 10], true))
-      const cube2 = new Shape(M, M.Manifold.cube([10, 10, 10], true).translate(50, 0, 0)) // far apart
+      it('allows disconnected geometry with skipConnectivityCheck', () => {
+        const cube1 = p.box(10, 10, 10)
+        const cube2 = p.box(10, 10, 10).translate(50, 0, 0) // far apart
 
-      expect(() => cube1.add(cube2)).toThrow(/does not connect/i)
-    })
+        const result = group([cube1, cube2]).unionAll()!
 
-    it('add() error message suggests overlapWith and connectTo', () => {
-      const cube1 = new Shape(M, M.Manifold.cube([10, 10, 10], true))
-      const cube2 = new Shape(M, M.Manifold.cube([10, 10, 10], true).translate(50, 0, 0))
-
-      try {
-        cube1.add(cube2)
-        expect.fail('Should have thrown')
-      } catch (e) {
-        const message = (e as Error).message
-        expect(message).toContain('overlapWith')
-        expect(message).toContain('connectTo')
-      }
+        // Should not throw with skipConnectivityCheck
+        expect(() => result.build({ skipConnectivityCheck: true })).not.toThrow()
+        result.delete()
+      })
     })
 
     it('subtract() creates difference', () => {
@@ -1352,7 +1342,7 @@ describe('Shape', () => {
       const part1 = p.box(10, 10, 10)
       const part2 = p.box(10, 10, 10).translate(5, 0, 0) // overlapping
 
-      const result = part1.add(part2)
+      const result = group([part1, part2]).unionAll()!
       expect(() => result.build()).not.toThrow()
       result.delete()
     })
@@ -1420,12 +1410,12 @@ describe('Shape', () => {
   })
 
   describe('consumption safety', () => {
-    it('throws when accessing consumed shape after add()', () => {
+    it('throws when accessing consumed shape after attachAbove()', () => {
       const a = p.box(10, 10, 10)
       const b = p.box(10, 10, 10)
-      a.add(b) // consumes both a and b
+      a.attachAbove(b) // consumes both a and b
 
-      expect(() => a.translate(1, 0, 0)).toThrow(/consumed.*add/i)
+      expect(() => a.translate(1, 0, 0)).toThrow(/consumed.*attachAbove/i)
     })
 
     it('throws when accessing consumed shape after subtract()', () => {
@@ -1453,13 +1443,13 @@ describe('Shape', () => {
     it('error message includes consumedBy operation', () => {
       const a = p.box(10, 10, 10)
       const b = p.box(10, 10, 10)
-      a.add(b)
+      a.attachRight(b) // Use attachment method instead of add()
 
       try {
         a.getBoundingBox()
         expect.fail('Should have thrown')
       } catch (e) {
-        expect((e as Error).message).toContain('add()')
+        expect((e as Error).message).toContain('attachRight()')
       }
     })
 
@@ -1518,7 +1508,7 @@ describe('Shape', () => {
       const b = p.box(10, 10, 10)
       a.translate(1, 0, 0) // consume a
 
-      expect(() => a.add(b)).toThrow(/consumed/i)
+      expect(() => a.attachAbove(b)).toThrow(/consumed/i)
       b.delete()
     })
 
@@ -1687,8 +1677,8 @@ describe('Shape', () => {
     })
 
     it('hull() with single shape returns convex hull of that shape', () => {
-      // L-shape has concave corner
-      const lShape = p.box(10, 10, 5).add(p.box(10, 10, 5).translate(0, 10, 0))
+      // L-shape has concave corner - use attachBack to union two boxes
+      const lShape = p.box(10, 10, 5).attachBack(p.box(10, 10, 5))
 
       const hulled = ops.hull(lShape)
 
@@ -2118,6 +2108,182 @@ describe('Shape', () => {
 
         base.delete()
         hinge.delete()
+      })
+    })
+  })
+
+  describe('attachment operations (union with guaranteed overlap)', () => {
+    describe('attachAbove()', () => {
+      it('positions and unions shape above target with default 0.5mm overlap', () => {
+        const base = p.box(20, 20, 10) // centered, top at z=5
+        const lid = p.box(20, 20, 5) // centered, 5 tall
+
+        const result = base.attachAbove(lid)
+
+        // Should be valid single piece
+        expectValid(result.build())
+
+        // Combined height: 10 + 5 - 0.5 overlap = 14.5mm
+        const bbox = result.getBoundingBox()
+        expect(bbox.max[2] - bbox.min[2]).toBeCloseTo(14.5, 1)
+
+        result.delete()
+      })
+
+      it('accepts custom overlap amount', () => {
+        const base = p.box(20, 20, 10) // top at z=5
+        const lid = p.box(20, 20, 5) // 5 tall
+
+        const result = base.attachAbove(lid, 2) // 2mm overlap
+
+        // Combined height: 10 + 5 - 2 = 13mm
+        const bbox = result.getBoundingBox()
+        expect(bbox.max[2] - bbox.min[2]).toBeCloseTo(13, 1)
+
+        result.delete()
+      })
+
+      it('consumes both shapes', () => {
+        const base = p.box(20, 20, 10)
+        const lid = p.box(20, 20, 5)
+
+        base.attachAbove(lid)
+
+        expect(base.isConsumed()).toBe(true)
+        expect(lid.isConsumed()).toBe(true)
+      })
+
+      it('produces single connected body', () => {
+        const base = p.box(20, 20, 10)
+        const lid = p.box(20, 20, 5)
+
+        const result = base.attachAbove(lid)
+
+        // build() without skipConnectivityCheck validates connectivity
+        expect(() => result.build()).not.toThrow()
+        result.delete()
+      })
+    })
+
+    describe('attachBelow()', () => {
+      it('positions and unions shape below target with default 0.5mm overlap', () => {
+        const top = p.box(20, 20, 10) // centered, bottom at z=-5
+        const bottom = p.box(20, 20, 5) // 5 tall
+
+        const result = top.attachBelow(bottom)
+
+        expectValid(result.build())
+
+        // Combined height: 10 + 5 - 0.5 = 14.5mm
+        const bbox = result.getBoundingBox()
+        expect(bbox.max[2] - bbox.min[2]).toBeCloseTo(14.5, 1)
+
+        result.delete()
+      })
+
+      it('places bottom shape below this shape', () => {
+        const top = p.box(20, 20, 10).align('center', 'center', 'bottom') // bottom at z=0
+        const bottom = p.box(20, 20, 5) // 5 tall
+
+        const result = top.attachBelow(bottom)
+
+        // Bottom of result should extend below z=0
+        const bbox = result.getBoundingBox()
+        expect(bbox.min[2]).toBeLessThan(0)
+
+        result.delete()
+      })
+    })
+
+    describe('attachLeft()', () => {
+      it('positions and unions shape to the left with default 0.5mm overlap', () => {
+        const right = p.box(20, 20, 10) // centered, left at x=-10
+        const left = p.box(10, 20, 10) // 10 wide
+
+        const result = right.attachLeft(left)
+
+        expectValid(result.build())
+
+        // Combined width: 20 + 10 - 0.5 = 29.5mm
+        const bbox = result.getBoundingBox()
+        expect(bbox.max[0] - bbox.min[0]).toBeCloseTo(29.5, 1)
+
+        result.delete()
+      })
+    })
+
+    describe('attachRight()', () => {
+      it('positions and unions shape to the right with default 0.5mm overlap', () => {
+        const left = p.box(20, 20, 10) // centered, right at x=10
+        const right = p.box(10, 20, 10) // 10 wide
+
+        const result = left.attachRight(right)
+
+        expectValid(result.build())
+
+        // Combined width: 20 + 10 - 0.5 = 29.5mm
+        const bbox = result.getBoundingBox()
+        expect(bbox.max[0] - bbox.min[0]).toBeCloseTo(29.5, 1)
+
+        result.delete()
+      })
+    })
+
+    describe('attachFront()', () => {
+      it('positions and unions shape to the front (-Y) with default 0.5mm overlap', () => {
+        const back = p.box(20, 20, 10) // centered, front at y=-10
+        const front = p.box(20, 10, 10) // 10 deep
+
+        const result = back.attachFront(front)
+
+        expectValid(result.build())
+
+        // Combined depth: 20 + 10 - 0.5 = 29.5mm
+        const bbox = result.getBoundingBox()
+        expect(bbox.max[1] - bbox.min[1]).toBeCloseTo(29.5, 1)
+
+        result.delete()
+      })
+    })
+
+    describe('attachBack()', () => {
+      it('positions and unions shape to the back (+Y) with default 0.5mm overlap', () => {
+        const front = p.box(20, 20, 10) // centered, back at y=10
+        const back = p.box(20, 10, 10) // 10 deep
+
+        const result = front.attachBack(back)
+
+        expectValid(result.build())
+
+        // Combined depth: 20 + 10 - 0.5 = 29.5mm
+        const bbox = result.getBoundingBox()
+        expect(bbox.max[1] - bbox.min[1]).toBeCloseTo(29.5, 1)
+
+        result.delete()
+      })
+    })
+
+    describe('chaining attachments', () => {
+      it('supports chaining multiple attachments', () => {
+        const center = p.box(10, 10, 10)
+        const left = p.box(5, 10, 10)
+        const right = p.box(5, 10, 10)
+        const top = p.box(10, 10, 5)
+
+        const result = center
+          .attachLeft(left)
+          .attachRight(right)
+          .attachAbove(top)
+
+        expectValid(result.build())
+
+        // Width: 10 + 5 + 5 - 0.5 - 0.5 = 19mm
+        // Height: 10 + 5 - 0.5 = 14.5mm
+        const bbox = result.getBoundingBox()
+        expect(bbox.max[0] - bbox.min[0]).toBeCloseTo(19, 1)
+        expect(bbox.max[2] - bbox.min[2]).toBeCloseTo(14.5, 1)
+
+        result.delete()
       })
     })
   })

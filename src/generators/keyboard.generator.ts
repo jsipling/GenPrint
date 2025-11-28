@@ -179,15 +179,15 @@ const generator: Generator = {
       var top = box(topWidth, topDepth, topHeight + topOverlap)
         .translate(0, 0, baseHeight - topOverlap + (topHeight + topOverlap) / 2)
 
-      var keycap = base.add(top)
-
       // Add stem that extends below Z=0 into the case for guaranteed connectivity
       // Stem overlaps 0.5mm into the base to ensure volumetric connection (not just surface contact)
       var stemOverlap = 0.5
       var stemSize = Math.min(width, depth) * 0.4
       var stem = box(stemSize, stemSize, STEM_PENETRATION + stemOverlap)
         .translate(0, 0, (-STEM_PENETRATION + stemOverlap) / 2)
-      keycap = keycap.add(stem)
+
+      // Union all parts - they're positioned with proper overlaps
+      var keycap = group([base, top, stem]).unionAll()
 
       // Apply row angle (tilt front/back)
       if (angle !== 0) {
@@ -215,15 +215,15 @@ const generator: Generator = {
       var top = box(width - topInset * 2, depth - topInset * 2, topHeight + topOverlap)
         .translate(0, 0, baseHeight - topOverlap + (topHeight + topOverlap) / 2)
 
-      var keycap = base.add(top)
-
       // Add stem that extends below Z=0 into the case for guaranteed connectivity
       // Stem overlaps 0.5mm into the base to ensure volumetric connection (not just surface contact)
       var stemOverlap = 0.5
       var stemSize = Math.min(width, depth) * 0.4
       var stem = box(stemSize, stemSize, STEM_PENETRATION + stemOverlap)
         .translate(0, 0, (-STEM_PENETRATION + stemOverlap) / 2)
-      keycap = keycap.add(stem)
+
+      // Union all parts - they're positioned with proper overlaps
+      var keycap = group([base, top, stem]).unionAll()
 
       return keycap
     }
@@ -461,9 +461,8 @@ const generator: Generator = {
       // First union all keycaps together (they don't need to touch each other)
       var keycapUnion = group(keycaps).unionAll()
       if (keycapUnion !== null) {
-        // Use add() to union with case - this validates connectivity
-        // The keycap stems penetrate into the case, ensuring overlap
-        keyboard = keyboard.add(keycapUnion)
+        // Union with case - keycap stems penetrate into the case, ensuring overlap
+        keyboard = group([keyboard, keycapUnion]).unionAll()
       }
     }
 
