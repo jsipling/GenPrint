@@ -165,6 +165,82 @@ describe('keyboard.generator', () => {
       // Full keyboard should have significant volume
       expect(manifold.volume()).toBeGreaterThan(100000) // mm³
     })
+
+    // Edge case tests to ensure connectivity with various parameter combinations
+    it('stays connected with minimum keycapSize', () => {
+      const ctx = createBuilderContext(M)
+      const buildFn = createBuildFn(generator.builderCode)
+      const result = buildFn(ctx, { ...defaultParams, keycapSize: 16 })
+      const manifold = result.build ? result.build() : result
+      expectValid(manifold)
+    })
+
+    it('stays connected with maximum keycapSize', () => {
+      const ctx = createBuilderContext(M)
+      const buildFn = createBuildFn(generator.builderCode)
+      const result = buildFn(ctx, { ...defaultParams, keycapSize: 20 })
+      const manifold = result.build ? result.build() : result
+      expectValid(manifold)
+    })
+
+    it('stays connected with maximum keycapHeight', () => {
+      const ctx = createBuilderContext(M)
+      const buildFn = createBuildFn(generator.builderCode)
+      const result = buildFn(ctx, { ...defaultParams, keycapHeight: 14 })
+      const manifold = result.build ? result.build() : result
+      expectValid(manifold)
+    })
+
+    it('stays connected with minimum keycapHeight', () => {
+      const ctx = createBuilderContext(M)
+      const buildFn = createBuildFn(generator.builderCode)
+      const result = buildFn(ctx, { ...defaultParams, keycapHeight: 8 })
+      const manifold = result.build ? result.build() : result
+      expectValid(manifold)
+    })
+
+    it('stays connected with only numpad enabled', () => {
+      const ctx = createBuilderContext(M)
+      const buildFn = createBuildFn(generator.builderCode)
+      const result = buildFn(ctx, {
+        ...defaultParams,
+        includeNumpad: true,
+        includeFunctionRow: false,
+        includeNavCluster: false
+      })
+      const manifold = result.build ? result.build() : result
+      expectValid(manifold)
+    })
+
+    it('stays connected with only nav cluster enabled', () => {
+      const ctx = createBuilderContext(M)
+      const buildFn = createBuildFn(generator.builderCode)
+      const result = buildFn(ctx, {
+        ...defaultParams,
+        includeNumpad: false,
+        includeFunctionRow: false,
+        includeNavCluster: true
+      })
+      const manifold = result.build ? result.build() : result
+      expectValid(manifold)
+    })
+
+    it('stays connected with extreme parameter combination', () => {
+      const ctx = createBuilderContext(M)
+      const buildFn = createBuildFn(generator.builderCode)
+      // Minimum keycap size with maximum keycap height - tests rotation edge cases
+      const result = buildFn(ctx, {
+        keycapSize: 16,
+        keycapHeight: 14,
+        caseHeight: 30,
+        wallThickness: 2,
+        includeNumpad: true,
+        includeFunctionRow: true,
+        includeNavCluster: true
+      })
+      const manifold = result.build ? result.build() : result
+      expectValid(manifold)
+    })
   })
 
   describe('display dimensions', () => {

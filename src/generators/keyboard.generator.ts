@@ -151,7 +151,11 @@ const generator: Generator = {
     // Plate height (top surface of the case where keycaps sit)
     var plateZ = caseHeight
 
-    // Build a single keycap - starts at Z=0 with negative stem going into plate
+    // Stem penetration ensures keycaps always connect to case regardless of rotation
+    // Must be deep enough to account for rotation angles up to 12 degrees
+    var STEM_PENETRATION = 5  // mm into case
+
+    // Build a single keycap - includes stem that penetrates into case for connectivity
     function buildKeycap(widthUnits, rowIndex) {
       var width = widthUnits * keycapSize + (widthUnits - 1) * KEY_GAP
       var depth = keycapSize
@@ -170,10 +174,20 @@ const generator: Generator = {
         .translate(0, 0, baseHeight / 2)
 
       // Top dish (sculpted) - sits on top of base
-      var top = box(topWidth, topDepth, topHeight)
-        .translate(0, 0, baseHeight + topHeight / 2)
+      // Overlap 0.5mm into base to ensure volumetric connection (not just surface contact)
+      var topOverlap = 0.5
+      var top = box(topWidth, topDepth, topHeight + topOverlap)
+        .translate(0, 0, baseHeight - topOverlap + (topHeight + topOverlap) / 2)
 
       var keycap = base.add(top)
+
+      // Add stem that extends below Z=0 into the case for guaranteed connectivity
+      // Stem overlaps 0.5mm into the base to ensure volumetric connection (not just surface contact)
+      var stemOverlap = 0.5
+      var stemSize = Math.min(width, depth) * 0.4
+      var stem = box(stemSize, stemSize, STEM_PENETRATION + stemOverlap)
+        .translate(0, 0, (-STEM_PENETRATION + stemOverlap) / 2)
+      keycap = keycap.add(stem)
 
       // Apply row angle (tilt front/back)
       if (angle !== 0) {
@@ -183,7 +197,7 @@ const generator: Generator = {
       return keycap
     }
 
-    // Build a tall keycap (2U height)
+    // Build a tall keycap (2U height) - includes stem for connectivity
     function buildTallKeycap(widthUnits, heightUnits, rowIndex) {
       var width = widthUnits * keycapSize + (widthUnits - 1) * KEY_GAP
       var depth = heightUnits * keycapSize + (heightUnits - 1) * KEY_GAP
@@ -194,13 +208,24 @@ const generator: Generator = {
       var base = box(width, depth, baseHeight)
         .translate(0, 0, baseHeight / 2)
 
-      // Top part
+      // Top part - overlaps 0.5mm into base for volumetric connection
       var topInset = 1.5
+      var topOverlap = 0.5
       var topHeight = height * 0.6
-      var top = box(width - topInset * 2, depth - topInset * 2, topHeight)
-        .translate(0, 0, baseHeight + topHeight / 2)
+      var top = box(width - topInset * 2, depth - topInset * 2, topHeight + topOverlap)
+        .translate(0, 0, baseHeight - topOverlap + (topHeight + topOverlap) / 2)
 
-      return base.add(top)
+      var keycap = base.add(top)
+
+      // Add stem that extends below Z=0 into the case for guaranteed connectivity
+      // Stem overlaps 0.5mm into the base to ensure volumetric connection (not just surface contact)
+      var stemOverlap = 0.5
+      var stemSize = Math.min(width, depth) * 0.4
+      var stem = box(stemSize, stemSize, STEM_PENETRATION + stemOverlap)
+        .translate(0, 0, (-STEM_PENETRATION + stemOverlap) / 2)
+      keycap = keycap.add(stem)
+
+      return keycap
     }
 
     // Build a row of keycaps
@@ -430,15 +455,15 @@ const generator: Generator = {
     // Collect all keycaps
     var keycaps = buildAllKeycaps()
 
-    // Use group().unionAll() to combine keycaps (they don't need to touch each other)
-    // Then union with the case - keycaps sit on top of case surface
+    // Union keycaps with the case using add() for fail-fast connectivity validation
+    // Each keycap has a stem that penetrates into the case for guaranteed connectivity
     if (keycaps.length > 0) {
+      // First union all keycaps together (they don't need to touch each other)
       var keycapUnion = group(keycaps).unionAll()
       if (keycapUnion !== null) {
-        // The keycaps are positioned at plateZ = caseHeight
-        // Since the case top is at caseHeight and keycaps start at caseHeight,
-        // they share the surface and are connected
-        keyboard = group([keyboard, keycapUnion]).unionAll()
+        // Use add() to union with case - this validates connectivity
+        // The keycap stems penetrate into the case, ensuring overlap
+        keyboard = keyboard.add(keycapUnion)
       }
     }
 

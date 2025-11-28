@@ -232,13 +232,15 @@ export class Shape {
    * Union with another shape (add)
    * Both input shapes are consumed and cleaned up
    * @param other - Shape to add (consumed)
-   * @throws Error if shapes are not connected
+   * @throws Error if shapes are not connected (bounding boxes don't touch/overlap)
    */
   add(other: Shape): Shape {
     this.assertNotConsumed()
     other.assertNotConsumed()
 
-    // Fail-fast connection validation
+    // Fail-fast connection validation (pre-union bounding box check)
+    // This catches obvious cases where shapes are completely separate
+    // Final connectivity is validated at build() time using decompose()
     if (!this.touches(other) && !this.overlaps(other)) {
       throw new Error(
         'Shape does not connect to assembly.\n' +
