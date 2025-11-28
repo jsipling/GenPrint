@@ -9,9 +9,8 @@ The generator to update is: $ARGUMENTS
 ## Initial Steps
 
 1. **Read the generator file** - Find and read the generator file matching the argument (check `src/generators/*.generator.ts`)
-2. **Read AGENTS.md** - Review the guidelines in `AGENTS.md` and `src/generators/AGENTS.md`
-3. **Read manifold-api-guide.md** - Review `docs/manifold-api-guide.md` for direct Manifold API patterns
-4. **Summarize the current generator** - Present to the user:
+2. **Read AGENTS.md** - Review the guidelines in `AGENTS.md` for generator patterns and the geo library API
+3. **Summarize the current generator** - Present to the user:
    - Generator ID, name, and description
    - Current parameters
    - Current features (what the builderCode does)
@@ -44,43 +43,32 @@ This app generates models for 3D printing. **Only create geometry that is visibl
 - Always validate parameters with fallback defaults
 - Use `dynamicMin`/`dynamicMax` when parameters depend on each other
 
-### Connectivity Strategy (Critical)
+### Use the Geo Library
 
-**Build from solid to hollow.** Internal features (posts, bosses, ribs) must be unioned with the main body BEFORE subtracting cavities.
+For new features, prefer the `src/geo/` library for declarative geometry:
 
-**Wrong approach** (creates disconnected parts):
-```javascript
-// 1. Create shell by subtracting cavity
-var shell = outerBox.subtract(innerCavity)
-outerBox.delete()
-// 2. Add internal features - FAILS: features float in empty space
-var temp = shell.add(post)
-shell.delete()
-post.delete()
-shell = temp
+```typescript
+import { shape, Compiler } from './geo';
+
+// Named parameters only
+const base = shape.box({ width: 50, depth: 50, height: 10 });
+const hole = shape.cylinder({ diameter: 5, height: 20 });
+
+// Semantic alignment (replaces translate/rotate)
+hole.align({ self: 'center', target: base, to: 'center' });
+
+// Boolean operations
+const part = base.subtract(hole);
+
+// Compile to Manifold
+const compiler = new Compiler(M);
+const manifold = compiler.compile(part.getNode());
 ```
 
-**Correct approach** (ensures connectivity):
-```javascript
-// 1. Start with solid outer shape
-var solid = outerBox
-// 2. Add internal features while still solid
-var temp1 = solid.add(post1)
-solid.delete()
-post1.delete()
-var temp2 = temp1.add(post2)
-temp1.delete()
-post2.delete()
-var temp3 = temp2.add(rib)
-temp2.delete()
-rib.delete()
-// 3. THEN carve out the hollow
-var shell = temp3.subtract(innerCavity)
-temp3.delete()
-innerCavity.delete()
-```
-
-**Why this matters:** When you subtract a cavity first, internal features added later sit in empty space with no volumetric overlap to the shell walls or floor.
+Key features:
+- **Semantic anchors:** `top`, `bottom`, `left`, `right`, `front`, `back`, `center`, corners
+- **Alignment modes:** `mate` (face-to-face), `flush` (parallel)
+- **No memory management:** Compiler handles `.delete()` internally
 
 ## Update Process
 

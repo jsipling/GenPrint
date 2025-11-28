@@ -32,29 +32,33 @@ This app generates models for 3D printing. **Only create geometry that is visibl
 - `builderCode` runs as JavaScript at runtime - NO TypeScript syntax (no type annotations like `: boolean`)
 - Always validate parameters with fallback defaults
 
-### Connectivity Strategy (Critical)
+### Use the Geo Library
 
-**Build from solid to hollow.** Internal features (posts, bosses, ribs) must be unioned with the main body BEFORE subtracting cavities.
+New generators should use the `src/geo/` library for declarative geometry:
 
-**Wrong approach** (creates disconnected parts):
-```javascript
-// 1. Create shell by subtracting cavity
-var shell = outerBox.subtract(innerCavity)
-// 2. Add internal features - FAILS: features float in empty space
-shell = shell.add(post)
+```typescript
+import { shape, Compiler } from './geo';
+
+// Named parameters only
+const base = shape.box({ width: 50, depth: 50, height: 10 });
+const hole = shape.cylinder({ diameter: 5, height: 20 });
+
+// Semantic alignment (replaces translate/rotate)
+hole.align({ self: 'center', target: base, to: 'center' });
+
+// Boolean operations
+const part = base.subtract(hole);
+
+// Compile to Manifold
+const compiler = new Compiler(M);
+const manifold = compiler.compile(part.getNode());
 ```
 
-**Correct approach** (ensures connectivity):
-```javascript
-// 1. Start with solid outer shape
-var solid = outerBox
-// 2. Add internal features while still solid
-solid = solid.add(post1).add(post2).add(rib)
-// 3. THEN carve out the hollow
-var shell = solid.subtract(innerCavity)
-```
-
-**Why this matters:** When you subtract a cavity first, internal features added later sit in empty space with no volumetric overlap to the shell walls or floor.
+Key features:
+- **Semantic anchors:** `top`, `bottom`, `left`, `right`, `front`, `back`, `center`, corners
+- **Alignment modes:** `mate` (face-to-face), `flush` (parallel)
+- **No memory management:** Compiler handles `.delete()` internally
+- **Validation:** Use `Validator` to check for thin walls
 
 ## Creation Process
 
