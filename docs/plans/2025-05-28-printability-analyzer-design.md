@@ -2,54 +2,177 @@
 
 ## Overview
 
-A CLI tool that analyzes generated 3D geometry for FDM printability issues, providing actionable feedback during generator development. The LLM calls this tool while iterating on generator code to catch issues early.
+A CLI tool that functions as a **geometry unit test** for generated 3D models. Designed for agent-driven development loops where Claude Code iterates on generator code until all printability checks pass.
+
+**Design Philosophy:** This is a CI/CD pipeline step, not a human debugging tool. Output is JSON-only, optimized for LLM context windows and direct code correlation.
 
 ## CLI Interface
 
 ```bash
-# Analyze registered generator with default params
+# Standard analysis (JSON output only)
 npm run analyze:print v8-engine
 
 # With custom parameters
 npm run analyze:print v8-engine -- --bore=50 --wallThickness=1.0
 
-# JSON output for programmatic use
-npm run analyze:print v8-engine --json
-
-# Specify print orientation (default: Z-up)
-npm run analyze:print v8-engine --orientation=Y-up
+# Isolate analysis to a specific region (debugging complex parts)
+npm run analyze:print v8-engine --isolate-region="10,20,-5,5,0,10"
 ```
 
-### Output Example (human-readable)
+## Output Schema
 
+All output is a single JSON object. No ASCII art, no human-readable descriptions.
+
+```typescript
+interface AnalysisResult {
+  status: 'PASS' | 'FAIL' | 'ERROR'
+
+  // Global geometry stats for scale understanding
+  stats: {
+    volume: number              // mm³
+    surfaceArea: number         // mm²
+    bbox: {
+      min: [number, number, number]  // [x, y, z]
+      max: [number, number, number]
+    }
+    centerOfMass: [number, number, number]
+    triangleCount: number
+  }
+
+  // Issues grouped by type (reduces repeated keys, saves tokens)
+  issues: {
+    thinWalls: ThinWallIssue[]
+    smallFeatures: SmallFeatureIssue[]
+    disconnected: DisconnectedIssue[]
+  }
+
+  // Heuristic parameter-to-issue mapping
+  parameterCorrelations: ParameterCorrelation[]
+
+  // Only present if status === 'ERROR'
+  error?: {
+    type: 'GEOMETRY_CRASH' | 'INVALID_INPUT' | 'TIMEOUT' | 'INTERNAL'
+    message: string
+    recoverable: boolean
+  }
+}
 ```
-Printability Analysis: V8 Engine Block
-Parameters: bore=50, wallThickness=1.0, ...
-═══════════════════════════════════════════════════════════
 
-CRITICAL ISSUES (2)
-───────────────────────────────────────────────────────────
-✗ THIN WALL: 0.95mm (min: 1.2mm)
-  Location: bottom-center, X: -5 to 5mm, Y: 40-60mm, Z: 0-3mm
-  Likely cause: wallThickness=1.0 insufficient for cylinder spacing
+### Issue Types
 
-✗ OVERHANG: 58° (max: 45°)
-  Location: front-left, oil pan transition area
-  Region: X: -30 to -20mm, Y: -50 to -40mm, Z: 5-15mm
+```typescript
+interface ThinWallIssue {
+  measured: number           // Actual thickness in mm
+  required: number           // Minimum required (from constants)
+  bbox: BBox                 // Exact coordinates
+  axisAlignment: 'X' | 'Y' | 'Z' | 'None'  // Helps identify cube() vs cylinder()
+  estimatedVolume: number    // mm³ - size of the thin region
+}
 
-WARNINGS (1)
-───────────────────────────────────────────────────────────
-⚠ SMALL FEATURE: 1.2mm detail may not print reliably (min: 1.5mm)
-  Location: rear, flywheel bolt bosses
+interface SmallFeatureIssue {
+  size: number               // Smallest dimension in mm
+  required: number           // Minimum for reliable printing
+  bbox: BBox
+  axisAlignment: 'X' | 'Y' | 'Z' | 'None'
+}
 
-PASSED (3)
-───────────────────────────────────────────────────────────
-✓ Manifold valid (watertight)
-✓ Single connected component
-✓ Flat bottom surface for bed adhesion
+interface DisconnectedIssue {
+  componentCount: number     // Total disconnected parts
+  components: Array<{
+    volume: number
+    bbox: BBox
+    isFloating: boolean      // Not touching bed
+  }>
+}
 
-Summary: 2 critical, 1 warning — NOT PRINT-READY
+interface BBox {
+  min: [number, number, number]
+  max: [number, number, number]
+}
 ```
+
+### Parameter Correlation
+
+```typescript
+interface ParameterCorrelation {
+  parameterName: string
+  currentValue: number
+  correlatedIssueCount: number
+  correlatedIssueTypes: string[]  // e.g., ['thinWalls', 'smallFeatures']
+  suggestion: {
+    action: 'increase' | 'decrease'
+    targetValue: number
+    confidence: 'high' | 'medium' | 'low'
+    reasoning: string  // Brief explanation for agent context
+  }
+}
+```
+
+## Example Output
+
+```json
+{
+  "status": "FAIL",
+  "stats": {
+    "volume": 12450.5,
+    "surfaceArea": 3200.8,
+    "bbox": { "min": [-25, -30, 0], "max": [25, 30, 45] },
+    "centerOfMass": [0.5, -2.1, 22.3],
+    "triangleCount": 4820
+  },
+  "issues": {
+    "thinWalls": [
+      {
+        "measured": 0.95,
+        "required": 1.2,
+        "bbox": { "min": [-5, 40, 0], "max": [5, 60, 3] },
+        "axisAlignment": "Z",
+        "estimatedVolume": 28.5
+      }
+    ],
+    "smallFeatures": [],
+    "disconnected": null
+  },
+  "parameterCorrelations": [
+    {
+      "parameterName": "wallThickness",
+      "currentValue": 1.0,
+      "correlatedIssueCount": 1,
+      "correlatedIssueTypes": ["thinWalls"],
+      "suggestion": {
+        "action": "increase",
+        "targetValue": 1.3,
+        "confidence": "high",
+        "reasoning": "Wall at Z:0-3 measures 0.95mm, parameter controls wall generation"
+      }
+    }
+  ]
+}
+```
+
+## Error Handling
+
+The tool must **never** output a stack trace. All failures return valid JSON.
+
+```json
+{
+  "status": "ERROR",
+  "stats": null,
+  "issues": null,
+  "parameterCorrelations": null,
+  "error": {
+    "type": "GEOMETRY_CRASH",
+    "message": "Boolean operation failed. Likely coplanar faces or self-intersection in region X:10-15",
+    "recoverable": false
+  }
+}
+```
+
+Error types:
+- `GEOMETRY_CRASH`: Manifold operation failed (non-manifold input, coplanar faces)
+- `INVALID_INPUT`: Generator not found, invalid parameters
+- `TIMEOUT`: Analysis exceeded time limit
+- `INTERNAL`: Unexpected error (should be rare)
 
 ## Architecture
 
@@ -57,263 +180,198 @@ Summary: 2 critical, 1 warning — NOT PRINT-READY
 
 ```
 scripts/
-  analyze-print.ts        # CLI entry point (runs with tsx)
+  analyze-print.ts           # CLI entry point
 src/
   analysis/
-    printabilityAnalyzer.ts   # Main orchestrator
+    printabilityAnalyzer.ts  # Main orchestrator
     checks/
-      manifoldValidity.ts     # Watertight, genus checks
-      connectivity.ts         # Disconnected parts detection
-      thinWalls.ts           # Wall thickness analysis
-      smallFeatures.ts       # Feature size detection
-      overhangs.ts           # Overhang angle analysis
-      bedContact.ts          # Flat bottom surface check
-    types.ts                 # Issue types, report structure
-    locationDescriber.ts     # Converts coords to descriptions
-    parameterCorrelator.ts   # Suggests likely parameter causes
+      manifoldValidity.ts    # Watertight checks
+      connectivity.ts        # Disconnected parts
+      thinWalls.ts          # Wall thickness
+      smallFeatures.ts      # Feature size
+    types.ts                # All TypeScript interfaces
+    featureAlignment.ts     # Detect axis-aligned features
+    parameterCorrelator.ts  # Map issues to parameters
+    outputFormatter.ts      # JSON serialization (deterministic)
 ```
 
-### Analysis Pipeline
+### Key Design Principles
 
-```
-Generator + Params
-       ↓
-   Build Manifold (reuse existing worker code)
-       ↓
-   Run Analysis Checks (parallel where possible)
-       ↓
-   Aggregate Issues
-       ↓
-   Enrich with locations & parameter hints
-       ↓
-   Format Output (text or JSON)
-```
+1. **Reliability > Speed**: False positives cause agent regressions. Algorithms are conservative.
 
-### Key Design Decisions
+2. **Deterministic Output**: Issues are sorted by coordinate (X, then Y, then Z). Same input always produces identical output.
 
-1. **Reuse manifold worker logic** — The CLI imports the same builder execution that the app uses, ensuring consistency
-2. **Checks are modular** — Each check is a separate function returning `Issue[]`, easy to add new checks later
-3. **Parallel execution** — Checks that don't depend on each other run concurrently
-4. **Threshold configuration** — Uses constants from `printingConstants.ts` (MIN_WALL_THICKNESS, etc.)
+3. **Crash Safety**: All Manifold operations wrapped in try-catch. Errors become JSON responses.
+
+4. **Token Efficiency**:
+   - Group issues by type (no repeated `type` keys)
+   - Use arrays not objects where possible
+   - Omit null/empty fields where schema allows
+
+5. **Code Correlation**: Output includes data that maps directly to code:
+   - `axisAlignment` → helps identify `cube()` vs `cylinder()` calls
+   - `normal` vectors → reveals face orientation
+   - Exact `bbox` coordinates → correlate with `translate()` calls
 
 ## Analysis Algorithms
 
 ### Thin Wall Detection
 
-Uses Manifold's `offset()` to detect walls thinner than the minimum:
-
 ```typescript
 function detectThinWalls(manifold: Manifold, minThickness: number): ThinWallIssue[] {
-  // Erode by half the minimum thickness
-  const eroded = manifold.offset(-minThickness / 2, /* circular */ true)
-
-  // If erosion causes volume to drop significantly or decompose,
-  // there are thin sections
+  // Step 1: Quick volume check (cheap)
+  const eroded = manifold.offset(-minThickness / 2, true)
   const originalVolume = manifold.volume()
   const erodedVolume = eroded.volume()
 
-  if (erodedVolume < originalVolume * 0.99) {
-    // Find WHERE by comparing the two meshes
-    // Regions that disappeared = thin walls
-    const thinRegions = findDisappearedRegions(manifold, eroded)
-    return thinRegions.map(region => ({
-      type: 'thin-wall',
-      severity: 'critical',
-      measuredThickness: estimateThickness(region),
-      boundingBox: region.bbox,
-      // ...
-    }))
-  }
-  return []
-}
-```
-
-### Overhang Detection
-
-Analyze face normals relative to print direction:
-
-```typescript
-function detectOverhangs(mesh: Mesh, maxAngle: number = 45): OverhangIssue[] {
-  const issues: OverhangIssue[] = []
-  const downVector = [0, 0, -1]
-
-  for (const triangle of mesh.triangles) {
-    const normal = computeNormal(triangle)
-    // Angle from vertical (Z-down)
-    const angle = Math.acos(dotProduct(normal, downVector)) * 180 / Math.PI
-
-    if (normal[2] < 0 && angle < (90 - maxAngle)) {
-      // This face points downward at a steep angle
-      issues.push({
-        type: 'overhang',
-        angle: 90 - angle,
-        centroid: triangleCentroid(triangle),
-        // ...
-      })
-    }
+  if (erodedVolume >= originalVolume * 0.99) {
+    eroded.delete()
+    return []
   }
 
-  // Cluster adjacent faces into regions
-  return clusterIssues(issues)
+  // Step 2: Boolean difference to locate thin regions
+  const thinParts = manifold.subtract(eroded)
+  eroded.delete()
+
+  // Step 3: Decompose and analyze each region
+  const regions = thinParts.decompose()
+
+  return regions
+    .map(region => {
+      const bbox = region.boundingBox()
+      return {
+        measured: estimateThickness(region),
+        required: minThickness,
+        bbox: { min: bbox.min, max: bbox.max },
+        axisAlignment: detectAxisAlignment(bbox),
+        estimatedVolume: region.volume(),
+      }
+    })
+    .sort(sortByCoordinate)  // Deterministic ordering
+}
+
+function detectAxisAlignment(bbox: BBox): 'X' | 'Y' | 'Z' | 'None' {
+  const dims = [
+    bbox.max[0] - bbox.min[0],
+    bbox.max[1] - bbox.min[1],
+    bbox.max[2] - bbox.min[2],
+  ]
+  const minDim = Math.min(...dims)
+  const maxDim = Math.max(...dims)
+
+  // If one dimension is much smaller than others, it's aligned to that axis
+  if (minDim < maxDim * 0.2) {
+    const idx = dims.indexOf(minDim)
+    return ['X', 'Y', 'Z'][idx] as 'X' | 'Y' | 'Z'
+  }
+  return 'None'
 }
 ```
 
-### Small Feature Detection
-
-Similar erosion approach — features that vanish under small erosion are too small to print reliably.
-
-## Location Description
-
-Converts raw coordinates into human-readable descriptions:
+### Parameter Correlation
 
 ```typescript
-function describeLocation(bbox: BoundingBox, modelBbox: BoundingBox): string {
-  const center = getCentroid(bbox)
-  const modelCenter = getCentroid(modelBbox)
-
-  const parts: string[] = []
-
-  // Vertical position
-  const zRatio = (center[2] - modelBbox.min[2]) / (modelBbox.max[2] - modelBbox.min[2])
-  if (zRatio < 0.33) parts.push('bottom')
-  else if (zRatio > 0.66) parts.push('top')
-  else parts.push('middle')
-
-  // Front/back (Y axis)
-  const yRatio = (center[1] - modelBbox.min[1]) / (modelBbox.max[1] - modelBbox.min[1])
-  if (yRatio < 0.33) parts.push('front')
-  else if (yRatio > 0.66) parts.push('rear')
-
-  // Left/right (X axis)
-  if (center[0] < modelCenter[0] - tolerance) parts.push('left')
-  else if (center[0] > modelCenter[0] + tolerance) parts.push('right')
-  else parts.push('center')
-
-  return parts.join('-')  // e.g., "bottom-front-left"
-}
-```
-
-## Parameter Correlation
-
-Suggests which parameters might cause an issue:
-
-```typescript
-function correlateToParameters(
-  issue: Issue,
+function correlateParameters(
+  issues: AllIssues,
   params: ParameterDef[],
-  values: ParameterValues
-): ParameterHint[] {
-  const hints: ParameterHint[] = []
+  values: Record<string, number>
+): ParameterCorrelation[] {
+  const correlations: ParameterCorrelation[] = []
 
-  if (issue.type === 'thin-wall') {
-    // Look for thickness-related parameters
+  // Thin wall correlation
+  if (issues.thinWalls.length > 0) {
     const thicknessParams = params.filter(p =>
       p.name.includes('thickness') ||
       p.name.includes('wall') ||
-      p.description?.toLowerCase().includes('thickness')
+      p.name.includes('Width')
     )
-    for (const p of thicknessParams) {
-      if (values[p.name] < MIN_WALL_THICKNESS * 1.5) {
-        hints.push({
-          param: p.name,
-          currentValue: values[p.name],
-          suggestion: `Increase to at least ${MIN_WALL_THICKNESS}mm`,
-          confidence: 'high'
+
+    for (const param of thicknessParams) {
+      const currentVal = values[param.name]
+      if (currentVal < MIN_WALL_THICKNESS * 1.2) {
+        correlations.push({
+          parameterName: param.name,
+          currentValue: currentVal,
+          correlatedIssueCount: issues.thinWalls.length,
+          correlatedIssueTypes: ['thinWalls'],
+          suggestion: {
+            action: 'increase',
+            targetValue: Math.ceil(MIN_WALL_THICKNESS * 1.1 * 10) / 10,
+            confidence: 'high',
+            reasoning: `Current ${currentVal}mm below minimum ${MIN_WALL_THICKNESS}mm`,
+          },
         })
       }
     }
   }
 
-  if (issue.type === 'overhang') {
-    // Look for angle-related parameters
-    const angleParams = params.filter(p =>
-      p.name.includes('angle') || p.unit === '°'
-    )
-    // Suggest reducing angles that might cause overhangs
-  }
-
-  return hints
+  // Sort by correlation count (most impactful first)
+  return correlations.sort((a, b) => b.correlatedIssueCount - a.correlatedIssueCount)
 }
 ```
 
-## Data Types
+## Agent Workflow Integration
 
-```typescript
-// src/analysis/types.ts
+The tool is designed for iterative loops:
 
-type IssueSeverity = 'critical' | 'warning' | 'info'
-type IssueType = 'thin-wall' | 'overhang' | 'small-feature' |
-                 'disconnected' | 'non-manifold' | 'no-bed-contact'
+```
+┌─────────────────────────────────────────────────────────┐
+│  Agent generates/modifies generator code                │
+│                        ↓                                │
+│  npm run analyze:print <generator> → JSON               │
+│                        ↓                                │
+│  status === 'PASS' ?                                    │
+│     YES → Done                                          │
+│     NO  → Read parameterCorrelations                    │
+│           Apply suggested fixes                         │
+│           Loop back to analyze                          │
+└─────────────────────────────────────────────────────────┘
+```
 
-interface Issue {
-  type: IssueType
-  severity: IssueSeverity
-  message: string
-  location: {
-    description: string      // "bottom-front-left"
-    boundingBox: BoundingBox // exact coords
-  }
-  details: Record<string, number | string>  // type-specific data
-  parameterHints: ParameterHint[]
-}
+### Debugging Complex Parts
 
-interface ParameterHint {
-  param: string
-  currentValue: number | string
-  suggestion: string
-  confidence: 'high' | 'medium' | 'low'
-}
+Use `--isolate-region` to focus analysis:
 
-interface PrintabilityReport {
-  generator: string
-  parameters: ParameterValues
-  timestamp: string
-  issues: Issue[]
-  passed: string[]           // names of checks that passed
-  summary: {
-    critical: number
-    warnings: number
-    printReady: boolean
-  }
-}
+```bash
+# Agent reasoning: "Issues seem concentrated in the upper section"
+npm run analyze:print engine --isolate-region="0,50,0,50,30,60"
 ```
 
 ## Testing Strategy
 
-1. **Unit tests for each check** — Test with known-problematic geometry
-2. **Integration tests** — Run against existing generators at edge-case params
-3. **Snapshot tests** — Ensure analysis output is stable
-4. **False-positive tests** — Verify good geometry doesn't trigger warnings
+1. **Determinism tests**: Same input → identical JSON output (byte-for-byte)
+2. **False positive tests**: Valid geometry must return `status: 'PASS'`
+3. **Error handling tests**: Invalid inputs return proper error JSON, never crash
+4. **Correlation accuracy tests**: Known parameter issues correctly identified
 
 ```typescript
-// Example test
-describe('thinWalls', () => {
-  it('detects wall below minimum thickness', async () => {
-    const thinBox = M.Manifold.cube([10, 10, 5]).subtract(
-      M.Manifold.cube([9, 9, 5]).translate([0.5, 0.5, 0])  // 0.5mm walls
-    )
-    const issues = detectThinWalls(thinBox, 1.2)
-    expect(issues).toHaveLength(4)  // 4 thin walls
-    expect(issues[0].severity).toBe('critical')
+describe('determinism', () => {
+  it('produces identical output for identical input', () => {
+    const result1 = analyze('test-cube', { size: 10 })
+    const result2 = analyze('test-cube', { size: 10 })
+    expect(JSON.stringify(result1)).toBe(JSON.stringify(result2))
   })
+})
 
-  it('passes geometry with adequate walls', async () => {
-    const thickBox = M.Manifold.cube([10, 10, 5]).subtract(
-      M.Manifold.cube([6, 6, 5]).translate([2, 2, 0])  // 2mm walls
-    )
-    const issues = detectThinWalls(thickBox, 1.2)
-    expect(issues).toHaveLength(0)
+describe('error handling', () => {
+  it('returns JSON for geometry crashes', () => {
+    // Self-intersecting geometry
+    const result = analyze('broken-geometry', {})
+    expect(result.status).toBe('ERROR')
+    expect(result.error?.type).toBe('GEOMETRY_CRASH')
+    expect(() => JSON.parse(JSON.stringify(result))).not.toThrow()
   })
 })
 ```
 
-## Checks Summary
+## Implementation Priorities
 
-| Check | Difficulty | Method |
-|-------|------------|--------|
-| Disconnected parts | Easy | `manifold.decompose()` |
-| Manifold validity | Easy | Already enforced by library |
-| Overhang angles | Medium | Analyze face normals vs Z-axis |
-| Flat bottom for bed | Medium | Check minZ faces |
-| Thin walls | Hard | Erosion via `offset()` + region comparison |
-| Small features | Hard | Erosion-based detection |
+| Priority | Item | Rationale |
+|----------|------|-----------|
+| P0 | Crash safety | Agent can't recover from stack traces |
+| P0 | Deterministic output | Non-determinism confuses agent loops |
+| P1 | Thin wall detection | Most common printability issue |
+| P1 | Disconnected component detection | Floating parts won't print |
+| P1 | Parameter correlation | Enables automated fixes |
+| P2 | Small feature detection | Features below print resolution |
+| P2 | --isolate-region | Debugging complex parts |
