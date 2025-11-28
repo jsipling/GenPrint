@@ -75,6 +75,8 @@ Every triangle in the exported STL should contribute to the visible surface of t
 
 All geometry must be optimized for FDM 3D printing:
 
+- **Flat base required:** The model must have a flat surface on the bottom (Z=0) to sit on the print bed. No floating geometry—all parts must connect to the base.
+- **No overhangs without support:** Avoid geometry that floats in mid-air or hangs below Z=0. Every part of the model must be reachable from the build plate.
 - **Minimum wall thickness:** 1.2mm (never below for structural parts)
 - **Corner segments:** 8 per 90° arc for 4mm radius (~0.03mm deviation)
 - **Small features:** Minimum 1.5mm for reliable printing

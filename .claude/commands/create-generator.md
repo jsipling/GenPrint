@@ -22,6 +22,8 @@ This app generates models for 3D printing. **Only create geometry that is visibl
 
 ### 3D Printing Constraints
 
+- **Flat base required:** Model must have a flat bottom surface at Z=0 to sit on the print bed
+- **No floating geometry:** All parts must connect to the base—no mid-air or disconnected sections
 - Minimum wall thickness: 1.2mm
 - Minimum small features: 1.5mm
 - All geometry must be connected (single piece)
