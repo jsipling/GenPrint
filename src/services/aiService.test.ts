@@ -4,6 +4,13 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { createAiService } from './aiService'
 import type { ImageGenerationRequest } from './types'
 
+// Mock the image compression utility
+vi.mock('../utils/imageCompression', () => ({
+  compressSketchImage: vi.fn().mockResolvedValue(
+    'data:image/jpeg;base64,/9j/compressed=='
+  )
+}))
+
 // Mock the openai module
 vi.mock('openai', () => {
   const mockImageGenerate = vi.fn().mockResolvedValue({

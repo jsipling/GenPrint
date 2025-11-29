@@ -5,6 +5,7 @@ import type {
   ImageGenerationResponse,
   GenerationError
 } from './types'
+import { compressSketchImage } from '../utils/imageCompression'
 
 class AiGenerationError extends Error implements GenerationError {
   constructor(
@@ -84,8 +85,19 @@ export function createOpenAiService(apiKey: string): ImageGenerationService {
       let response
 
       if (sketchDataUrl) {
+        // Compress sketch for reduced latency and cost
+        const compressedSketch = await compressSketchImage(sketchDataUrl)
+
+        if (import.meta.env.DEV) {
+          console.log('[OpenAI] Sketch compression:', {
+            original: `${Math.round(sketchDataUrl.length / 1024)}KB`,
+            compressed: `${Math.round(compressedSketch.length / 1024)}KB`,
+            reduction: `${Math.round((1 - compressedSketch.length / sketchDataUrl.length) * 100)}%`
+          })
+        }
+
         // Use images.edit to include the sketch as input
-        const sketchFile = dataUrlToFile(sketchDataUrl, 'sketch.png')
+        const sketchFile = dataUrlToFile(compressedSketch, 'sketch.jpg')
         response = await openai.images.edit({
           model: 'gpt-image-1-mini',
           image: sketchFile,

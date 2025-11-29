@@ -7,6 +7,17 @@ import type {
   GeometryAnalysis
 } from './imageToGeometryTypes'
 
+// Mock the image compression utility
+vi.mock('../utils/imageCompression', () => ({
+  compressSketchImage: vi.fn().mockResolvedValue(
+    'data:image/jpeg;base64,/9j/compressed=='
+  ),
+  parseDataUrl: vi.fn().mockReturnValue({
+    mimeType: 'image/jpeg',
+    data: '/9j/compressed=='
+  })
+}))
+
 // Valid mock response matching GeometryAnalysis structure
 const mockValidAnalysis: GeometryAnalysis = {
   description: 'A simple cube with configurable dimensions',

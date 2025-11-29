@@ -6,6 +6,7 @@ import type {
   GeometryAnalysis
 } from './imageToGeometryTypes'
 import { BUILDER_RESERVED_CONSTANTS } from '../generators/manifold/printingConstants'
+import { compressSketchImage, parseDataUrl } from '../utils/imageCompression'
 
 // Build the list of all reserved variable names for builder code
 // These are passed as function parameters and must not be redeclared
@@ -135,20 +136,6 @@ return existingModel.add(newFeature);
 }
 
 /**
- * Parse data URL to extract base64 data and mime type.
- */
-function parseDataUrl(dataUrl: string): { data: string; mimeType: string } {
-  const matches = dataUrl.match(/^data:([^;]+);base64,(.+)$/)
-  if (!matches) {
-    throw new Error('Invalid data URL format')
-  }
-  return {
-    mimeType: matches[1] ?? 'image/png',
-    data: matches[2] ?? ''
-  }
-}
-
-/**
  * Validate that the analysis response contains all required fields.
  */
 function validateAnalysis(data: unknown): data is GeometryAnalysis {
@@ -258,8 +245,19 @@ export function createImageToGeometryService(apiKey: string): ImageToGeometrySer
     | { success: true; analysis: GeometryAnalysis }
     | { success: false; error: string; isCodeValidationError?: boolean }
   > {
-    // Parse the image data URL
-    const { data, mimeType } = parseDataUrl(request.imageDataUrl)
+    // Compress image for reduced latency and cost
+    const compressedImage = await compressSketchImage(request.imageDataUrl)
+
+    if (import.meta.env.DEV) {
+      console.log('[Gemini 3 Pro Preview] Image compression:', {
+        original: `${Math.round(request.imageDataUrl.length / 1024)}KB`,
+        compressed: `${Math.round(compressedImage.length / 1024)}KB`,
+        reduction: `${Math.round((1 - compressedImage.length / request.imageDataUrl.length) * 100)}%`
+      })
+    }
+
+    // Parse the compressed image data URL
+    const { data, mimeType } = parseDataUrl(compressedImage)
 
     // Build the full prompt with user context, optional model context, and error context
     const modelContext = buildCurrentModelContext(request)
@@ -273,7 +271,7 @@ export function createImageToGeometryService(apiKey: string): ImageToGeometrySer
         userPrompt: request.prompt,
         hasCurrentModel: !!request.currentBuilderCode,
         currentModelName: request.currentModelName ?? 'N/A',
-        imageSize: `${Math.round(request.imageDataUrl.length / 1024)}KB`,
+        imageSizeSent: `${Math.round(compressedImage.length / 1024)}KB`,
         fullPromptLength: `${fullPrompt.length} chars`,
         isRetry: !!previousError
       })
@@ -303,6 +301,24 @@ export function createImageToGeometryService(apiKey: string): ImageToGeometrySer
         }
       ]
     })
+
+    // Log response metadata with cost calculation
+    // Gemini 3 Pro Preview pricing: $2/1M input tokens, $12/1M output tokens
+    if (import.meta.env.DEV) {
+      const promptTokens = response?.usageMetadata?.promptTokenCount ?? 0
+      const responseTokens = response?.usageMetadata?.candidatesTokenCount ?? 0
+      const inputCost = (promptTokens / 1_000_000) * 2.0
+      const outputCost = (responseTokens / 1_000_000) * 12.0
+      const totalCost = inputCost + outputCost
+
+      console.log('[Gemini 3 Pro Preview] Response metadata:', {
+        promptTokens,
+        responseTokens,
+        totalTokens: response?.usageMetadata?.totalTokenCount,
+        responseLength: response?.text?.length ?? 0,
+        estimatedCost: `$${totalCost.toFixed(4)} (input: $${inputCost.toFixed(4)}, output: $${outputCost.toFixed(4)})`
+      })
+    }
 
     // Check for cancellation
     if (abortController?.signal.aborted) {

@@ -5,6 +5,7 @@ import type {
   ImageGenerationResponse,
   GenerationError
 } from './types'
+import { compressSketchImage, parseDataUrl } from '../utils/imageCompression'
 
 class AiGenerationError extends Error implements GenerationError {
   constructor(
@@ -28,26 +29,23 @@ export function createGoogleAiService(apiKey: string): ImageGenerationService {
   const genAI = new GoogleGenerativeAI(apiKey)
 
   /**
-   * Convert data URL to base64 string and extract mime type
-   */
-  function parseDataUrl(dataUrl: string): { data: string; mimeType: string } {
-    const matches = dataUrl.match(/^data:([^;]+);base64,(.+)$/)
-    if (!matches) {
-      throw new AiGenerationError('VALIDATION', 'Invalid data URL format', false)
-    }
-    return {
-      mimeType: matches[1] ?? 'image/png',
-      data: matches[2] ?? ''
-    }
-  }
-
-  /**
    * Analyze sketch using Gemini vision model
    */
   async function analyzeSketch(sketchDataUrl: string, userPrompt: string): Promise<string> {
     try {
+      // Compress sketch for reduced latency and cost
+      const compressedSketch = await compressSketchImage(sketchDataUrl)
+
+      if (import.meta.env.DEV) {
+        console.log('[Google AI] Sketch compression:', {
+          original: `${Math.round(sketchDataUrl.length / 1024)}KB`,
+          compressed: `${Math.round(compressedSketch.length / 1024)}KB`,
+          reduction: `${Math.round((1 - compressedSketch.length / sketchDataUrl.length) * 100)}%`
+        })
+      }
+
       const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' })
-      const { data, mimeType } = parseDataUrl(sketchDataUrl)
+      const { data, mimeType } = parseDataUrl(compressedSketch)
 
       const promptText = userPrompt
         ? `Analyze this sketch and describe it as a technical orthographic drawing. User says: ${userPrompt}`

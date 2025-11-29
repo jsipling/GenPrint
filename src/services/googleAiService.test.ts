@@ -4,6 +4,17 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { createGoogleAiService } from './googleAiService'
 import type { ImageGenerationRequest } from './types'
 
+// Mock the image compression utility
+vi.mock('../utils/imageCompression', () => ({
+  compressSketchImage: vi.fn().mockResolvedValue(
+    'data:image/jpeg;base64,/9j/compressed=='
+  ),
+  parseDataUrl: vi.fn().mockReturnValue({
+    mimeType: 'image/jpeg',
+    data: '/9j/compressed=='
+  })
+}))
+
 // Mock the @google/generative-ai module
 vi.mock('@google/generative-ai', () => {
   const mockGenerateContent = vi.fn().mockResolvedValue({
