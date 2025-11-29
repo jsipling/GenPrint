@@ -30,7 +30,7 @@ export function SketchToolbar({
   canUndo
 }: SketchToolbarProps) {
   return (
-    <div className="flex gap-2 mb-3">
+    <div className="flex flex-wrap gap-2 mb-3">
       {/* Drawing tools */}
       <div className="flex gap-1 p-1 bg-gray-700 rounded">
         {tools.map(({ tool, label, icon }) => (

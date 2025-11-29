@@ -49,7 +49,7 @@ export function SketchCanvas({ onExport }: SketchCanvasProps) {
         data-testid="sketch-canvas"
         width={400}
         height={400}
-        className="border-2 border-gray-600 rounded bg-white cursor-crosshair touch-none"
+        className="w-full border-2 border-gray-600 rounded bg-white cursor-crosshair touch-none"
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
