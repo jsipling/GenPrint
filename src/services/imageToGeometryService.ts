@@ -270,14 +270,12 @@ Please fix this error in your new response. Common issues:
 const MAX_RETRIES = 2
 
 // Map our model IDs to actual Google model names
-type GeometryModelId = 'gemini-3-pro-preview' | 'gemini-2.5-pro' | 'gemini-2.5-flash' | 'gemini-2.5-flash-lite'
+type GeometryModelId = 'gemini-3-pro-preview' | 'gemini-2.5-pro' | 'gemini-2.5-flash'
 
 function getGeometryModelName(modelId: GeometryModelId): string {
   switch (modelId) {
     case 'gemini-2.5-flash':
       return 'gemini-2.5-flash'
-    case 'gemini-2.5-flash-lite':
-      return 'gemini-2.5-flash-lite'
     case 'gemini-2.5-pro':
       return 'gemini-2.5-pro'
     case 'gemini-3-pro-preview':
@@ -290,9 +288,6 @@ function getGeometryModelName(modelId: GeometryModelId): string {
 // Source: https://ai.google.dev/pricing
 function getModelPricing(modelName: string): { input: number; output: number } {
   switch (modelName) {
-    case 'gemini-2.5-flash-lite':
-      // Gemini 2.5 Flash Lite: $0.075/1M input, $0.30/1M output
-      return { input: 0.075, output: 0.30 }
     case 'gemini-2.5-flash':
       // Gemini 2.5 Flash: $0.15/1M input, $0.60/1M output (<=200k context)
       return { input: 0.15, output: 0.60 }

@@ -27,8 +27,12 @@ export function ModelSelector({
     return false
   })
 
-  // Geometry models only need Google API key
-  const availableGeometryModels = hasGoogle ? GEOMETRY_MODELS : []
+  // Filter geometry models based on available API keys
+  const availableGeometryModels = GEOMETRY_MODELS.filter((model: GeometryModelOption) => {
+    if (model.provider === 'openai') return hasOpenAi
+    if (model.provider === 'google') return hasGoogle
+    return false
+  })
 
   return (
     <div className="space-y-3">
@@ -68,7 +72,7 @@ export function ModelSelector({
               </option>
             ))}
             {availableGeometryModels.length === 0 && (
-              <option value="">Google API key required</option>
+              <option value="">No API keys configured</option>
             )}
           </select>
         </div>

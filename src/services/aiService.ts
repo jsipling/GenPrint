@@ -68,19 +68,27 @@ export function createAiService(model?: SketchModel): ImageGenerationService {
 
 /**
  * Creates an image-to-geometry service for converting design images to 3D models.
- * Uses the specified Gemini model.
- * Returns null if no Google API key is configured.
+ * Returns null if no appropriate API key is configured.
  */
 export function createImageToGeometryAiService(model?: GeometryModel): ImageToGeometryService | null {
   const googleApiKey = import.meta.env.VITE_GOOGLE_AI_API_KEY as string | undefined
 
+  // If a specific model is requested, use the appropriate service
+  if (model && model.startsWith('gemini-') && googleApiKey?.trim()) {
+    if (import.meta.env.DEV) {
+      console.log(`[AI Service] Using Google ${model} for image-to-geometry`)
+    }
+    return createImageToGeometryService(googleApiKey, model as 'gemini-3-pro-preview' | 'gemini-2.5-pro' | 'gemini-2.5-flash')
+  }
+
+  // Default: use Google
   if (googleApiKey?.trim()) {
-    const modelToUse = model ?? 'gemini-3-pro-preview'
+    const modelToUse = 'gemini-3-pro-preview'
     if (import.meta.env.DEV) {
       console.log(`[AI Service] Using ${modelToUse} for image-to-geometry`)
     }
     return createImageToGeometryService(googleApiKey, modelToUse)
   }
 
-  return null  // No mock for this service - requires Google AI
+  return null  // No mock for this service - requires API key
 }

@@ -41,7 +41,6 @@ export type GeometryModel =
   | 'gemini-3-pro-preview'
   | 'gemini-2.5-pro'
   | 'gemini-2.5-flash'
-  | 'gemini-2.5-flash-lite'
 
 export interface SketchModelOption {
   id: SketchModel
@@ -52,6 +51,7 @@ export interface SketchModelOption {
 export interface GeometryModelOption {
   id: GeometryModel
   name: string
+  provider: 'openai' | 'google'
 }
 
 export const SKETCH_MODELS: SketchModelOption[] = [
@@ -61,8 +61,7 @@ export const SKETCH_MODELS: SketchModelOption[] = [
 ]
 
 export const GEOMETRY_MODELS: GeometryModelOption[] = [
-  { id: 'gemini-3-pro-preview', name: 'Gemini 3 Pro Preview' },
-  { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro' },
-  { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
-  { id: 'gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash Lite' }
+  { id: 'gemini-3-pro-preview', name: 'Gemini 3 Pro Preview', provider: 'google' },
+  { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', provider: 'google' },
+  { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', provider: 'google' }
 ]
