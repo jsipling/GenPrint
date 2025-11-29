@@ -39,6 +39,7 @@ export type SketchModel =
 
 // Available AI models for Apply to 3D Model
 export type GeometryModel =
+  | 'gemini-3-pro-preview'
   | 'gemini-2.5-pro-preview-06-05'
   | 'gemini-2.5-flash'
 
@@ -61,6 +62,7 @@ export const SKETCH_MODELS: SketchModelOption[] = [
 ]
 
 export const GEOMETRY_MODELS: GeometryModelOption[] = [
+  { id: 'gemini-3-pro-preview', name: 'Gemini 3 Pro Preview' },
   { id: 'gemini-2.5-pro-preview-06-05', name: 'Gemini 2.5 Pro' },
   { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' }
 ]

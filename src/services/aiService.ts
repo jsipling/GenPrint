@@ -75,7 +75,7 @@ export function createImageToGeometryAiService(model?: GeometryModel): ImageToGe
   const googleApiKey = import.meta.env.VITE_GOOGLE_AI_API_KEY as string | undefined
 
   if (googleApiKey?.trim()) {
-    const modelToUse = model ?? 'gemini-2.5-pro-preview-06-05'
+    const modelToUse = model ?? 'gemini-3-pro-preview'
     if (import.meta.env.DEV) {
       console.log(`[AI Service] Using ${modelToUse} for image-to-geometry`)
     }
