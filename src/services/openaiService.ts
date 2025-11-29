@@ -53,6 +53,19 @@ function getOpenAiModelName(modelId: OpenAiModelId): string {
   }
 }
 
+// Pricing per image at 1024x1024
+// Source: https://openai.com/api/pricing/
+// gpt-image-1-mini: low=$0.005, medium=$0.011, high=$0.036
+// gpt-image-1: low=$0.011, medium=$0.042, high=$0.167
+function getOpenAiImagePricing(modelName: string, quality: 'low' | 'medium' | 'high'): number {
+  const defaultPricing = { low: 0.005, medium: 0.011, high: 0.036 }
+  const pricing: Record<string, Record<'low' | 'medium' | 'high', number>> = {
+    'gpt-image-1-mini': defaultPricing,
+    'gpt-image-1': { low: 0.011, medium: 0.042, high: 0.167 }
+  }
+  return (pricing[modelName] ?? defaultPricing)[quality]
+}
+
 /**
  * OpenAI service implementation for image generation.
  * Uses images.edit when sketch is provided, images.generate for text-only.
@@ -128,6 +141,18 @@ export function createOpenAiService(apiKey: string, modelId: OpenAiModelId = 'op
           size: '1024x1024',
           quality: 'low',
           n: 1
+        })
+      }
+
+      // Log response metadata with cost calculation
+      if (import.meta.env.DEV) {
+        const imageCost = getOpenAiImagePricing(modelName, 'low')
+        console.log(`[${modelName}] Response metadata:`, {
+          model: modelName,
+          size: '1024x1024',
+          quality: 'low',
+          imagesGenerated: 1,
+          estimatedCost: `$${imageCost.toFixed(4)}`
         })
       }
 
