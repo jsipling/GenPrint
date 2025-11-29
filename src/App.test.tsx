@@ -59,6 +59,15 @@ vi.mock('./components/CompilerOutput', () => ({
   )
 }))
 
+vi.mock('./components/DesignPanel', () => ({
+  DesignPanel: ({ aiService }: { aiService: unknown }) => (
+    <div data-testid="design-panel">
+      <span data-testid="ai-service-present">{aiService ? 'true' : 'false'}</span>
+      Design Panel Mock
+    </div>
+  )
+}))
+
 // Mock useManifold hook
 const mockBuild = vi.fn()
 vi.mock('./hooks/useManifold', () => ({
@@ -145,6 +154,33 @@ describe('App', () => {
     // Should be able to download when mesh exists and status is ready
     const canDownload = screen.getByTestId('can-download')
     expect(canDownload.textContent).toBe('true')
+  })
+
+  it('renders DesignPanel component', async () => {
+    const App = (await import('./App')).default
+    render(<App />)
+
+    // DesignPanel should be rendered
+    expect(screen.getByTestId('design-panel')).toBeTruthy()
+  })
+
+  it('passes AI service to DesignPanel', async () => {
+    const App = (await import('./App')).default
+    render(<App />)
+
+    // AI service should be passed to DesignPanel
+    const aiServicePresent = screen.getByTestId('ai-service-present')
+    expect(aiServicePresent.textContent).toBe('true')
+  })
+
+  it('renders three-column layout with Sidebar, Viewer, and DesignPanel', async () => {
+    const App = (await import('./App')).default
+    render(<App />)
+
+    // All three main components should be present
+    expect(screen.getByTestId('sidebar')).toBeTruthy()
+    expect(screen.getByTestId('viewer')).toBeTruthy()
+    expect(screen.getByTestId('design-panel')).toBeTruthy()
   })
 })
 

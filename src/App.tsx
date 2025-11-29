@@ -1,12 +1,14 @@
-import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react'
+import { useState, useEffect, useRef, useCallback, lazy, Suspense, useMemo } from 'react'
 import { Sidebar } from './components/Sidebar'
 
 // Lazy load Viewer to code-split Three.js (~1MB) from initial bundle
 const Viewer = lazy(() => import('./components/Viewer').then(m => ({ default: m.Viewer })))
 import { CompilerOutput } from './components/CompilerOutput'
+import { DesignPanel } from './components/DesignPanel'
 import { useManifold } from './hooks/useManifold'
 import { generators, flattenParameters, type ParameterValues } from './generators'
 import { meshToStl } from './lib/meshToStl'
+import { createAiService } from './services/aiService'
 
 // No debounce - render immediately as settings change
 
@@ -70,6 +72,10 @@ export default function App() {
     return initialUrlState.params ? { ...defaults, ...initialUrlState.params } : defaults
   })
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [designPanelOpen, setDesignPanelOpen] = useState(false)
+
+  // Create AI service instance (memoized to avoid recreating on every render)
+  const aiService = useMemo(() => createAiService(), [])
 
   // Update URL when state changes
   useEffect(() => {
@@ -256,10 +262,10 @@ export default function App() {
 
   return (
     <div className="flex h-screen relative">
-      {/* Mobile menu button */}
+      {/* Mobile menu button - left (Sidebar) */}
       <button
         onClick={() => setSidebarOpen(true)}
-        className="md:hidden fixed top-4 left-4 z-40 p-2 bg-gray-800 rounded-lg shadow-lg"
+        className="lg:hidden fixed top-4 left-4 z-40 p-2 bg-gray-800 rounded-lg shadow-lg"
         aria-label="Open menu"
       >
         <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -267,19 +273,33 @@ export default function App() {
         </svg>
       </button>
 
+      {/* Mobile menu button - right (DesignPanel) */}
+      <button
+        onClick={() => setDesignPanelOpen(true)}
+        className="lg:hidden fixed top-4 right-4 z-40 p-2 bg-gray-800 rounded-lg shadow-lg"
+        aria-label="Open design panel"
+      >
+        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+        </svg>
+      </button>
+
       {/* Mobile backdrop */}
-      {sidebarOpen && (
+      {(sidebarOpen || designPanelOpen) && (
         <div
-          className="md:hidden fixed inset-0 bg-black/50 z-40"
-          onClick={() => setSidebarOpen(false)}
+          className="lg:hidden fixed inset-0 bg-black/50 z-40"
+          onClick={() => {
+            setSidebarOpen(false)
+            setDesignPanelOpen(false)
+          }}
         />
       )}
 
       {/* Sidebar - hidden on mobile unless open */}
       <div className={`
-        fixed md:relative inset-y-0 left-0 z-50
+        fixed lg:relative inset-y-0 left-0 z-50
         transform transition-transform duration-200 ease-in-out
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
         <Sidebar
           generators={generators}
@@ -293,6 +313,7 @@ export default function App() {
         />
       </div>
 
+      {/* Main content - Viewer */}
       <main className="flex-1 flex flex-col">
         <div className="flex-1 min-h-0">
           <Suspense fallback={
@@ -317,6 +338,16 @@ export default function App() {
           error={error}
         />
       </main>
+
+      {/* DesignPanel - hidden on mobile unless open, always visible on desktop */}
+      <div className={`
+        ${designPanelOpen ? 'block' : 'hidden'} lg:block
+        fixed lg:relative inset-y-0 right-0 z-50
+        transform transition-transform duration-200 ease-in-out
+        ${designPanelOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'}
+      `}>
+        <DesignPanel aiService={aiService} />
+      </div>
     </div>
   )
 }

@@ -143,3 +143,12 @@ html, body, #root {
   color: white;
   padding: 0.5rem;
 }
+
+/* Custom canvas styling for sketch canvas */
+canvas[data-testid="sketch-canvas"] {
+  touch-action: none; /* Prevent default touch behavior */
+  user-select: none; /* Prevent text selection while drawing */
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
