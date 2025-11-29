@@ -94,7 +94,9 @@ Your code must NOT use ${RESERVED_VARIABLES.map(v => `\`const ${v}\``).join(', '
 If you're provided with an existing model's code, analyze the user's intent:
 
 MODIFICATION INTENT (when user says things like "add", "put on", "attach", "modify", "on top of", "to the side"):
-- Your builderCode should execute the existing model's code first, then add your new geometry
+- Your builderCode should execute the existing model's code first, then add your new geometry as a SEPARATE PART
+- Keep existing parts separate - spread them with ...existingParts and add new parts to the array
+- This preserves hover highlighting for each distinct part
 - Include the existing model's parameters in your parameters array
 - Use the provided existing model code as an IIFE to get the base model
 
@@ -156,7 +158,8 @@ function buildCurrentModelContext(request: ImageToGeometryRequest): string {
 Current model: "${request.currentModelName}"
 Current parameters: ${JSON.stringify(request.currentParams ?? {})}
 
-To include the existing model in your design, use this pattern:
+**IMPORTANT:** Always preserve existing parts as separate items to maintain hover highlighting. Add new features as additional parts in the array.
+
 \`\`\`javascript
 // Build the existing model (returns array of parts)
 const existingParts = (function() { ${request.currentBuilderCode} })();
@@ -164,22 +167,14 @@ const existingParts = (function() { ${request.currentBuilderCode} })();
 // Create your new geometry
 const newFeature = M.Manifold.cube([10, 10, 5], true).translate([0, 0, 25]);
 
-// Return all parts including the new one
+// Return all existing parts PLUS the new one as a separate part
 return [
   ...existingParts,
   { name: 'New Feature', manifold: newFeature }
 ];
 \`\`\`
 
-Or to combine into a single part:
-\`\`\`javascript
-const existingParts = (function() { ${request.currentBuilderCode} })();
-const existingManifolds = existingParts.map(p => p.manifold);
-const combined = M.Manifold.union(existingManifolds);
-const newFeature = M.Manifold.cube([10, 10, 5], true).translate([0, 0, 25]);
-const final = combined.add(newFeature);
-return [{ name: 'Modified Model', manifold: final }];
-\`\`\`
+Do NOT merge parts together unless the user explicitly asks to combine/merge/fuse them into one piece.
 
 `
 }
