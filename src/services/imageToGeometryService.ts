@@ -284,6 +284,25 @@ function getGeometryModelName(modelId: GeometryModelId): string {
   }
 }
 
+// Model pricing per 1M tokens (USD)
+// Source: https://ai.google.dev/pricing
+function getModelPricing(modelName: string): { input: number; output: number } {
+  switch (modelName) {
+    case 'gemini-2.5-flash':
+      // Gemini 2.5 Flash: $0.15/1M input, $0.60/1M output (<=200k context)
+      return { input: 0.15, output: 0.60 }
+    case 'gemini-2.5-pro':
+      // Gemini 2.5 Pro: $1.25/1M input, $10.00/1M output (<=200k context)
+      return { input: 1.25, output: 10.00 }
+    case 'gemini-3-pro-preview':
+      // Gemini 3 Pro Preview: $2.00/1M input, $12.00/1M output
+      return { input: 2.00, output: 12.00 }
+    default:
+      // Default to Gemini 3 Pro Preview pricing
+      return { input: 2.00, output: 12.00 }
+  }
+}
+
 /**
  * Creates an ImageToGeometryService using Google's Gemini API.
  */
@@ -366,8 +385,11 @@ export function createImageToGeometryService(apiKey: string, modelId: GeometryMo
     if (import.meta.env.DEV) {
       const promptTokens = response?.usageMetadata?.promptTokenCount ?? 0
       const responseTokens = response?.usageMetadata?.candidatesTokenCount ?? 0
-      const inputCost = (promptTokens / 1_000_000) * 2.0
-      const outputCost = (responseTokens / 1_000_000) * 12.0
+
+      // Model-specific pricing per 1M tokens
+      const pricing = getModelPricing(modelName)
+      const inputCost = (promptTokens / 1_000_000) * pricing.input
+      const outputCost = (responseTokens / 1_000_000) * pricing.output
       const totalCost = inputCost + outputCost
 
       console.log(`[${modelName}] Response metadata:`, {
