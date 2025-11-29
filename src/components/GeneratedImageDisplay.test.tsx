@@ -1,11 +1,14 @@
 /** @vitest-environment jsdom */
 
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import { render, screen, cleanup } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { GeneratedImageDisplay } from './GeneratedImageDisplay'
 
 describe('GeneratedImageDisplay', () => {
+  afterEach(() => {
+    cleanup()
+  })
   it('shows empty state when no images', () => {
     render(
       <GeneratedImageDisplay
@@ -16,7 +19,7 @@ describe('GeneratedImageDisplay', () => {
       />
     )
 
-    expect(screen.getByText(/no images generated yet/i)).toBeTruthy()
+    expect(screen.getByTestId('empty-state')).toBeTruthy()
   })
 
   it('displays current image when images exist', () => {
@@ -34,7 +37,7 @@ describe('GeneratedImageDisplay', () => {
       />
     )
 
-    const img = screen.getByRole('img') as HTMLImageElement
+    const img = screen.getByTestId('generated-image') as HTMLImageElement
     expect(img.src).toBe('https://example.com/image1.png')
   })
 
@@ -53,7 +56,7 @@ describe('GeneratedImageDisplay', () => {
       />
     )
 
-    const img = screen.getByRole('img') as HTMLImageElement
+    const img = screen.getByTestId('generated-image') as HTMLImageElement
     expect(img.src).toBe('https://example.com/image2.png')
   })
 
@@ -68,7 +71,7 @@ describe('GeneratedImageDisplay', () => {
       />
     )
 
-    expect(screen.getByText(/generating image/i)).toBeTruthy()
+    expect(screen.getByTestId('loading-state')).toBeTruthy()
   })
 
   it('shows error state when error is provided', () => {
@@ -82,7 +85,8 @@ describe('GeneratedImageDisplay', () => {
       />
     )
 
-    expect(screen.getByText(/failed to generate image/i)).toBeTruthy()
+    expect(screen.getByTestId('error-state')).toBeTruthy()
+    expect(screen.getByTestId('error-message').textContent).toBe('Failed to generate image')
   })
 
   it('renders navigation controls when images exist', () => {
@@ -103,9 +107,9 @@ describe('GeneratedImageDisplay', () => {
       />
     )
 
-    expect(screen.getByLabelText('Previous image')).toBeTruthy()
-    expect(screen.getByLabelText('Next image')).toBeTruthy()
-    expect(screen.getByText('1 of 2')).toBeTruthy()
+    expect(screen.getByTestId('previous-button')).toBeTruthy()
+    expect(screen.getByTestId('next-button')).toBeTruthy()
+    expect(screen.getByTestId('image-counter').textContent).toBe('1 of 2')
   })
 
   it('does not render navigation when no images', () => {
@@ -118,8 +122,8 @@ describe('GeneratedImageDisplay', () => {
       />
     )
 
-    expect(screen.queryByLabelText('Previous image')).toBeFalsy()
-    expect(screen.queryByLabelText('Next image')).toBeFalsy()
+    expect(screen.queryByTestId('previous-button')).toBeFalsy()
+    expect(screen.queryByTestId('next-button')).toBeFalsy()
   })
 
   it('calls navigation callbacks from ImageHistoryNav', async () => {
@@ -141,7 +145,7 @@ describe('GeneratedImageDisplay', () => {
       />
     )
 
-    await user.click(screen.getByLabelText('Next image'))
+    await user.click(screen.getByTestId('next-button'))
     expect(onNext).toHaveBeenCalledOnce()
   })
 
@@ -159,7 +163,7 @@ describe('GeneratedImageDisplay', () => {
       />
     )
 
-    const img = screen.getByRole('img')
+    const img = screen.getByTestId('generated-image')
     expect(img.getAttribute('alt')).toBe('Generated design image')
   })
 

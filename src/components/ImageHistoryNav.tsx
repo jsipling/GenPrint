@@ -19,8 +19,9 @@ export function ImageHistoryNav({
   const isLast = currentIndex === totalImages - 1
 
   return (
-    <div className="flex items-center justify-between gap-2 p-2 bg-gray-800 rounded">
+    <div className="flex items-center justify-between gap-2 p-2 bg-gray-800 rounded" data-testid="image-history-nav">
       <button
+        data-testid="previous-button"
         onClick={onPrevious}
         disabled={isFirst}
         aria-label="Previous image"
@@ -41,11 +42,12 @@ export function ImageHistoryNav({
         </svg>
       </button>
 
-      <span className="text-sm text-gray-300 min-w-[4rem] text-center">
+      <span className="text-sm text-gray-300 min-w-[4rem] text-center" data-testid="image-counter">
         {currentIndex + 1} of {totalImages}
       </span>
 
       <button
+        data-testid="next-button"
         onClick={onNext}
         disabled={isLast}
         aria-label="Next image"

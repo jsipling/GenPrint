@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { render, screen, cleanup } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { PromptInput } from './PromptInput'
 
@@ -10,6 +10,10 @@ describe('PromptInput', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+  })
+
+  afterEach(() => {
+    cleanup()
   })
 
   it('renders textarea and submit button', () => {
@@ -22,8 +26,8 @@ describe('PromptInput', () => {
       />
     )
 
-    expect(screen.getByPlaceholderText(/describe your design/i)).toBeTruthy()
-    expect(screen.getByRole('button', { name: /generate/i })).toBeTruthy()
+    expect(screen.getByTestId('prompt-textarea')).toBeTruthy()
+    expect(screen.getByTestId('generate-button')).toBeTruthy()
   })
 
   it('displays current value in textarea', () => {
@@ -36,7 +40,7 @@ describe('PromptInput', () => {
       />
     )
 
-    const textarea = screen.getByPlaceholderText(/describe your design/i) as HTMLTextAreaElement
+    const textarea = screen.getByTestId('prompt-textarea') as HTMLTextAreaElement
     expect(textarea.value).toBe('A gear with 20 teeth')
   })
 
@@ -53,7 +57,7 @@ describe('PromptInput', () => {
       />
     )
 
-    const textarea = screen.getByPlaceholderText(/describe your design/i)
+    const textarea = screen.getByTestId('prompt-textarea')
     await user.type(textarea, 'Test')
 
     expect(onChange).toHaveBeenCalled()
@@ -71,7 +75,7 @@ describe('PromptInput', () => {
       />
     )
 
-    await user.click(screen.getByRole('button', { name: /generate/i }))
+    await user.click(screen.getByTestId('generate-button'))
     expect(mockOnSubmit).toHaveBeenCalledOnce()
   })
 
@@ -87,7 +91,7 @@ describe('PromptInput', () => {
       />
     )
 
-    const textarea = screen.getByPlaceholderText(/describe your design/i)
+    const textarea = screen.getByTestId('prompt-textarea')
     await user.click(textarea)
     await user.keyboard('{Control>}{Enter}{/Control}')
 
@@ -106,7 +110,7 @@ describe('PromptInput', () => {
       />
     )
 
-    const textarea = screen.getByPlaceholderText(/describe your design/i)
+    const textarea = screen.getByTestId('prompt-textarea')
     await user.click(textarea)
     await user.keyboard('{Meta>}{Enter}{/Meta}')
 
@@ -123,8 +127,8 @@ describe('PromptInput', () => {
       />
     )
 
-    const textarea = screen.getByPlaceholderText(/describe your design/i)
-    const button = screen.getByRole('button', { name: /generating/i })
+    const textarea = screen.getByTestId('prompt-textarea')
+    const button = screen.getByTestId('generate-button')
 
     expect(textarea.hasAttribute('disabled')).toBe(true)
     expect(button.hasAttribute('disabled')).toBe(true)
@@ -140,7 +144,8 @@ describe('PromptInput', () => {
       />
     )
 
-    expect(screen.getByText(/generating/i)).toBeTruthy()
+    const button = screen.getByTestId('generate-button')
+    expect(button.textContent).toContain('Generating')
   })
 
   it('shows conversation toggle checkbox', () => {
@@ -155,7 +160,7 @@ describe('PromptInput', () => {
       />
     )
 
-    expect(screen.getByLabelText(/continue conversation/i)).toBeTruthy()
+    expect(screen.getByTestId('conversation-checkbox')).toBeTruthy()
   })
 
   it('calls onConversationToggle when checkbox is clicked', async () => {
@@ -173,7 +178,7 @@ describe('PromptInput', () => {
       />
     )
 
-    await user.click(screen.getByLabelText(/continue conversation/i))
+    await user.click(screen.getByTestId('conversation-checkbox'))
     expect(onToggle).toHaveBeenCalledWith(true)
   })
 
@@ -189,7 +194,7 @@ describe('PromptInput', () => {
       />
     )
 
-    const checkbox = screen.getByLabelText(/continue conversation/i) as HTMLInputElement
+    const checkbox = screen.getByTestId('conversation-checkbox') as HTMLInputElement
     expect(checkbox.checked).toBe(true)
   })
 
@@ -205,7 +210,7 @@ describe('PromptInput', () => {
       />
     )
 
-    await user.click(screen.getByRole('button', { name: /generate/i }))
+    await user.click(screen.getByTestId('generate-button'))
     expect(mockOnSubmit).not.toHaveBeenCalled()
   })
 
@@ -221,7 +226,7 @@ describe('PromptInput', () => {
       />
     )
 
-    await user.click(screen.getByRole('button', { name: /generate/i }))
+    await user.click(screen.getByTestId('generate-button'))
     expect(mockOnSubmit).not.toHaveBeenCalled()
   })
 
@@ -235,22 +240,23 @@ describe('PromptInput', () => {
       />
     )
 
-    const textarea = screen.getByPlaceholderText(/describe your design/i)
+    const textarea = screen.getByTestId('prompt-textarea')
     expect(textarea.className).toContain('bg-gray-700')
     expect(textarea.className).toContain('rounded')
   })
 
   it('supports multiline input', () => {
+    const multilineValue = 'Line 1\nLine 2'
     render(
       <PromptInput
-        value="Line 1\nLine 2"
+        value={multilineValue}
         onChange={vi.fn()}
         onSubmit={mockOnSubmit}
         disabled={false}
       />
     )
 
-    const textarea = screen.getByPlaceholderText(/describe your design/i) as HTMLTextAreaElement
-    expect(textarea.value).toBe('Line 1\nLine 2')
+    const textarea = screen.getByTestId('prompt-textarea') as HTMLTextAreaElement
+    expect(textarea.value).toBe(multilineValue)
   })
 })

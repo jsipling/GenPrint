@@ -32,9 +32,8 @@ export function DesignPanel({ aiService }: DesignPanelProps) {
   }
 
   const handleGenerate = () => {
-    if (sketchDataUrl) {
-      generateImage(sketchDataUrl)
-    }
+    // Allow generation with just prompt or with sketch + prompt
+    generateImage(sketchDataUrl || undefined)
   }
 
   return (

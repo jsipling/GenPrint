@@ -25,7 +25,7 @@ export function GeneratedImageDisplay({
   // Loading state
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 bg-gray-700 rounded">
+      <div className="flex flex-col items-center justify-center h-64 bg-gray-700 rounded" data-testid="loading-state">
         <svg
           className="w-8 h-8 text-blue-500 animate-spin"
           fill="none"
@@ -53,7 +53,7 @@ export function GeneratedImageDisplay({
   // Error state
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 bg-gray-700 rounded p-4">
+      <div className="flex flex-col items-center justify-center h-64 bg-gray-700 rounded p-4" data-testid="error-state">
         <svg
           className="w-8 h-8 text-red-500"
           fill="none"
@@ -67,7 +67,7 @@ export function GeneratedImageDisplay({
             d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
           />
         </svg>
-        <p className="mt-3 text-sm text-red-400 text-center">{error}</p>
+        <p className="mt-3 text-sm text-red-400 text-center" data-testid="error-message">{error}</p>
       </div>
     )
   }
@@ -75,7 +75,7 @@ export function GeneratedImageDisplay({
   // Empty state
   if (images.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 bg-gray-700 rounded">
+      <div className="flex flex-col items-center justify-center h-64 bg-gray-700 rounded" data-testid="empty-state">
         <svg
           className="w-12 h-12 text-gray-500"
           fill="none"
@@ -100,12 +100,13 @@ export function GeneratedImageDisplay({
   const currentImage = images[currentIndex]
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3" data-testid="generated-image-display">
       <div className="bg-gray-700 rounded overflow-hidden">
         <img
           src={currentImage?.url}
           alt="Generated design image"
           className="w-full h-auto"
+          data-testid="generated-image"
         />
       </div>
 

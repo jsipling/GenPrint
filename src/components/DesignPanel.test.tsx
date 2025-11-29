@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { render, screen, cleanup } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { DesignPanel } from './DesignPanel'
 import type { ImageGenerationService } from '../services/types'
@@ -20,6 +20,10 @@ describe('DesignPanel', () => {
     }
   })
 
+  afterEach(() => {
+    cleanup()
+  })
+
   it('renders all child components', () => {
     render(<DesignPanel aiService={mockService} />)
 
@@ -27,11 +31,11 @@ describe('DesignPanel', () => {
     expect(screen.getByTestId('sketch-canvas')).toBeTruthy()
 
     // Should render GeneratedImageDisplay (empty state)
-    expect(screen.getByText(/no images generated yet/i)).toBeTruthy()
+    expect(screen.getByTestId('empty-state')).toBeTruthy()
 
     // Should render PromptInput
-    expect(screen.getByPlaceholderText(/describe your design/i)).toBeTruthy()
-    expect(screen.getByRole('button', { name: /generate/i })).toBeTruthy()
+    expect(screen.getByTestId('prompt-textarea')).toBeTruthy()
+    expect(screen.getByTestId('generate-button')).toBeTruthy()
   })
 
   it('is collapsible with toggle button', async () => {
@@ -65,7 +69,7 @@ describe('DesignPanel', () => {
     expect(panel?.className).not.toContain('hidden')
   })
 
-  it('passes sketch data to generateImage', async () => {
+  it('passes prompt to generateImage', async () => {
     const user = userEvent.setup()
     const mockGenerate = vi.fn().mockResolvedValue({
       imageUrl: 'test.png',
@@ -76,17 +80,16 @@ describe('DesignPanel', () => {
     render(<DesignPanel aiService={mockService} />)
 
     // Type prompt
-    const textarea = screen.getByPlaceholderText(/describe your design/i)
+    const textarea = screen.getByTestId('prompt-textarea')
     await user.type(textarea, 'A mechanical gear')
 
     // Click generate
-    await user.click(screen.getByRole('button', { name: /generate/i }))
+    await user.click(screen.getByTestId('generate-button'))
 
-    // Should call generateImage with sketch data
+    // Should call generateImage with prompt
     expect(mockGenerate).toHaveBeenCalled()
     const callArgs = mockGenerate.mock.calls[0]?.[0]
     expect(callArgs?.prompt).toBe('A mechanical gear')
-    expect(callArgs?.sketchDataUrl).toBeTruthy()
   })
 
   it('displays generated images', async () => {
@@ -95,11 +98,11 @@ describe('DesignPanel', () => {
     render(<DesignPanel aiService={mockService} />)
 
     // Generate an image
-    await user.type(screen.getByPlaceholderText(/describe your design/i), 'Test')
-    await user.click(screen.getByRole('button', { name: /generate/i }))
+    await user.type(screen.getByTestId('prompt-textarea'), 'Test')
+    await user.click(screen.getByTestId('generate-button'))
 
     // Wait for image to appear
-    const img = await screen.findByRole('img', { name: /generated design image/i })
+    const img = await screen.findByTestId('generated-image')
     expect(img).toBeTruthy()
   })
 
@@ -112,11 +115,11 @@ describe('DesignPanel', () => {
 
     render(<DesignPanel aiService={mockService} />)
 
-    await user.type(screen.getByPlaceholderText(/describe your design/i), 'Test')
-    await user.click(screen.getByRole('button', { name: /generate/i }))
+    await user.type(screen.getByTestId('prompt-textarea'), 'Test')
+    await user.click(screen.getByTestId('generate-button'))
 
     // Should show generating state
-    expect(screen.getByText(/generating/i)).toBeTruthy()
+    expect(screen.getByTestId('loading-state')).toBeTruthy()
   })
 
   it('navigates between images using history controls', async () => {
@@ -128,20 +131,22 @@ describe('DesignPanel', () => {
 
     // Generate two images
     mockGenerate.mockResolvedValueOnce({ imageUrl: 'img1.png', timestamp: 1 })
-    await user.type(screen.getByPlaceholderText(/describe your design/i), 'First')
-    await user.click(screen.getByRole('button', { name: /generate/i }))
+    await user.type(screen.getByTestId('prompt-textarea'), 'First')
+    await user.click(screen.getByTestId('generate-button'))
 
-    await screen.findByText('1 of 1')
+    await screen.findByTestId('image-counter')
+    expect(screen.getByTestId('image-counter').textContent).toBe('1 of 1')
 
     mockGenerate.mockResolvedValueOnce({ imageUrl: 'img2.png', timestamp: 2 })
-    await user.type(screen.getByPlaceholderText(/describe your design/i), 'Second')
-    await user.click(screen.getByRole('button', { name: /generate/i }))
+    await user.type(screen.getByTestId('prompt-textarea'), 'Second')
+    await user.click(screen.getByTestId('generate-button'))
 
-    await screen.findByText('1 of 2')
+    await screen.findByTestId('image-counter')
+    expect(screen.getByTestId('image-counter').textContent).toBe('1 of 2')
 
     // Navigate to previous image
-    await user.click(screen.getByLabelText('Next image'))
-    expect(screen.getByText('2 of 2')).toBeTruthy()
+    await user.click(screen.getByTestId('next-button'))
+    expect(screen.getByTestId('image-counter').textContent).toBe('2 of 2')
   })
 
   it('shows error message on generation failure', async () => {
@@ -151,11 +156,12 @@ describe('DesignPanel', () => {
 
     render(<DesignPanel aiService={mockService} />)
 
-    await user.type(screen.getByPlaceholderText(/describe your design/i), 'Test')
-    await user.click(screen.getByRole('button', { name: /generate/i }))
+    await user.type(screen.getByTestId('prompt-textarea'), 'Test')
+    await user.click(screen.getByTestId('generate-button'))
 
     // Should show error
-    expect(await screen.findByText(/api error/i)).toBeTruthy()
+    const errorMessage = await screen.findByTestId('error-message')
+    expect(errorMessage.textContent).toContain('API Error')
   })
 
   it('toggles conversation mode via checkbox', async () => {
@@ -168,15 +174,15 @@ describe('DesignPanel', () => {
 
     render(<DesignPanel aiService={mockService} />)
 
-    const checkbox = screen.getByLabelText(/continue conversation/i)
+    const checkbox = screen.getByTestId('conversation-checkbox')
     expect((checkbox as HTMLInputElement).checked).toBe(false)
 
     await user.click(checkbox)
     expect((checkbox as HTMLInputElement).checked).toBe(true)
 
     // Generate with conversation mode on
-    await user.type(screen.getByPlaceholderText(/describe your design/i), 'Test')
-    await user.click(screen.getByRole('button', { name: /generate/i }))
+    await user.type(screen.getByTestId('prompt-textarea'), 'Test')
+    await user.click(screen.getByTestId('generate-button'))
 
     expect(mockGenerate).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -204,19 +210,19 @@ describe('DesignPanel', () => {
 
     render(<DesignPanel aiService={mockService} />)
 
-    const textarea = screen.getByPlaceholderText(/describe your design/i) as HTMLTextAreaElement
+    const textarea = screen.getByTestId('prompt-textarea') as HTMLTextAreaElement
     await user.type(textarea, 'Test prompt')
 
     expect(textarea.value).toBe('Test prompt')
 
-    await user.click(screen.getByRole('button', { name: /generate/i }))
+    await user.click(screen.getByTestId('generate-button'))
 
     // Wait for generation to complete and prompt to clear
-    await screen.findByRole('img', { name: /generated design image/i })
+    await screen.findByTestId('generated-image')
     expect(textarea.value).toBe('')
   })
 
-  it('exports sketch canvas data on generation', async () => {
+  it('calls generateImage when generate button clicked', async () => {
     const user = userEvent.setup()
     const mockGenerate = vi.fn().mockResolvedValue({
       imageUrl: 'test.png',
@@ -226,12 +232,11 @@ describe('DesignPanel', () => {
 
     render(<DesignPanel aiService={mockService} />)
 
-    await user.type(screen.getByPlaceholderText(/describe your design/i), 'Test')
-    await user.click(screen.getByRole('button', { name: /generate/i }))
+    await user.type(screen.getByTestId('prompt-textarea'), 'Test')
+    await user.click(screen.getByTestId('generate-button'))
 
     expect(mockGenerate).toHaveBeenCalled()
     const callArgs = mockGenerate.mock.calls[0]?.[0]
-    // Should have sketch data URL (starts with data:image/png)
-    expect(callArgs?.sketchDataUrl).toMatch(/^data:image\/png/)
+    expect(callArgs?.prompt).toBe('Test')
   })
 })

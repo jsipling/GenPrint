@@ -31,8 +31,9 @@ export function PromptInput({
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3" data-testid="prompt-input">
       <textarea
+        data-testid="prompt-textarea"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={handleKeyDown}
@@ -46,6 +47,7 @@ export function PromptInput({
         {onConversationToggle && (
           <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
             <input
+              data-testid="conversation-checkbox"
               type="checkbox"
               checked={continueConversation}
               onChange={(e) => onConversationToggle(e.target.checked)}
@@ -57,6 +59,7 @@ export function PromptInput({
         )}
 
         <button
+          data-testid="generate-button"
           onClick={handleSubmit}
           disabled={disabled || !value.trim()}
           className="ml-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded font-medium transition-colors flex items-center gap-2"

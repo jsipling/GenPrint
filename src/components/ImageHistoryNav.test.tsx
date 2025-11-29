@@ -1,11 +1,14 @@
 /** @vitest-environment jsdom */
 
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import { render, screen, cleanup } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ImageHistoryNav } from './ImageHistoryNav'
 
 describe('ImageHistoryNav', () => {
+  afterEach(() => {
+    cleanup()
+  })
   it('renders navigation with history indicator', () => {
     const onPrev = vi.fn()
     const onNext = vi.fn()
@@ -19,7 +22,8 @@ describe('ImageHistoryNav', () => {
       />
     )
 
-    expect(screen.getByText('3 of 7')).toBeTruthy()
+    expect(screen.getByTestId('image-counter')).toBeTruthy()
+    expect(screen.getByTestId('image-counter').textContent).toBe('3 of 7')
   })
 
   it('disables previous button when at first image', () => {
@@ -35,7 +39,7 @@ describe('ImageHistoryNav', () => {
       />
     )
 
-    const prevButton = screen.getByLabelText('Previous image')
+    const prevButton = screen.getByTestId('previous-button')
     expect(prevButton.hasAttribute('disabled')).toBe(true)
   })
 
@@ -52,7 +56,7 @@ describe('ImageHistoryNav', () => {
       />
     )
 
-    const nextButton = screen.getByLabelText('Next image')
+    const nextButton = screen.getByTestId('next-button')
     expect(nextButton.hasAttribute('disabled')).toBe(true)
   })
 
@@ -69,8 +73,8 @@ describe('ImageHistoryNav', () => {
       />
     )
 
-    const prevButton = screen.getByLabelText('Previous image')
-    const nextButton = screen.getByLabelText('Next image')
+    const prevButton = screen.getByTestId('previous-button')
+    const nextButton = screen.getByTestId('next-button')
 
     expect(prevButton.hasAttribute('disabled')).toBe(false)
     expect(nextButton.hasAttribute('disabled')).toBe(false)
@@ -90,7 +94,7 @@ describe('ImageHistoryNav', () => {
       />
     )
 
-    await user.click(screen.getByLabelText('Previous image'))
+    await user.click(screen.getByTestId('previous-button'))
     expect(onPrev).toHaveBeenCalledOnce()
   })
 
@@ -108,7 +112,7 @@ describe('ImageHistoryNav', () => {
       />
     )
 
-    await user.click(screen.getByLabelText('Next image'))
+    await user.click(screen.getByTestId('next-button'))
     expect(onNext).toHaveBeenCalledOnce()
   })
 
@@ -141,9 +145,9 @@ describe('ImageHistoryNav', () => {
       />
     )
 
-    expect(screen.getByText('1 of 1')).toBeTruthy()
-    expect(screen.getByLabelText('Previous image').hasAttribute('disabled')).toBe(true)
-    expect(screen.getByLabelText('Next image').hasAttribute('disabled')).toBe(true)
+    expect(screen.getByTestId('image-counter').textContent).toBe('1 of 1')
+    expect(screen.getByTestId('previous-button').hasAttribute('disabled')).toBe(true)
+    expect(screen.getByTestId('next-button').hasAttribute('disabled')).toBe(true)
   })
 
   it('applies correct styling classes', () => {
@@ -159,7 +163,7 @@ describe('ImageHistoryNav', () => {
       />
     )
 
-    const prevButton = screen.getByLabelText('Previous image')
+    const prevButton = screen.getByTestId('previous-button')
     expect(prevButton.className).toContain('bg-gray-700')
   })
 })
