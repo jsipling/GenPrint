@@ -270,14 +270,14 @@ Please fix this error in your new response. Common issues:
 const MAX_RETRIES = 2
 
 // Map our model IDs to actual Google model names
-type GeometryModelId = 'gemini-3-pro-preview' | 'gemini-2.5-pro-preview-06-05' | 'gemini-2.5-flash'
+type GeometryModelId = 'gemini-3-pro-preview' | 'gemini-2.5-pro' | 'gemini-2.5-flash'
 
 function getGeometryModelName(modelId: GeometryModelId): string {
   switch (modelId) {
     case 'gemini-2.5-flash':
       return 'gemini-2.5-flash'
-    case 'gemini-2.5-pro-preview-06-05':
-      return 'gemini-2.5-pro-preview-06-05'
+    case 'gemini-2.5-pro':
+      return 'gemini-2.5-pro'
     case 'gemini-3-pro-preview':
     default:
       return 'gemini-3-pro-preview'
