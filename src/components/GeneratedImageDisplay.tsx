@@ -3,6 +3,7 @@ import { ImageHistoryNav } from './ImageHistoryNav'
 interface GeneratedImage {
   url: string
   timestamp: number
+  prompt?: string
 }
 
 interface GeneratedImageDisplayProps {
@@ -12,6 +13,8 @@ interface GeneratedImageDisplayProps {
   onNext: () => void
   isLoading?: boolean
   error?: string
+  onApplyToModel?: (imageUrl: string) => void
+  isApplying?: boolean
 }
 
 export function GeneratedImageDisplay({
@@ -20,7 +23,9 @@ export function GeneratedImageDisplay({
   onPrevious,
   onNext,
   isLoading = false,
-  error
+  error,
+  onApplyToModel,
+  isApplying = false
 }: GeneratedImageDisplayProps) {
   // Loading state
   if (isLoading) {
@@ -116,6 +121,30 @@ export function GeneratedImageDisplay({
         onPrevious={onPrevious}
         onNext={onNext}
       />
+
+      {onApplyToModel && currentImage && (
+        <button
+          data-testid="apply-to-model-button"
+          onClick={() => onApplyToModel(currentImage.url)}
+          disabled={isApplying}
+          className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 disabled:cursor-not-allowed text-white font-medium rounded flex items-center justify-center gap-2 transition-colors"
+        >
+          <svg
+            className="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+            />
+          </svg>
+          {isApplying ? 'Analyzing...' : 'Apply to 3D Model'}
+        </button>
+      )}
     </div>
   )
 }

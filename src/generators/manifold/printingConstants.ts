@@ -79,3 +79,10 @@ export function printingWarning(component: string, message: string): void {
     console.warn(`[${component}] ${message}`)
   }
 }
+
+/**
+ * List of constant names that are passed to builder code as function parameters.
+ * These are reserved and must not be redeclared in builder code.
+ * Keep in sync with manifold.worker.ts executeUserBuilder() function signature.
+ */
+export const BUILDER_RESERVED_CONSTANTS = ['MIN_WALL_THICKNESS'] as const

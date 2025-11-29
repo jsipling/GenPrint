@@ -62,11 +62,23 @@ export function createOpenAiService(apiKey: string): ImageGenerationService {
   ): Promise<string> {
     try {
       // Build the prompt for 3D interpretation
-      let technicalPrompt = 'Interpret this user\'s drawing. They are attempting to draw a 3D object that will be used to print with a 3D printer. Your interpretation should be a clean 3D drawing with only lines.'
+      let technicalPrompt = 'Interpret this user\'s drawing. They are attempting to draw a 3D object that will be used to print with a 3D printer. Your interpretation should be a clean 3D drawing with only lines. The following is the user\'s description of their sketch:'
 
       // Append user's prompt if provided for additional context
       if (prompt) {
         technicalPrompt += ` ${prompt}`
+      }
+
+      // Log the request (without image data)
+      if (import.meta.env.DEV) {
+        console.log('[OpenAI gpt-image-1-mini] Request:', {
+          model: 'gpt-image-1-mini',
+          prompt: technicalPrompt,
+          hasSketch: !!sketchDataUrl,
+          sketchSize: sketchDataUrl ? `${Math.round(sketchDataUrl.length / 1024)}KB` : 'N/A',
+          size: '1024x1024',
+          quality: 'low'
+        })
       }
 
       let response

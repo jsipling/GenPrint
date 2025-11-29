@@ -1,7 +1,9 @@
 import type { ImageGenerationService } from './types'
+import type { ImageToGeometryService } from './imageToGeometryTypes'
 import { createOpenAiService } from './openaiService'
 import { createGoogleAiService } from './googleAiService'
 import { createMockAiService } from './mockAiService'
+import { createImageToGeometryService } from './imageToGeometryService'
 
 /**
  * Creates an AI image generation service.
@@ -36,4 +38,22 @@ export function createAiService(): ImageGenerationService {
     console.log('[AI Service] No API key found, using mock service')
   }
   return createMockAiService()
+}
+
+/**
+ * Creates an image-to-geometry service for converting design images to 3D models.
+ * Uses Google's Gemini 3 Pro Preview model.
+ * Returns null if no Google API key is configured.
+ */
+export function createImageToGeometryAiService(): ImageToGeometryService | null {
+  const googleApiKey = import.meta.env.VITE_GOOGLE_AI_API_KEY
+
+  if (googleApiKey && typeof googleApiKey === 'string' && googleApiKey.trim().length > 0) {
+    if (import.meta.env.DEV) {
+      console.log('[AI Service] Using Gemini 3 Pro Preview for image-to-geometry')
+    }
+    return createImageToGeometryService(googleApiKey)
+  }
+
+  return null  // No mock for this service - requires Google AI
 }

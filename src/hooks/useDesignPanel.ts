@@ -4,9 +4,10 @@ import type {
   ConversationMessage
 } from '../services/types'
 
-interface GeneratedImage {
+export interface GeneratedImage {
   url: string
   timestamp: number
+  prompt: string
 }
 
 const MAX_HISTORY = 20
@@ -32,8 +33,11 @@ export function useDesignPanel(aiService: ImageGenerationService) {
     setContinueConversation(enabled)
   }, [])
 
-  const generateImage = useCallback(async (sketchDataUrl: string) => {
+  const generateImage = useCallback(async (sketchDataUrl?: string) => {
     if (!prompt.trim()) return
+
+    // Capture prompt before clearing
+    const currentPrompt = prompt
 
     setIsGenerating(true)
     setError(null)
@@ -41,14 +45,15 @@ export function useDesignPanel(aiService: ImageGenerationService) {
     try {
       const response = await aiService.generateImage({
         sketchDataUrl,
-        prompt,
+        prompt: currentPrompt,
         continueConversation,
         conversationHistory: continueConversation ? conversationHistory : undefined
       })
 
       const newImage: GeneratedImage = {
         url: response.imageUrl,
-        timestamp: response.timestamp
+        timestamp: response.timestamp,
+        prompt: currentPrompt
       }
 
       // Add to history (newest first), limit to MAX_HISTORY
@@ -64,7 +69,7 @@ export function useDesignPanel(aiService: ImageGenerationService) {
       if (continueConversation) {
         setConversationHistory((prev) => [
           ...prev,
-          { role: 'user', content: prompt, timestamp: Date.now() },
+          { role: 'user', content: currentPrompt, timestamp: Date.now() },
           {
             role: 'assistant',
             content: 'Generated image',
@@ -75,7 +80,7 @@ export function useDesignPanel(aiService: ImageGenerationService) {
       } else {
         // Reset conversation history when not continuing
         setConversationHistory([
-          { role: 'user', content: prompt, timestamp: Date.now() },
+          { role: 'user', content: currentPrompt, timestamp: Date.now() },
           {
             role: 'assistant',
             content: 'Generated image',

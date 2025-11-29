@@ -200,4 +200,101 @@ describe('GeneratedImageDisplay', () => {
     const spinner = container.querySelector('svg')
     expect(spinner).toBeTruthy()
   })
+
+  describe('Apply to 3D Model button', () => {
+    it('is not visible when no images', () => {
+      render(
+        <GeneratedImageDisplay
+          images={[]}
+          currentIndex={0}
+          onPrevious={vi.fn()}
+          onNext={vi.fn()}
+          onApplyToModel={vi.fn()}
+        />
+      )
+
+      expect(screen.queryByTestId('apply-to-model-button')).toBeFalsy()
+    })
+
+    it('is not visible when onApplyToModel is undefined', () => {
+      const images = [
+        { url: 'https://example.com/image1.png', timestamp: Date.now() }
+      ]
+
+      render(
+        <GeneratedImageDisplay
+          images={images}
+          currentIndex={0}
+          onPrevious={vi.fn()}
+          onNext={vi.fn()}
+        />
+      )
+
+      expect(screen.queryByTestId('apply-to-model-button')).toBeFalsy()
+    })
+
+    it('is visible when image displayed and callback provided', () => {
+      const images = [
+        { url: 'https://example.com/image1.png', timestamp: Date.now() }
+      ]
+
+      render(
+        <GeneratedImageDisplay
+          images={images}
+          currentIndex={0}
+          onPrevious={vi.fn()}
+          onNext={vi.fn()}
+          onApplyToModel={vi.fn()}
+        />
+      )
+
+      const button = screen.getByTestId('apply-to-model-button')
+      expect(button).toBeTruthy()
+      expect(button.textContent).toContain('Apply to 3D Model')
+    })
+
+    it('is disabled during applying state and shows Analyzing text', () => {
+      const images = [
+        { url: 'https://example.com/image1.png', timestamp: Date.now() }
+      ]
+
+      render(
+        <GeneratedImageDisplay
+          images={images}
+          currentIndex={0}
+          onPrevious={vi.fn()}
+          onNext={vi.fn()}
+          onApplyToModel={vi.fn()}
+          isApplying={true}
+        />
+      )
+
+      const button = screen.getByTestId('apply-to-model-button')
+      expect(button.hasAttribute('disabled')).toBe(true)
+      expect(button.textContent).toContain('Analyzing...')
+    })
+
+    it('calls callback with current image URL when clicked', async () => {
+      const user = userEvent.setup()
+      const images = [
+        { url: 'https://example.com/image1.png', timestamp: Date.now() },
+        { url: 'https://example.com/image2.png', timestamp: Date.now() }
+      ]
+      const onApplyToModel = vi.fn()
+
+      render(
+        <GeneratedImageDisplay
+          images={images}
+          currentIndex={1}
+          onPrevious={vi.fn()}
+          onNext={vi.fn()}
+          onApplyToModel={onApplyToModel}
+        />
+      )
+
+      await user.click(screen.getByTestId('apply-to-model-button'))
+      expect(onApplyToModel).toHaveBeenCalledOnce()
+      expect(onApplyToModel).toHaveBeenCalledWith('https://example.com/image2.png')
+    })
+  })
 })

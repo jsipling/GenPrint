@@ -7,9 +7,11 @@ import type { ImageGenerationService } from '../services/types'
 
 interface DesignPanelProps {
   aiService: ImageGenerationService
+  onApplyToModel?: (imageUrl: string, prompt: string) => void
+  isApplying?: boolean
 }
 
-export function DesignPanel({ aiService }: DesignPanelProps) {
+export function DesignPanel({ aiService, onApplyToModel, isApplying }: DesignPanelProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [sketchDataUrl, setSketchDataUrl] = useState<string>('')
 
@@ -35,6 +37,18 @@ export function DesignPanel({ aiService }: DesignPanelProps) {
     // Allow generation with just prompt or with sketch + prompt
     generateImage(sketchDataUrl || undefined)
   }
+
+  const handleApplyToModel = onApplyToModel
+    ? (imageUrl: string) => {
+        // Use the current prompt field value (what user typed for "Apply to 3D Model")
+        // Fall back to the prompt used to generate the image if the field is empty
+        const currentImage = images[currentIndex]
+        const promptToUse = prompt.trim() || currentImage?.prompt || ''
+        if (promptToUse) {
+          onApplyToModel(imageUrl, promptToUse)
+        }
+      }
+    : undefined
 
   return (
     <aside className="w-80 bg-gray-800 text-white flex flex-col h-full">
@@ -83,6 +97,8 @@ export function DesignPanel({ aiService }: DesignPanelProps) {
             onNext={nextImage}
             isLoading={isGenerating}
             error={error || undefined}
+            onApplyToModel={handleApplyToModel}
+            isApplying={isApplying}
           />
         </section>
 

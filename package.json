@@ -11,6 +11,7 @@
     "analyze:print": "tsx scripts/analyze-print.ts"
   },
   "dependencies": {
+    "@google/genai": "^1.30.0",
     "@google/generative-ai": "^0.24.1",
     "@react-three/drei": "^10.0.0",
     "@react-three/fiber": "^9.0.0",

@@ -6,9 +6,11 @@ const Viewer = lazy(() => import('./components/Viewer').then(m => ({ default: m.
 import { CompilerOutput } from './components/CompilerOutput'
 import { DesignPanel } from './components/DesignPanel'
 import { useManifold } from './hooks/useManifold'
+import { useImageToModel } from './hooks/useImageToModel'
 import { generators, flattenParameters, type ParameterValues } from './generators'
+import type { Generator } from './generators/types'
 import { meshToStl } from './lib/meshToStl'
-import { createAiService } from './services/aiService'
+import { createAiService, createImageToGeometryAiService } from './services/aiService'
 
 // No debounce - render immediately as settings change
 
@@ -76,6 +78,8 @@ export default function App() {
 
   // Create AI service instance (memoized to avoid recreating on every render)
   const aiService = useMemo(() => createAiService(), [])
+  // Create image-to-geometry service (returns null if Google API key not configured)
+  const imageToGeometryService = useMemo(() => createImageToGeometryAiService(), [])
 
   // Update URL when state changes
   useEffect(() => {
@@ -198,6 +202,38 @@ export default function App() {
       doCompile(defaultParams)
     }
   }, [selectedGenerator, doCompile])
+
+  // Handler for when AI creates a new generator from an image
+  const handleAiGeneratorCreated = useCallback((generator: Generator, defaultParams: ParameterValues) => {
+    setSelectedGenerator(generator)
+    setParams(defaultParams)
+    generatorRef.current = generator
+    if (hasCompiledOnceRef.current) {
+      doCompile(defaultParams)
+    }
+  }, [doCompile])
+
+  // Use the image-to-model hook
+  // Note: We pass a dummy service when null - the applyToModel function won't be used in that case
+  const dummyService = useMemo(() => ({
+    analyzeImage: async () => ({ success: false, error: 'Service not available' }),
+    isAnalyzing: () => false,
+    cancelAnalysis: () => {}
+  }), [])
+
+  const { isApplying, applyToModel } = useImageToModel(
+    imageToGeometryService ?? dummyService,
+    handleAiGeneratorCreated
+  )
+
+  // Wrapper to pass current generator context to applyToModel
+  const handleApplyToModel = useCallback((imageUrl: string, prompt: string) => {
+    applyToModel(imageUrl, prompt, {
+      builderCode: selectedGenerator.builderCode,
+      params,
+      name: selectedGenerator.name
+    })
+  }, [applyToModel, selectedGenerator.builderCode, selectedGenerator.name, params])
 
   const downloadBlob = (blob: Blob, filename: string) => {
     let url: string | null = null
@@ -346,7 +382,11 @@ export default function App() {
         transform transition-transform duration-200 ease-in-out
         ${designPanelOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'}
       `}>
-        <DesignPanel aiService={aiService} />
+        <DesignPanel
+          aiService={aiService}
+          onApplyToModel={imageToGeometryService ? handleApplyToModel : undefined}
+          isApplying={isApplying}
+        />
       </div>
     </div>
   )
