@@ -19,11 +19,13 @@ vi.mock('../utils/imageCompression', () => ({
 }))
 
 // Valid mock response matching GeometryAnalysis structure
+// Uses multi-part return format to enable hover highlighting
 const mockValidAnalysis: GeometryAnalysis = {
   description: 'A simple cube with configurable dimensions',
   builderCode: `
     const size = params.size || 10;
-    return M.cube([size, size, size], true);
+    const cube = M.Manifold.cube([size, size, size], true);
+    return [{ name: 'Cube', manifold: cube, params: { size: size } }];
   `,
   suggestedName: 'Parametric Cube',
   parameters: [
@@ -436,6 +438,61 @@ describe('ImageToGeometryService', () => {
       expect(textPart.text).toContain('Working with Existing Models')
       expect(textPart.text).toContain('MODIFICATION INTENT')
       expect(textPart.text).toContain('REPLACEMENT INTENT')
+    })
+  })
+
+  describe('multi-part format for hover highlighting', () => {
+    it('instructs AI to return array format for hover support', async () => {
+      mockGenerateContent.mockResolvedValueOnce({
+        text: JSON.stringify(mockValidAnalysis)
+      })
+
+      const request: ImageToGeometryRequest = {
+        imageDataUrl: validImageDataUrl,
+        prompt: 'Create a simple box'
+      }
+
+      await service.analyzeImage(request)
+
+      // Verify the prompt includes instructions about multi-part format
+      const callArgs = mockGenerateContent.mock.calls[0]!
+      const textPart = callArgs[0].contents[0].parts.find(
+        (p: { text?: string }) => p.text
+      )
+      expect(textPart.text).toContain('Return an array of named parts')
+      expect(textPart.text).toContain('hover highlighting')
+      expect(textPart.text).toContain('name')
+      expect(textPart.text).toContain('manifold')
+    })
+
+    it('accepts valid multi-part builder code', async () => {
+      const multiPartAnalysis: GeometryAnalysis = {
+        ...mockValidAnalysis,
+        builderCode: `
+          const base = M.Manifold.cube([50, 50, 10], true);
+          const handle = M.Manifold.cylinder(30, 5, 5, 16).translate([0, 0, 20]);
+          return [
+            { name: 'Base', manifold: base },
+            { name: 'Handle', manifold: handle }
+          ];
+        `
+      }
+
+      mockGenerateContent.mockResolvedValueOnce({
+        text: JSON.stringify(multiPartAnalysis)
+      })
+
+      const request: ImageToGeometryRequest = {
+        imageDataUrl: validImageDataUrl,
+        prompt: 'Create a box with handle'
+      }
+
+      const response = await service.analyzeImage(request)
+
+      expect(response.success).toBe(true)
+      expect(response.analysis?.builderCode).toContain('return [')
+      expect(response.analysis?.builderCode).toContain('name:')
+      expect(response.analysis?.builderCode).toContain('manifold:')
     })
   })
 

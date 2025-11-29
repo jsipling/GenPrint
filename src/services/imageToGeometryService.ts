@@ -40,11 +40,47 @@ Available operations (via the M object):
 
 - Access parameters via \`params['paramName']\` or \`params.paramName\`
 - Always provide fallback defaults: \`const width = Number(params['width']) || 50;\`
-- Return a single Manifold object
+- **IMPORTANT**: Return an array of named parts to enable hover highlighting. Each part is an object with:
+  - \`name\`: Human-readable name for the part (e.g., "Base", "Handle", "Top Cover")
+  - \`manifold\`: The Manifold geometry for this part
+  - \`dimensions\` (optional): Array of dimension labels
+  - \`params\` (optional): Parameters used for this part
+- Even for simple single-piece models, wrap in an array with one named part
 - Use 16 segments for cylinders (smooth circles)
 - Use 8 segments per 90° for corners
 - Minimum wall thickness: 1.2mm
 - Minimum feature size: 1.5mm
+
+## Multi-Part Return Format Example
+
+\`\`\`javascript
+const width = Number(params['width']) || 50;
+const height = Number(params['height']) || 20;
+const baseManifold = M.Manifold.cube([width, width, height], true);
+
+return [
+  {
+    name: 'Base',
+    manifold: baseManifold,
+    dimensions: [
+      { label: 'Width', param: 'width', format: '{value}mm' },
+      { label: 'Height', param: 'height', format: '{value}mm' }
+    ],
+    params: { width: width, height: height }
+  }
+];
+\`\`\`
+
+For models with multiple distinct parts:
+\`\`\`javascript
+const base = M.Manifold.cube([50, 50, 10], true);
+const handle = M.Manifold.cylinder(30, 5, 5, 16).translate([0, 0, 20]);
+
+return [
+  { name: 'Base Plate', manifold: base },
+  { name: 'Handle', manifold: handle }
+];
+\`\`\`
 
 ## IMPORTANT: Reserved Variables (DO NOT REDECLARE)
 
@@ -73,7 +109,7 @@ Return ONLY valid JSON (no markdown, no code blocks) with this exact structure:
 {
   "description": "Brief description of what the model is",
   "suggestedName": "Human-readable name for the model",
-  "builderCode": "const width = Number(params['width']) || 50; const height = Number(params['height']) || 20; return M.Manifold.cube([width, width, height], true);",
+  "builderCode": "const width = Number(params['width']) || 50; const height = Number(params['height']) || 20; const cube = M.Manifold.cube([width, width, height], true); return [{ name: 'Cube', manifold: cube, params: { width: width, height: height } }];",
   "parameters": [
     {
       "type": "number",
@@ -122,14 +158,27 @@ Current parameters: ${JSON.stringify(request.currentParams ?? {})}
 
 To include the existing model in your design, use this pattern:
 \`\`\`javascript
-// Build the existing model
-const existingModel = (function() { ${request.currentBuilderCode} })();
+// Build the existing model (returns array of parts)
+const existingParts = (function() { ${request.currentBuilderCode} })();
 
 // Create your new geometry
 const newFeature = M.Manifold.cube([10, 10, 5], true).translate([0, 0, 25]);
 
-// Combine them
-return existingModel.add(newFeature);
+// Return all parts including the new one
+return [
+  ...existingParts,
+  { name: 'New Feature', manifold: newFeature }
+];
+\`\`\`
+
+Or to combine into a single part:
+\`\`\`javascript
+const existingParts = (function() { ${request.currentBuilderCode} })();
+const existingManifolds = existingParts.map(p => p.manifold);
+const combined = M.Manifold.union(existingManifolds);
+const newFeature = M.Manifold.cube([10, 10, 5], true).translate([0, 0, 25]);
+const final = combined.add(newFeature);
+return [{ name: 'Modified Model', manifold: final }];
 \`\`\`
 
 `
