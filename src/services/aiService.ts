@@ -40,7 +40,7 @@ export function createAiService(model?: SketchModel): ImageGenerationService {
       if (import.meta.env.DEV) {
         console.log(`[AI Service] Using Google AI service (${model})`)
       }
-      return createGoogleAiService(googleApiKey, model as 'gemini-2.5-flash-preview-native-audio' | 'gemini-2.0-flash-exp')
+      return createGoogleAiService(googleApiKey, model as 'gemini-2.5-flash-image')
     }
   }
 
