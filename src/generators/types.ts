@@ -23,11 +23,18 @@ export interface StringParameterDef {
   description?: string
 }
 
+export interface SelectOptionObject {
+  value: string
+  label: string
+}
+
+export type SelectOption = string | SelectOptionObject
+
 export interface SelectParameterDef {
   type: 'select'
   name: string
   label: string
-  options: string[]
+  options: SelectOption[]
   default: string
   description?: string
 }

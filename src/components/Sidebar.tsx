@@ -59,9 +59,14 @@ function ParameterInput({ param, params, onParamChange, depth = 0 }: ParameterIn
           onChange={(e) => onParamChange(param.name, e.target.value)}
           className="w-full px-3 py-2 bg-gray-700 rounded border border-gray-600 focus:border-blue-500 focus:outline-none text-white"
         >
-          {param.options.map((option) => (
-            <option key={option} value={option}>{option}</option>
-          ))}
+          {param.options.map((option) => {
+            // Handle both string options and {value, label} object options
+            const optionValue = typeof option === 'object' ? option.value : option
+            const optionLabel = typeof option === 'object' ? option.label : option
+            return (
+              <option key={optionValue} value={optionValue}>{optionLabel}</option>
+            )
+          })}
         </select>
       </div>
     )
