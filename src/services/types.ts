@@ -29,3 +29,38 @@ export interface ImageGenerationService {
   cancelGeneration(): void
   isGenerating(): boolean
 }
+
+// Available AI models for sketch generation
+export type SketchModel =
+  | 'openai-gpt-image-1-mini'
+  | 'openai-gpt-image-1'
+  | 'gemini-2.5-flash-preview-05-20'
+  | 'gemini-2.0-flash-exp'
+
+// Available AI models for Apply to 3D Model
+export type GeometryModel =
+  | 'gemini-3-pro-preview'
+  | 'gemini-2.5-flash'
+
+export interface SketchModelOption {
+  id: SketchModel
+  name: string
+  provider: 'openai' | 'google'
+}
+
+export interface GeometryModelOption {
+  id: GeometryModel
+  name: string
+}
+
+export const SKETCH_MODELS: SketchModelOption[] = [
+  { id: 'openai-gpt-image-1-mini', name: 'GPT Image Mini', provider: 'openai' },
+  { id: 'openai-gpt-image-1', name: 'GPT Image', provider: 'openai' },
+  { id: 'gemini-2.5-flash-preview-05-20', name: 'Gemini 2.5 Flash', provider: 'google' },
+  { id: 'gemini-2.0-flash-exp', name: 'Gemini 2.0 Flash', provider: 'google' }
+]
+
+export const GEOMETRY_MODELS: GeometryModelOption[] = [
+  { id: 'gemini-3-pro-preview', name: 'Gemini 3 Pro Preview' },
+  { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' }
+]

@@ -4,7 +4,15 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { DesignPanel } from './DesignPanel'
-import type { ImageGenerationService } from '../services/types'
+import type { ImageGenerationService, SketchModel, GeometryModel } from '../services/types'
+
+// Default props for model selection
+const defaultModelProps = {
+  sketchModel: 'openai-gpt-image-1-mini' as SketchModel,
+  geometryModel: 'gemini-3-pro-preview' as GeometryModel,
+  onSketchModelChange: vi.fn(),
+  onGeometryModelChange: vi.fn()
+}
 
 describe('DesignPanel', () => {
   let mockService: ImageGenerationService
@@ -18,6 +26,8 @@ describe('DesignPanel', () => {
       cancelGeneration: vi.fn(),
       isGenerating: vi.fn(() => false)
     }
+    // Reset mock functions
+    vi.clearAllMocks()
   })
 
   afterEach(() => {
@@ -25,7 +35,7 @@ describe('DesignPanel', () => {
   })
 
   it('renders all child components', () => {
-    render(<DesignPanel aiService={mockService} />)
+    render(<DesignPanel aiService={mockService} {...defaultModelProps} />)
 
     // Should render SketchCanvas
     expect(screen.getByTestId('sketch-canvas')).toBeTruthy()
@@ -40,7 +50,7 @@ describe('DesignPanel', () => {
 
   it('is collapsible with toggle button', async () => {
     const user = userEvent.setup()
-    const { container } = render(<DesignPanel aiService={mockService} />)
+    const { container } = render(<DesignPanel aiService={mockService} {...defaultModelProps} />)
 
     // Find collapse button
     const collapseButton = screen.getByLabelText(/collapse design panel/i)
@@ -56,7 +66,7 @@ describe('DesignPanel', () => {
 
   it('expands when clicking expand button', async () => {
     const user = userEvent.setup()
-    const { container } = render(<DesignPanel aiService={mockService} />)
+    const { container } = render(<DesignPanel aiService={mockService} {...defaultModelProps} />)
 
     // Collapse first
     await user.click(screen.getByLabelText(/collapse design panel/i))
@@ -77,7 +87,7 @@ describe('DesignPanel', () => {
     })
     mockService.generateImage = mockGenerate
 
-    render(<DesignPanel aiService={mockService} />)
+    render(<DesignPanel aiService={mockService} {...defaultModelProps} />)
 
     // Type prompt
     const textarea = screen.getByTestId('prompt-textarea')
@@ -95,7 +105,7 @@ describe('DesignPanel', () => {
   it('displays generated images', async () => {
     const user = userEvent.setup()
 
-    render(<DesignPanel aiService={mockService} />)
+    render(<DesignPanel aiService={mockService} {...defaultModelProps} />)
 
     // Generate an image
     await user.type(screen.getByTestId('prompt-textarea'), 'Test')
@@ -113,7 +123,7 @@ describe('DesignPanel', () => {
     )
     mockService.generateImage = mockGenerate
 
-    render(<DesignPanel aiService={mockService} />)
+    render(<DesignPanel aiService={mockService} {...defaultModelProps} />)
 
     await user.type(screen.getByTestId('prompt-textarea'), 'Test')
     await user.click(screen.getByTestId('generate-button'))
@@ -127,7 +137,7 @@ describe('DesignPanel', () => {
     const mockGenerate = vi.fn()
     mockService.generateImage = mockGenerate
 
-    render(<DesignPanel aiService={mockService} />)
+    render(<DesignPanel aiService={mockService} {...defaultModelProps} />)
 
     // Generate two images
     mockGenerate.mockResolvedValueOnce({ imageUrl: 'img1.png', timestamp: 1 })
@@ -154,7 +164,7 @@ describe('DesignPanel', () => {
     const mockGenerate = vi.fn().mockRejectedValue(new Error('API Error'))
     mockService.generateImage = mockGenerate
 
-    render(<DesignPanel aiService={mockService} />)
+    render(<DesignPanel aiService={mockService} {...defaultModelProps} />)
 
     await user.type(screen.getByTestId('prompt-textarea'), 'Test')
     await user.click(screen.getByTestId('generate-button'))
@@ -172,7 +182,7 @@ describe('DesignPanel', () => {
     })
     mockService.generateImage = mockGenerate
 
-    render(<DesignPanel aiService={mockService} />)
+    render(<DesignPanel aiService={mockService} {...defaultModelProps} />)
 
     const checkbox = screen.getByTestId('conversation-checkbox')
     expect((checkbox as HTMLInputElement).checked).toBe(false)
@@ -192,7 +202,7 @@ describe('DesignPanel', () => {
   })
 
   it('has proper styling classes', () => {
-    const { container } = render(<DesignPanel aiService={mockService} />)
+    const { container } = render(<DesignPanel aiService={mockService} {...defaultModelProps} />)
 
     const panel = container.firstChild as HTMLElement
     expect(panel.className).toContain('bg-gray-800')
@@ -200,7 +210,7 @@ describe('DesignPanel', () => {
   })
 
   it('renders title header', () => {
-    render(<DesignPanel aiService={mockService} />)
+    render(<DesignPanel aiService={mockService} {...defaultModelProps} />)
 
     expect(screen.getByText('AI Design Assistant')).toBeTruthy()
   })
@@ -208,7 +218,7 @@ describe('DesignPanel', () => {
   it('clears prompt after successful generation', async () => {
     const user = userEvent.setup()
 
-    render(<DesignPanel aiService={mockService} />)
+    render(<DesignPanel aiService={mockService} {...defaultModelProps} />)
 
     const textarea = screen.getByTestId('prompt-textarea') as HTMLTextAreaElement
     await user.type(textarea, 'Test prompt')
@@ -230,7 +240,7 @@ describe('DesignPanel', () => {
     })
     mockService.generateImage = mockGenerate
 
-    render(<DesignPanel aiService={mockService} />)
+    render(<DesignPanel aiService={mockService} {...defaultModelProps} />)
 
     await user.type(screen.getByTestId('prompt-textarea'), 'Test')
     await user.click(screen.getByTestId('generate-button'))

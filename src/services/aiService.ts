@@ -1,4 +1,4 @@
-import type { ImageGenerationService } from './types'
+import type { ImageGenerationService, SketchModel, GeometryModel } from './types'
 import type { ImageToGeometryService } from './imageToGeometryTypes'
 import { createOpenAiService } from './openaiService'
 import { createGoogleAiService } from './googleAiService'
@@ -6,27 +6,53 @@ import { createMockAiService } from './mockAiService'
 import { createImageToGeometryService } from './imageToGeometryService'
 
 /**
- * Creates an AI image generation service.
- * Priority order:
- * 1. OpenAI (gpt-image-1-mini) if VITE_OPENAI_API_KEY is set
- * 2. Google AI if VITE_GOOGLE_AI_API_KEY is set
- * 3. Mock service for development/testing
+ * Check if an API key is available for a given provider.
  */
-export function createAiService(): ImageGenerationService {
-  // Check for OpenAI API key first (highest priority)
-  const openaiApiKey = import.meta.env.VITE_OPENAI_API_KEY
+export function hasApiKey(provider: 'openai' | 'google'): boolean {
+  if (provider === 'openai') {
+    const key = import.meta.env.VITE_OPENAI_API_KEY
+    return Boolean(key && typeof key === 'string' && key.trim().length > 0)
+  }
+  if (provider === 'google') {
+    const key = import.meta.env.VITE_GOOGLE_AI_API_KEY
+    return Boolean(key && typeof key === 'string' && key.trim().length > 0)
+  }
+  return false
+}
 
-  if (openaiApiKey && typeof openaiApiKey === 'string' && openaiApiKey.trim().length > 0) {
+/**
+ * Creates an AI image generation service for sketch processing.
+ * Uses the specified model if its API key is available.
+ */
+export function createAiService(model?: SketchModel): ImageGenerationService {
+  const openaiApiKey = import.meta.env.VITE_OPENAI_API_KEY as string | undefined
+  const googleApiKey = import.meta.env.VITE_GOOGLE_AI_API_KEY as string | undefined
+
+  // If a specific model is requested, try to use it
+  if (model) {
+    if (model.startsWith('openai-') && openaiApiKey?.trim()) {
+      if (import.meta.env.DEV) {
+        console.log(`[AI Service] Using OpenAI service (${model})`)
+      }
+      return createOpenAiService(openaiApiKey, model as 'openai-gpt-image-1-mini' | 'openai-gpt-image-1')
+    }
+    if (model.startsWith('gemini-') && googleApiKey?.trim()) {
+      if (import.meta.env.DEV) {
+        console.log(`[AI Service] Using Google AI service (${model})`)
+      }
+      return createGoogleAiService(googleApiKey, model as 'gemini-2.5-flash-preview-05-20' | 'gemini-2.0-flash-exp')
+    }
+  }
+
+  // Default behavior: prioritize OpenAI, then Google, then mock
+  if (openaiApiKey?.trim()) {
     if (import.meta.env.DEV) {
       console.log('[AI Service] Using OpenAI service (gpt-image-1-mini)')
     }
     return createOpenAiService(openaiApiKey)
   }
 
-  // Fall back to Google AI
-  const googleApiKey = import.meta.env.VITE_GOOGLE_AI_API_KEY
-
-  if (googleApiKey && typeof googleApiKey === 'string' && googleApiKey.trim().length > 0) {
+  if (googleApiKey?.trim()) {
     if (import.meta.env.DEV) {
       console.log('[AI Service] Using Google AI service')
     }
@@ -42,17 +68,18 @@ export function createAiService(): ImageGenerationService {
 
 /**
  * Creates an image-to-geometry service for converting design images to 3D models.
- * Uses Google's Gemini 3 Pro Preview model.
+ * Uses the specified Gemini model.
  * Returns null if no Google API key is configured.
  */
-export function createImageToGeometryAiService(): ImageToGeometryService | null {
-  const googleApiKey = import.meta.env.VITE_GOOGLE_AI_API_KEY
+export function createImageToGeometryAiService(model?: GeometryModel): ImageToGeometryService | null {
+  const googleApiKey = import.meta.env.VITE_GOOGLE_AI_API_KEY as string | undefined
 
-  if (googleApiKey && typeof googleApiKey === 'string' && googleApiKey.trim().length > 0) {
+  if (googleApiKey?.trim()) {
+    const modelToUse = model ?? 'gemini-3-pro-preview'
     if (import.meta.env.DEV) {
-      console.log('[AI Service] Using Gemini 3 Pro Preview for image-to-geometry')
+      console.log(`[AI Service] Using ${modelToUse} for image-to-geometry`)
     }
-    return createImageToGeometryService(googleApiKey)
+    return createImageToGeometryService(googleApiKey, modelToUse)
   }
 
   return null  // No mock for this service - requires Google AI

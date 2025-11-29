@@ -269,10 +269,24 @@ Please fix this error in your new response. Common issues:
 
 const MAX_RETRIES = 2
 
+// Map our model IDs to actual Google model names
+type GeometryModelId = 'gemini-3-pro-preview' | 'gemini-2.5-flash'
+
+function getGeometryModelName(modelId: GeometryModelId): string {
+  switch (modelId) {
+    case 'gemini-2.5-flash':
+      return 'gemini-2.5-flash'
+    case 'gemini-3-pro-preview':
+    default:
+      return 'gemini-3-pro-preview'
+  }
+}
+
 /**
  * Creates an ImageToGeometryService using Google's Gemini API.
  */
-export function createImageToGeometryService(apiKey: string): ImageToGeometryService {
+export function createImageToGeometryService(apiKey: string, modelId: GeometryModelId = 'gemini-3-pro-preview'): ImageToGeometryService {
+  const modelName = getGeometryModelName(modelId)
   let analyzing = false
   let abortController: AbortController | null = null
 
@@ -293,7 +307,7 @@ export function createImageToGeometryService(apiKey: string): ImageToGeometrySer
     const compressedImage = await compressSketchImage(request.imageDataUrl)
 
     if (import.meta.env.DEV) {
-      console.log('[Gemini 3 Pro Preview] Image compression:', {
+      console.log(`[${modelName}] Image compression:`, {
         original: `${Math.round(request.imageDataUrl.length / 1024)}KB`,
         compressed: `${Math.round(compressedImage.length / 1024)}KB`,
         reduction: `${Math.round((1 - compressedImage.length / request.imageDataUrl.length) * 100)}%`
@@ -310,8 +324,8 @@ export function createImageToGeometryService(apiKey: string): ImageToGeometrySer
 
     // Log the request (without image data)
     if (import.meta.env.DEV) {
-      console.log('[Gemini 3 Pro Preview] Image-to-Geometry Request:', {
-        model: 'gemini-3-pro-preview',
+      console.log(`[${modelName}] Image-to-Geometry Request:`, {
+        model: modelName,
         userPrompt: request.prompt,
         hasCurrentModel: !!request.currentBuilderCode,
         currentModelName: request.currentModelName ?? 'N/A',
@@ -320,14 +334,14 @@ export function createImageToGeometryService(apiKey: string): ImageToGeometrySer
         isRetry: !!previousError
       })
       if (previousError) {
-        console.log('[Gemini 3 Pro Preview] Retry due to error:', previousError)
+        console.log(`[${modelName}] Retry due to error:`, previousError)
       }
-      console.log('[Gemini 3 Pro Preview] Full prompt:\n', fullPrompt)
+      console.log(`[${modelName}] Full prompt:\n`, fullPrompt)
     }
 
     // Call Gemini API with image and prompt
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
+      model: modelName,
       contents: [
         {
           role: 'user',
@@ -347,7 +361,6 @@ export function createImageToGeometryService(apiKey: string): ImageToGeometrySer
     })
 
     // Log response metadata with cost calculation
-    // Gemini 3 Pro Preview pricing: $2/1M input tokens, $12/1M output tokens
     if (import.meta.env.DEV) {
       const promptTokens = response?.usageMetadata?.promptTokenCount ?? 0
       const responseTokens = response?.usageMetadata?.candidatesTokenCount ?? 0
@@ -355,7 +368,7 @@ export function createImageToGeometryService(apiKey: string): ImageToGeometrySer
       const outputCost = (responseTokens / 1_000_000) * 12.0
       const totalCost = inputCost + outputCost
 
-      console.log('[Gemini 3 Pro Preview] Response metadata:', {
+      console.log(`[${modelName}] Response metadata:`, {
         promptTokens,
         responseTokens,
         totalTokens: response?.usageMetadata?.totalTokenCount,

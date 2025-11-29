@@ -18,11 +18,25 @@ class AiGenerationError extends Error implements GenerationError {
   }
 }
 
+// Map our model IDs to actual Google model names
+type GoogleModelId = 'gemini-2.5-flash-preview-05-20' | 'gemini-2.0-flash-exp'
+
+function getGoogleModelName(modelId: GoogleModelId): string {
+  switch (modelId) {
+    case 'gemini-2.5-flash-preview-05-20':
+      return 'gemini-2.5-flash-preview-05-20'
+    case 'gemini-2.0-flash-exp':
+    default:
+      return 'gemini-2.0-flash-exp'
+  }
+}
+
 /**
  * Google AI service implementation using Gemini for vision analysis
  * and Imagen for image generation.
  */
-export function createGoogleAiService(apiKey: string): ImageGenerationService {
+export function createGoogleAiService(apiKey: string, modelId: GoogleModelId = 'gemini-2.0-flash-exp'): ImageGenerationService {
+  const modelName = getGoogleModelName(modelId)
   let generating = false
   let abortController: AbortController | null = null
 
@@ -44,7 +58,7 @@ export function createGoogleAiService(apiKey: string): ImageGenerationService {
         })
       }
 
-      const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' })
+      const model = genAI.getGenerativeModel({ model: modelName })
       const { data, mimeType } = parseDataUrl(compressedSketch)
 
       const promptText = userPrompt
@@ -110,7 +124,7 @@ export function createGoogleAiService(apiKey: string): ImageGenerationService {
     try {
       // TODO: Integrate with Vertex AI Imagen API when available
       // For now, create a placeholder response that indicates the description was processed
-      const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' })
+      const model = genAI.getGenerativeModel({ model: modelName })
 
       // Generate a refined prompt for image generation (simulated)
       const result = await model.generateContent([

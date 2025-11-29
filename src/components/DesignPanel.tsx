@@ -2,16 +2,29 @@ import { useState } from 'react'
 import { SketchCanvas } from './SketchCanvas'
 import { GeneratedImageDisplay } from './GeneratedImageDisplay'
 import { PromptInput } from './PromptInput'
+import { ModelSelector } from './ModelSelector'
 import { useDesignPanel } from '../hooks/useDesignPanel'
-import type { ImageGenerationService } from '../services/types'
+import type { ImageGenerationService, SketchModel, GeometryModel } from '../services/types'
 
 interface DesignPanelProps {
   aiService: ImageGenerationService
   onApplyToModel?: (imageUrl: string, prompt: string) => void
   isApplying?: boolean
+  sketchModel: SketchModel
+  geometryModel: GeometryModel
+  onSketchModelChange: (model: SketchModel) => void
+  onGeometryModelChange: (model: GeometryModel) => void
 }
 
-export function DesignPanel({ aiService, onApplyToModel, isApplying }: DesignPanelProps) {
+export function DesignPanel({
+  aiService,
+  onApplyToModel,
+  isApplying,
+  sketchModel,
+  geometryModel,
+  onSketchModelChange,
+  onGeometryModelChange
+}: DesignPanelProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [sketchDataUrl, setSketchDataUrl] = useState<string>('')
 
@@ -81,6 +94,18 @@ export function DesignPanel({ aiService, onApplyToModel, isApplying }: DesignPan
         data-testid="design-panel-content"
         className={isCollapsed ? 'hidden' : 'flex-1 flex flex-col overflow-y-auto'}
       >
+        {/* Model Selection Section */}
+        <section className="p-4 border-b border-gray-700">
+          <h3 className="text-sm font-medium mb-3 text-gray-300">AI Models</h3>
+          <ModelSelector
+            sketchModel={sketchModel}
+            geometryModel={geometryModel}
+            onSketchModelChange={onSketchModelChange}
+            onGeometryModelChange={onGeometryModelChange}
+            showGeometrySelector={!!onApplyToModel}
+          />
+        </section>
+
         {/* Sketch Canvas Section */}
         <section className="p-4 border-b border-gray-700">
           <h3 className="text-sm font-medium mb-3 text-gray-300">Sketch Your Idea</h3>

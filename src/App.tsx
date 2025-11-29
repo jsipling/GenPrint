@@ -11,6 +11,7 @@ import { generators, flattenParameters, type ParameterValues } from './generator
 import type { Generator } from './generators/types'
 import { meshToStl } from './lib/meshToStl'
 import { createAiService, createImageToGeometryAiService } from './services/aiService'
+import type { SketchModel, GeometryModel } from './services/types'
 
 // No debounce - render immediately as settings change
 
@@ -76,10 +77,14 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [designPanelOpen, setDesignPanelOpen] = useState(false)
 
-  // Create AI service instance (memoized to avoid recreating on every render)
-  const aiService = useMemo(() => createAiService(), [])
+  // AI model selection state
+  const [sketchModel, setSketchModel] = useState<SketchModel>('openai-gpt-image-1-mini')
+  const [geometryModel, setGeometryModel] = useState<GeometryModel>('gemini-3-pro-preview')
+
+  // Create AI service instances (recreate when model changes)
+  const aiService = useMemo(() => createAiService(sketchModel), [sketchModel])
   // Create image-to-geometry service (returns null if Google API key not configured)
-  const imageToGeometryService = useMemo(() => createImageToGeometryAiService(), [])
+  const imageToGeometryService = useMemo(() => createImageToGeometryAiService(geometryModel), [geometryModel])
 
   // Update URL when state changes
   useEffect(() => {
@@ -386,6 +391,10 @@ export default function App() {
           aiService={aiService}
           onApplyToModel={imageToGeometryService ? handleApplyToModel : undefined}
           isApplying={isApplying}
+          sketchModel={sketchModel}
+          geometryModel={geometryModel}
+          onSketchModelChange={setSketchModel}
+          onGeometryModelChange={setGeometryModel}
         />
       </div>
     </div>

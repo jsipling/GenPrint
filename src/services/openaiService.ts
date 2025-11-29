@@ -40,11 +40,25 @@ function dataUrlToFile(dataUrl: string, filename: string): File {
   return new File([bytes], filename, { type: mimeType })
 }
 
+// Map our model IDs to actual OpenAI model names
+type OpenAiModelId = 'openai-gpt-image-1-mini' | 'openai-gpt-image-1'
+
+function getOpenAiModelName(modelId: OpenAiModelId): string {
+  switch (modelId) {
+    case 'openai-gpt-image-1':
+      return 'gpt-image-1'
+    case 'openai-gpt-image-1-mini':
+    default:
+      return 'gpt-image-1-mini'
+  }
+}
+
 /**
- * OpenAI service implementation using gpt-image-1-mini for image generation.
+ * OpenAI service implementation for image generation.
  * Uses images.edit when sketch is provided, images.generate for text-only.
  */
-export function createOpenAiService(apiKey: string): ImageGenerationService {
+export function createOpenAiService(apiKey: string, modelId: OpenAiModelId = 'openai-gpt-image-1-mini'): ImageGenerationService {
+  const modelName = getOpenAiModelName(modelId)
   let generating = false
   let abortController: AbortController | null = null
 
@@ -54,7 +68,7 @@ export function createOpenAiService(apiKey: string): ImageGenerationService {
   })
 
   /**
-   * Generate image using gpt-image-1-mini
+   * Generate image using the configured OpenAI model
    * Uses images.edit when sketch is provided to include the image input
    */
   async function generateImage(
@@ -72,8 +86,8 @@ export function createOpenAiService(apiKey: string): ImageGenerationService {
 
       // Log the request (without image data)
       if (import.meta.env.DEV) {
-        console.log('[OpenAI gpt-image-1-mini] Request:', {
-          model: 'gpt-image-1-mini',
+        console.log(`[OpenAI ${modelName}] Request:`, {
+          model: modelName,
           prompt: technicalPrompt,
           hasSketch: !!sketchDataUrl,
           sketchSize: sketchDataUrl ? `${Math.round(sketchDataUrl.length / 1024)}KB` : 'N/A',
@@ -99,7 +113,7 @@ export function createOpenAiService(apiKey: string): ImageGenerationService {
         // Use images.edit to include the sketch as input
         const sketchFile = dataUrlToFile(compressedSketch, 'sketch.jpg')
         response = await openai.images.edit({
-          model: 'gpt-image-1-mini',
+          model: modelName,
           image: sketchFile,
           prompt: technicalPrompt,
           size: '1024x1024',
@@ -109,7 +123,7 @@ export function createOpenAiService(apiKey: string): ImageGenerationService {
       } else {
         // Text-only generation
         response = await openai.images.generate({
-          model: 'gpt-image-1-mini',
+          model: modelName,
           prompt: technicalPrompt,
           size: '1024x1024',
           quality: 'low',
@@ -124,7 +138,7 @@ export function createOpenAiService(apiKey: string): ImageGenerationService {
       if (!b64Json && !url) {
         throw new AiGenerationError(
           'API_ERROR',
-          'gpt-image-1-mini returned empty image response.',
+          `${modelName} returned empty image response.`,
           true
         )
       }
@@ -149,9 +163,9 @@ export function createOpenAiService(apiKey: string): ImageGenerationService {
           throw new AiGenerationError('API_ERROR', 'Invalid OpenAI API key', false)
         }
         if (error.status === 400) {
-          throw new AiGenerationError('API_ERROR', `gpt-image-1-mini request invalid: ${error.message}`, true)
+          throw new AiGenerationError('API_ERROR', `${modelName} request invalid: ${error.message}`, true)
         }
-        throw new AiGenerationError('API_ERROR', `gpt-image-1-mini generation failed: ${error.message}`, true)
+        throw new AiGenerationError('API_ERROR', `${modelName} generation failed: ${error.message}`, true)
       }
 
       // Handle network errors
