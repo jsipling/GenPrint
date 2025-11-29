@@ -270,22 +270,22 @@ Please fix this error in your new response. Common issues:
 const MAX_RETRIES = 2
 
 // Map our model IDs to actual Google model names
-type GeometryModelId = 'gemini-3-pro-preview' | 'gemini-2.5-flash'
+type GeometryModelId = 'gemini-2.5-pro-preview-06-05' | 'gemini-2.5-flash'
 
 function getGeometryModelName(modelId: GeometryModelId): string {
   switch (modelId) {
     case 'gemini-2.5-flash':
       return 'gemini-2.5-flash'
-    case 'gemini-3-pro-preview':
+    case 'gemini-2.5-pro-preview-06-05':
     default:
-      return 'gemini-3-pro-preview'
+      return 'gemini-2.5-pro-preview-06-05'
   }
 }
 
 /**
  * Creates an ImageToGeometryService using Google's Gemini API.
  */
-export function createImageToGeometryService(apiKey: string, modelId: GeometryModelId = 'gemini-3-pro-preview'): ImageToGeometryService {
+export function createImageToGeometryService(apiKey: string, modelId: GeometryModelId = 'gemini-2.5-pro-preview-06-05'): ImageToGeometryService {
   const modelName = getGeometryModelName(modelId)
   let analyzing = false
   let abortController: AbortController | null = null

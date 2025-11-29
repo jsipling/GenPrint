@@ -19,12 +19,12 @@ class AiGenerationError extends Error implements GenerationError {
 }
 
 // Map our model IDs to actual Google model names
-type GoogleModelId = 'gemini-2.5-flash-preview-05-20' | 'gemini-2.0-flash-exp'
+type GoogleModelId = 'gemini-2.5-flash-preview-native-audio' | 'gemini-2.0-flash-exp'
 
 function getGoogleModelName(modelId: GoogleModelId): string {
   switch (modelId) {
-    case 'gemini-2.5-flash-preview-05-20':
-      return 'gemini-2.5-flash-preview-05-20'
+    case 'gemini-2.5-flash-preview-native-audio':
+      return 'gemini-2.5-flash-preview-native-audio'
     case 'gemini-2.0-flash-exp':
     default:
       return 'gemini-2.0-flash-exp'

@@ -40,7 +40,7 @@ export function createAiService(model?: SketchModel): ImageGenerationService {
       if (import.meta.env.DEV) {
         console.log(`[AI Service] Using Google AI service (${model})`)
       }
-      return createGoogleAiService(googleApiKey, model as 'gemini-2.5-flash-preview-05-20' | 'gemini-2.0-flash-exp')
+      return createGoogleAiService(googleApiKey, model as 'gemini-2.5-flash-preview-native-audio' | 'gemini-2.0-flash-exp')
     }
   }
 
@@ -75,7 +75,7 @@ export function createImageToGeometryAiService(model?: GeometryModel): ImageToGe
   const googleApiKey = import.meta.env.VITE_GOOGLE_AI_API_KEY as string | undefined
 
   if (googleApiKey?.trim()) {
-    const modelToUse = model ?? 'gemini-3-pro-preview'
+    const modelToUse = model ?? 'gemini-2.5-pro-preview-06-05'
     if (import.meta.env.DEV) {
       console.log(`[AI Service] Using ${modelToUse} for image-to-geometry`)
     }
