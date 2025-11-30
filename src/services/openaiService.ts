@@ -90,7 +90,7 @@ export function createOpenAiService(apiKey: string, modelId: OpenAiModelId = 'op
   ): Promise<string> {
     try {
       // Build the prompt for 3D interpretation
-      let technicalPrompt = 'Interpret this user\'s drawing. They are attempting to draw a 3D object that will be used to print with a 3D printer. Your interpretation should be a clean 3D drawing with only lines. The following is the user\'s description of their sketch:'
+      let technicalPrompt = 'Interpret this user\'s orthographic drawing(s). They are attempting to draw a 3D object from multiple views (top, side, and/or front) that will be used to print with a 3D printer. Your interpretation should be a clean 3D drawing with only lines showing the object from these orthographic views. The following is the user\'s description of their sketch:'
 
       // Append user's prompt if provided for additional context
       if (prompt) {

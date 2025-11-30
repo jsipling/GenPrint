@@ -1,10 +1,5 @@
 import { ImageHistoryNav } from './ImageHistoryNav'
-
-interface GeneratedImage {
-  url: string
-  timestamp: number
-  prompt?: string
-}
+import type { GeneratedImage } from '../hooks/useDesignPanel'
 
 interface GeneratedImageDisplayProps {
   images: GeneratedImage[]
@@ -13,7 +8,7 @@ interface GeneratedImageDisplayProps {
   onNext: () => void
   isLoading?: boolean
   error?: string
-  onApplyToModel?: (imageUrl: string) => void
+  onApplyToModel?: (imageUrlOrImage: string | GeneratedImage) => void
   isApplying?: boolean
 }
 
@@ -125,7 +120,14 @@ export function GeneratedImageDisplay({
       {onApplyToModel && currentImage && (
         <button
           data-testid="apply-to-model-button"
-          onClick={() => onApplyToModel(currentImage.url)}
+          onClick={() => {
+            // Pass full image object if it has sketchContext, otherwise just URL for backward compatibility
+            if (currentImage.sketchContext) {
+              onApplyToModel(currentImage)
+            } else {
+              onApplyToModel(currentImage.url)
+            }
+          }}
           disabled={isApplying}
           className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 disabled:cursor-not-allowed text-white font-medium rounded flex items-center justify-center gap-2 transition-colors"
         >

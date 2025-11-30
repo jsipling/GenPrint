@@ -28,6 +28,40 @@ describe('DesignPanel', () => {
     }
     // Reset mock functions
     vi.clearAllMocks()
+
+    // Mock canvas methods for MultiViewSketchCanvas
+    HTMLCanvasElement.prototype.getContext = vi.fn((contextId) => {
+      if (contextId === '2d') {
+        return {
+          clearRect: vi.fn(),
+          beginPath: vi.fn(),
+          moveTo: vi.fn(),
+          lineTo: vi.fn(),
+          arc: vi.fn(),
+          rect: vi.fn(),
+          stroke: vi.fn(),
+          fill: vi.fn(),
+          closePath: vi.fn(),
+          save: vi.fn(),
+          restore: vi.fn(),
+          getImageData: vi.fn(() => ({
+            data: new Uint8ClampedArray(250 * 250 * 4),
+            width: 250,
+            height: 250,
+            colorSpace: 'srgb' as PredefinedColorSpace
+          })),
+          putImageData: vi.fn(),
+          lineCap: 'round',
+          lineJoin: 'round',
+          lineWidth: 2,
+          strokeStyle: '#000000',
+          globalCompositeOperation: 'source-over'
+        } as unknown as CanvasRenderingContext2D
+      }
+      return null
+    }) as unknown as typeof HTMLCanvasElement.prototype.getContext
+
+    HTMLCanvasElement.prototype.toDataURL = vi.fn(() => 'data:image/png;base64,mockdata')
   })
 
   afterEach(() => {
@@ -37,8 +71,10 @@ describe('DesignPanel', () => {
   it('renders all child components', () => {
     render(<DesignPanel aiService={mockService} {...defaultModelProps} />)
 
-    // Should render SketchCanvas
-    expect(screen.getByTestId('sketch-canvas')).toBeTruthy()
+    // Should render MultiViewSketchCanvas (3 canvases)
+    expect(screen.getByTestId('canvas-top')).toBeTruthy()
+    expect(screen.getByTestId('canvas-side')).toBeTruthy()
+    expect(screen.getByTestId('canvas-front')).toBeTruthy()
 
     // Should render GeneratedImageDisplay (empty state)
     expect(screen.getByTestId('empty-state')).toBeTruthy()

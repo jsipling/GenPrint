@@ -3,11 +3,15 @@ import type {
   ImageGenerationService,
   ConversationMessage
 } from '../services/types'
+import type { MultiViewSketchData } from '../types/sketch'
+import type { SketchContext } from '../types/sketchContext'
+import { createCompositeImage } from '../utils/sketchComposite'
 
 export interface GeneratedImage {
   url: string
   timestamp: number
   prompt: string
+  sketchContext?: SketchContext  // Optional for backward compatibility
 }
 
 const MAX_HISTORY = 20
@@ -33,7 +37,7 @@ export function useDesignPanel(aiService: ImageGenerationService) {
     setContinueConversation(enabled)
   }, [])
 
-  const generateImage = useCallback(async (sketchDataUrl?: string) => {
+  const generateImage = useCallback(async (multiViewSketchData?: MultiViewSketchData | null) => {
     if (!prompt.trim()) return
 
     // Capture prompt before clearing
@@ -43,6 +47,19 @@ export function useDesignPanel(aiService: ImageGenerationService) {
     setError(null)
 
     try {
+      // Create composite image from multi-view sketch data if provided
+      let sketchDataUrl: string | undefined
+      let compositeDataUrl: string | null = null
+      if (multiViewSketchData) {
+        compositeDataUrl = await createCompositeImage(multiViewSketchData)
+        // If composite is empty string, don't pass it to the service
+        if (compositeDataUrl) {
+          sketchDataUrl = compositeDataUrl
+        } else {
+          compositeDataUrl = null
+        }
+      }
+
       const response = await aiService.generateImage({
         sketchDataUrl,
         prompt: currentPrompt,
@@ -50,10 +67,17 @@ export function useDesignPanel(aiService: ImageGenerationService) {
         conversationHistory: continueConversation ? conversationHistory : undefined
       })
 
+      // Create sketch context to store with the image
+      const sketchContext: SketchContext = {
+        multiViewData: multiViewSketchData ?? null,
+        compositeDataUrl
+      }
+
       const newImage: GeneratedImage = {
         url: response.imageUrl,
         timestamp: response.timestamp,
-        prompt: currentPrompt
+        prompt: currentPrompt,
+        sketchContext
       }
 
       // Add to history (newest first), limit to MAX_HISTORY

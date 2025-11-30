@@ -24,8 +24,8 @@ describe('GeneratedImageDisplay', () => {
 
   it('displays current image when images exist', () => {
     const images = [
-      { url: 'https://example.com/image1.png', timestamp: Date.now() },
-      { url: 'https://example.com/image2.png', timestamp: Date.now() }
+      { url: 'https://example.com/image1.png', timestamp: Date.now(), prompt: 'test 1' },
+      { url: 'https://example.com/image2.png', timestamp: Date.now(), prompt: 'test 2' }
     ]
 
     render(
@@ -43,8 +43,8 @@ describe('GeneratedImageDisplay', () => {
 
   it('displays second image when currentIndex is 1', () => {
     const images = [
-      { url: 'https://example.com/image1.png', timestamp: Date.now() },
-      { url: 'https://example.com/image2.png', timestamp: Date.now() }
+      { url: 'https://example.com/image1.png', timestamp: Date.now(), prompt: 'test' },
+      { url: 'https://example.com/image2.png', timestamp: Date.now(), prompt: 'test' }
     ]
 
     render(
@@ -91,8 +91,8 @@ describe('GeneratedImageDisplay', () => {
 
   it('renders navigation controls when images exist', () => {
     const images = [
-      { url: 'https://example.com/image1.png', timestamp: Date.now() },
-      { url: 'https://example.com/image2.png', timestamp: Date.now() }
+      { url: 'https://example.com/image1.png', timestamp: Date.now(), prompt: 'test' },
+      { url: 'https://example.com/image2.png', timestamp: Date.now(), prompt: 'test' }
     ]
 
     const onPrev = vi.fn()
@@ -129,8 +129,8 @@ describe('GeneratedImageDisplay', () => {
   it('calls navigation callbacks from ImageHistoryNav', async () => {
     const user = userEvent.setup()
     const images = [
-      { url: 'https://example.com/image1.png', timestamp: Date.now() },
-      { url: 'https://example.com/image2.png', timestamp: Date.now() }
+      { url: 'https://example.com/image1.png', timestamp: Date.now(), prompt: 'test' },
+      { url: 'https://example.com/image2.png', timestamp: Date.now(), prompt: 'test' }
     ]
 
     const onPrev = vi.fn()
@@ -151,7 +151,7 @@ describe('GeneratedImageDisplay', () => {
 
   it('has proper alt text for generated image', () => {
     const images = [
-      { url: 'https://example.com/image1.png', timestamp: Date.now() }
+      { url: 'https://example.com/image1.png', timestamp: Date.now(), prompt: 'test' }
     ]
 
     render(
@@ -169,7 +169,7 @@ describe('GeneratedImageDisplay', () => {
 
   it('applies correct styling to image container', () => {
     const images = [
-      { url: 'https://example.com/image1.png', timestamp: Date.now() }
+      { url: 'https://example.com/image1.png', timestamp: Date.now(), prompt: 'test' }
     ]
 
     const { container } = render(
@@ -218,7 +218,7 @@ describe('GeneratedImageDisplay', () => {
 
     it('is not visible when onApplyToModel is undefined', () => {
       const images = [
-        { url: 'https://example.com/image1.png', timestamp: Date.now() }
+        { url: 'https://example.com/image1.png', timestamp: Date.now(), prompt: 'test' }
       ]
 
       render(
@@ -235,7 +235,7 @@ describe('GeneratedImageDisplay', () => {
 
     it('is visible when image displayed and callback provided', () => {
       const images = [
-        { url: 'https://example.com/image1.png', timestamp: Date.now() }
+        { url: 'https://example.com/image1.png', timestamp: Date.now(), prompt: 'test' }
       ]
 
       render(
@@ -255,7 +255,7 @@ describe('GeneratedImageDisplay', () => {
 
     it('is disabled during applying state and shows Analyzing text', () => {
       const images = [
-        { url: 'https://example.com/image1.png', timestamp: Date.now() }
+        { url: 'https://example.com/image1.png', timestamp: Date.now(), prompt: 'test' }
       ]
 
       render(
@@ -277,8 +277,8 @@ describe('GeneratedImageDisplay', () => {
     it('calls callback with current image URL when clicked', async () => {
       const user = userEvent.setup()
       const images = [
-        { url: 'https://example.com/image1.png', timestamp: Date.now() },
-        { url: 'https://example.com/image2.png', timestamp: Date.now() }
+        { url: 'https://example.com/image1.png', timestamp: Date.now(), prompt: 'test' },
+        { url: 'https://example.com/image2.png', timestamp: Date.now(), prompt: 'test' }
       ]
       const onApplyToModel = vi.fn()
 
@@ -295,6 +295,39 @@ describe('GeneratedImageDisplay', () => {
       await user.click(screen.getByTestId('apply-to-model-button'))
       expect(onApplyToModel).toHaveBeenCalledOnce()
       expect(onApplyToModel).toHaveBeenCalledWith('https://example.com/image2.png')
+    })
+
+    it('calls callback with full image object when image has sketchContext', async () => {
+      const user = userEvent.setup()
+      const mockImage = {
+        url: 'https://example.com/image1.png',
+        timestamp: Date.now(),
+        prompt: 'test prompt',
+        sketchContext: {
+          multiViewData: {
+            top: { view: 'top' as const, dataUrl: 'data:image/png;base64,top', isEmpty: false },
+            side: { view: 'side' as const, dataUrl: 'data:image/png;base64,side', isEmpty: false },
+            front: { view: 'front' as const, dataUrl: 'data:image/png;base64,front', isEmpty: true }
+          },
+          compositeDataUrl: 'data:image/png;base64,composite'
+        }
+      }
+      const images = [mockImage]
+      const onApplyToModel = vi.fn()
+
+      render(
+        <GeneratedImageDisplay
+          images={images}
+          currentIndex={0}
+          onPrevious={vi.fn()}
+          onNext={vi.fn()}
+          onApplyToModel={onApplyToModel}
+        />
+      )
+
+      await user.click(screen.getByTestId('apply-to-model-button'))
+      expect(onApplyToModel).toHaveBeenCalledOnce()
+      expect(onApplyToModel).toHaveBeenCalledWith(mockImage)
     })
   })
 })

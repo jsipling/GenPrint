@@ -5,6 +5,7 @@ import { renderHook, act, waitFor } from '@testing-library/react'
 import { useImageToModel } from './useImageToModel'
 import type { ImageToGeometryService, GeometryAnalysis } from '../services/imageToGeometryTypes'
 import type { Generator, ParameterValues } from '../generators/types'
+import type { SketchContext } from '../types/sketchContext'
 
 describe('useImageToModel', () => {
   let mockService: ImageToGeometryService
@@ -182,5 +183,63 @@ describe('useImageToModel', () => {
 
     expect(result.current.isApplying).toBe(false)
     expect(result.current.error).toBe('Network error')
+  })
+
+  it('passes sketch context to analyzeImage when provided', async () => {
+    const mockAnalyze = vi.fn().mockResolvedValue({
+      success: true,
+      analysis: mockAnalysis
+    })
+    mockService.analyzeImage = mockAnalyze
+
+    const { result } = renderHook(() =>
+      useImageToModel(mockService, mockOnGeneratorCreated)
+    )
+
+    const mockSketchContext: SketchContext = {
+      multiViewData: {
+        top: { view: 'top', dataUrl: 'data:image/png;base64,top', isEmpty: false },
+        side: { view: 'side', dataUrl: 'data:image/png;base64,side', isEmpty: false },
+        front: { view: 'front', dataUrl: 'data:image/png;base64,front', isEmpty: true }
+      },
+      compositeDataUrl: 'data:image/png;base64,composite'
+    }
+
+    await act(async () => {
+      await result.current.applyToModel(
+        'data:image/png;base64,test',
+        'create a box',
+        undefined,
+        mockSketchContext
+      )
+    })
+
+    expect(mockAnalyze).toHaveBeenCalledWith({
+      imageDataUrl: 'data:image/png;base64,test',
+      prompt: 'create a box',
+      sketchContext: mockSketchContext
+    })
+  })
+
+  it('does not pass sketch context when undefined', async () => {
+    const mockAnalyze = vi.fn().mockResolvedValue({
+      success: true,
+      analysis: mockAnalysis
+    })
+    mockService.analyzeImage = mockAnalyze
+
+    const { result } = renderHook(() =>
+      useImageToModel(mockService, mockOnGeneratorCreated)
+    )
+
+    await act(async () => {
+      await result.current.applyToModel(
+        'data:image/png;base64,test',
+        'create a box'
+      )
+    })
+
+    const callArgs = mockAnalyze.mock.calls[0]?.[0]
+    expect(callArgs?.sketchContext).toBeUndefined()
   })
 })

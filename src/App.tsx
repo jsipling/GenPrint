@@ -12,6 +12,7 @@ import type { Generator } from './generators/types'
 import { meshToStl } from './lib/meshToStl'
 import { createAiService, createImageToGeometryAiService } from './services/aiService'
 import type { SketchModel, GeometryModel } from './services/types'
+import type { SketchContext } from './types/sketchContext'
 
 // No debounce - render immediately as settings change
 
@@ -231,13 +232,13 @@ export default function App() {
     handleAiGeneratorCreated
   )
 
-  // Wrapper to pass current generator context to applyToModel
-  const handleApplyToModel = useCallback((imageUrl: string, prompt: string) => {
+  // Wrapper to pass current generator context and sketch context to applyToModel
+  const handleApplyToModel = useCallback((imageUrl: string, prompt: string, sketchContext?: SketchContext) => {
     applyToModel(imageUrl, prompt, {
       builderCode: selectedGenerator.builderCode,
       params,
       name: selectedGenerator.name
-    })
+    }, sketchContext)
   }, [applyToModel, selectedGenerator.builderCode, selectedGenerator.name, params])
 
   const downloadBlob = (blob: Blob, filename: string) => {

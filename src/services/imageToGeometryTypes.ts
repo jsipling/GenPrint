@@ -1,4 +1,5 @@
 import type { ParameterDef, ParameterValues } from '../generators/types'
+import type { SketchContext } from '../types/sketchContext'
 
 /**
  * Request to analyze an image for 3D geometry generation.
@@ -8,6 +9,8 @@ export interface ImageToGeometryRequest {
   imageDataUrl: string
   /** User's original prompt describing what to create */
   prompt: string
+  /** Optional: Sketch context with multi-view data for improved geometry understanding */
+  sketchContext?: SketchContext
   /** Optional: Current generator's builder code for context */
   currentBuilderCode?: string
   /** Optional: Current generator's parameters */

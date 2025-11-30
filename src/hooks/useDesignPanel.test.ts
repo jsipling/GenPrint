@@ -4,6 +4,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { useDesignPanel } from './useDesignPanel'
 import type { ImageGenerationService } from '../services/types'
+import type { MultiViewSketchData } from '../types/sketch'
+
+// Mock the createCompositeImage utility
+vi.mock('../utils/sketchComposite', () => ({
+  createCompositeImage: vi.fn(async (_data: MultiViewSketchData) => {
+    // Return a mock composite data URL
+    return 'data:image/png;base64,mockComposite'
+  })
+}))
 
 describe('useDesignPanel', () => {
   let mockService: ImageGenerationService
@@ -61,7 +70,7 @@ describe('useDesignPanel', () => {
       result.current.setPrompt('First')
     })
     await act(async () => {
-      await result.current.generateImage('sketch-data-url')
+      await result.current.generateImage()
     })
 
     mockGenerate.mockResolvedValueOnce({ imageUrl: 'img2.png', timestamp: 2 })
@@ -69,7 +78,7 @@ describe('useDesignPanel', () => {
       result.current.setPrompt('Second')
     })
     await act(async () => {
-      await result.current.generateImage('sketch-data-url')
+      await result.current.generateImage()
     })
 
     await waitFor(() => {
@@ -96,7 +105,7 @@ describe('useDesignPanel', () => {
       result.current.setPrompt('Test')
     })
     await act(async () => {
-      await result.current.generateImage('sketch-data-url')
+      await result.current.generateImage()
     })
 
     await waitFor(() => {
@@ -125,7 +134,7 @@ describe('useDesignPanel', () => {
       result.current.setPrompt('First')
     })
     await act(async () => {
-      await result.current.generateImage('sketch-data-url')
+      await result.current.generateImage()
     })
 
     mockGenerate.mockResolvedValueOnce({ imageUrl: 'img2.png', timestamp: 2 })
@@ -133,7 +142,7 @@ describe('useDesignPanel', () => {
       result.current.setPrompt('Second')
     })
     await act(async () => {
-      await result.current.generateImage('sketch-data-url')
+      await result.current.generateImage()
     })
 
     await waitFor(() => {
@@ -166,7 +175,7 @@ describe('useDesignPanel', () => {
       result.current.setPrompt('Test')
     })
     await act(async () => {
-      await result.current.generateImage('sketch-data-url')
+      await result.current.generateImage()
     })
 
     await waitFor(() => {
@@ -197,7 +206,7 @@ describe('useDesignPanel', () => {
     })
 
     await act(async () => {
-      await result.current.generateImage('sketch-data-url')
+      await result.current.generateImage()
     })
 
     await waitFor(() => {
@@ -226,7 +235,7 @@ describe('useDesignPanel', () => {
     })
 
     act(() => {
-      void result.current.generateImage('sketch-data-url')
+      void result.current.generateImage()
     })
 
     // Should be generating
@@ -256,7 +265,7 @@ describe('useDesignPanel', () => {
     })
 
     await act(async () => {
-      await result.current.generateImage('sketch-data-url')
+      await result.current.generateImage()
     })
 
     await waitFor(() => {
@@ -287,7 +296,7 @@ describe('useDesignPanel', () => {
 
       await act(async () => {
         result.current.setPrompt(`Test ${i}`)
-        await result.current.generateImage('sketch-data-url')
+        await result.current.generateImage()
       })
 
       // Wait for image to be added to state
@@ -319,7 +328,7 @@ describe('useDesignPanel', () => {
 
     await act(async () => {
       result.current.setPrompt('First')
-      await result.current.generateImage('sketch-data-url')
+      await result.current.generateImage()
     })
 
     await waitFor(() => {
@@ -334,7 +343,7 @@ describe('useDesignPanel', () => {
 
     await act(async () => {
       result.current.setPrompt('Second')
-      await result.current.generateImage('sketch-data-url')
+      await result.current.generateImage()
     })
 
     await waitFor(() => {
@@ -356,7 +365,7 @@ describe('useDesignPanel', () => {
 
     await act(async () => {
       result.current.setPrompt('Failing')
-      await result.current.generateImage('sketch-data-url')
+      await result.current.generateImage()
     })
 
     await waitFor(() => {
@@ -371,7 +380,7 @@ describe('useDesignPanel', () => {
 
     await act(async () => {
       result.current.setPrompt('Success')
-      await result.current.generateImage('sketch-data-url')
+      await result.current.generateImage()
     })
 
     await waitFor(() => {
@@ -395,7 +404,7 @@ describe('useDesignPanel', () => {
     await act(async () => {
       result.current.setConversationMode(true)
       result.current.setPrompt('First prompt')
-      await result.current.generateImage('sketch-data-url')
+      await result.current.generateImage()
     })
 
     await waitFor(() => {
@@ -410,7 +419,7 @@ describe('useDesignPanel', () => {
 
     await act(async () => {
       result.current.setPrompt('Follow-up prompt')
-      await result.current.generateImage('sketch-data-url')
+      await result.current.generateImage()
     })
 
     await waitFor(() => {
@@ -440,7 +449,7 @@ describe('useDesignPanel', () => {
     await act(async () => {
       result.current.setConversationMode(true)
       result.current.setPrompt('First prompt')
-      await result.current.generateImage('sketch-data-url')
+      await result.current.generateImage()
     })
 
     await waitFor(() => {
@@ -456,7 +465,7 @@ describe('useDesignPanel', () => {
     await act(async () => {
       result.current.setConversationMode(false)
       result.current.setPrompt('New prompt')
-      await result.current.generateImage('sketch-data-url')
+      await result.current.generateImage()
     })
 
     await waitFor(() => {
@@ -467,5 +476,63 @@ describe('useDesignPanel', () => {
     const secondCall = mockGenerate.mock.calls[1]?.[0]
     expect(secondCall?.continueConversation).toBe(false)
     expect(secondCall?.conversationHistory).toBeUndefined()
+  })
+
+  it('stores sketch context with generated image', async () => {
+    const mockGenerate = vi.fn().mockResolvedValue({
+      imageUrl: 'generated.png',
+      timestamp: Date.now()
+    })
+    mockService.generateImage = mockGenerate
+
+    const { result } = renderHook(() => useDesignPanel(mockService))
+
+    const mockSketchData: MultiViewSketchData = {
+      top: { view: 'top', dataUrl: 'data:image/png;base64,top', isEmpty: false },
+      side: { view: 'side', dataUrl: 'data:image/png;base64,side', isEmpty: false },
+      front: { view: 'front', dataUrl: 'data:image/png;base64,front', isEmpty: true }
+    }
+
+    act(() => {
+      result.current.setPrompt('Test prompt')
+    })
+
+    await act(async () => {
+      await result.current.generateImage(mockSketchData)
+    })
+
+    await waitFor(() => {
+      expect(result.current.images.length).toBe(1)
+    })
+
+    const image = result.current.images[0]
+    expect(image?.sketchContext).toBeDefined()
+    expect(image?.sketchContext?.multiViewData).toEqual(mockSketchData)
+    expect(image?.sketchContext?.compositeDataUrl).toBeTruthy()
+  })
+
+  it('stores null sketch context when no sketch data provided', async () => {
+    const mockGenerate = vi.fn().mockResolvedValue({
+      imageUrl: 'generated.png',
+      timestamp: Date.now()
+    })
+    mockService.generateImage = mockGenerate
+
+    const { result } = renderHook(() => useDesignPanel(mockService))
+
+    act(() => {
+      result.current.setPrompt('Test prompt')
+    })
+
+    await act(async () => {
+      await result.current.generateImage(null)
+    })
+
+    await waitFor(() => {
+      expect(result.current.images.length).toBe(1)
+    })
+
+    const image = result.current.images[0]
+    expect(image?.sketchContext?.multiViewData).toBeNull()
   })
 })

@@ -94,14 +94,14 @@ export function createGoogleAiService(apiKey: string, modelId: GoogleModelId = '
           })
         }
 
-        // Build prompt text
+        // Build prompt text for orthographic views
         let promptText: string
         if (request.sketchDataUrl && request.prompt) {
-          promptText = `Transform this sketch into a clean, professional technical orthographic drawing. ${request.prompt}. Generate an image.`
+          promptText = `Transform these orthographic view sketches (top, side, and/or front views) into a clean, professional technical drawing showing the 3D object from multiple perspectives. ${request.prompt}. Generate an image.`
         } else if (request.sketchDataUrl) {
-          promptText = 'Transform this sketch into a clean, professional technical orthographic drawing suitable for 3D modeling. Generate an image.'
+          promptText = 'Transform these orthographic view sketches (top, side, and/or front views) into a clean, professional technical drawing suitable for 3D modeling. The image shows multiple views of the same object. Generate an image.'
         } else {
-          promptText = `Create a clean, professional technical orthographic drawing: ${request.prompt}. Generate an image.`
+          promptText = `Create a clean, professional technical orthographic drawing showing multiple views (top, side, front): ${request.prompt}. Generate an image.`
         }
         contents.push(promptText)
 

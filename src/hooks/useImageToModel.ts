@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
 import type { ImageToGeometryService } from '../services/imageToGeometryTypes'
 import type { Generator, ParameterValues } from '../generators/types'
+import type { SketchContext } from '../types/sketchContext'
 
 /** Context about the current model for modification mode */
 export interface CurrentModelContext {
@@ -19,7 +20,8 @@ export function useImageToModel(
   const applyToModel = useCallback(async (
     imageUrl: string,
     prompt: string,
-    currentModel?: CurrentModelContext
+    currentModel?: CurrentModelContext,
+    sketchContext?: SketchContext
   ) => {
     setIsApplying(true)
     setError(null)
@@ -28,6 +30,7 @@ export function useImageToModel(
       const response = await imageToGeometryService.analyzeImage({
         imageDataUrl: imageUrl,
         prompt,
+        sketchContext,
         currentBuilderCode: currentModel?.builderCode,
         currentParams: currentModel?.params,
         currentModelName: currentModel?.name

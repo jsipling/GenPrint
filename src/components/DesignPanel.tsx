@@ -1,14 +1,16 @@
 import { useState } from 'react'
-import { SketchCanvas } from './SketchCanvas'
+import { MultiViewSketchCanvas } from './MultiViewSketchCanvas'
 import { GeneratedImageDisplay } from './GeneratedImageDisplay'
 import { PromptInput } from './PromptInput'
 import { ModelSelector } from './ModelSelector'
-import { useDesignPanel } from '../hooks/useDesignPanel'
+import { useDesignPanel, type GeneratedImage } from '../hooks/useDesignPanel'
 import type { ImageGenerationService, SketchModel, GeometryModel } from '../services/types'
+import type { MultiViewSketchData } from '../types/sketch'
+import type { SketchContext } from '../types/sketchContext'
 
 interface DesignPanelProps {
   aiService: ImageGenerationService
-  onApplyToModel?: (imageUrl: string, prompt: string) => void
+  onApplyToModel?: (imageUrl: string, prompt: string, sketchContext?: SketchContext) => void
   isApplying?: boolean
   sketchModel: SketchModel
   geometryModel: GeometryModel
@@ -26,7 +28,7 @@ export function DesignPanel({
   onGeometryModelChange
 }: DesignPanelProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
-  const [sketchDataUrl, setSketchDataUrl] = useState<string>('')
+  const [multiViewSketchData, setMultiViewSketchData] = useState<MultiViewSketchData | null>(null)
 
   const {
     images,
@@ -42,23 +44,37 @@ export function DesignPanel({
     generateImage
   } = useDesignPanel(aiService)
 
-  const handleExport = (dataUrl: string) => {
-    setSketchDataUrl(dataUrl)
+  const handleExport = (data: MultiViewSketchData) => {
+    setMultiViewSketchData(data)
   }
 
   const handleGenerate = () => {
-    // Allow generation with just prompt or with sketch + prompt
-    generateImage(sketchDataUrl || undefined)
+    // Allow generation with just prompt or with multi-view sketch + prompt
+    // Pass the multi-view data to the hook, which will handle composite creation
+    generateImage(multiViewSketchData)
   }
 
   const handleApplyToModel = onApplyToModel
-    ? (imageUrl: string) => {
+    ? (imageUrlOrImage: string | GeneratedImage) => {
+        // Handle both string (URL) and full image object
+        let imageUrl: string
+        let sketchContext: SketchContext | undefined
+
+        if (typeof imageUrlOrImage === 'string') {
+          // Backward compatibility: just a URL string
+          imageUrl = imageUrlOrImage
+        } else {
+          // Full image object with potential sketch context
+          imageUrl = imageUrlOrImage.url
+          sketchContext = imageUrlOrImage.sketchContext
+        }
+
         // Use the current prompt field value (what user typed for "Apply to 3D Model")
         // Fall back to the prompt used to generate the image if the field is empty
         const currentImage = images[currentIndex]
         const promptToUse = prompt.trim() || currentImage?.prompt || ''
         if (promptToUse) {
-          onApplyToModel(imageUrl, promptToUse)
+          onApplyToModel(imageUrl, promptToUse, sketchContext)
         }
       }
     : undefined
@@ -106,10 +122,10 @@ export function DesignPanel({
           />
         </section>
 
-        {/* Sketch Canvas Section */}
+        {/* Multi-View Sketch Canvas Section */}
         <section className="p-4 border-b border-gray-700">
           <h3 className="text-sm font-medium mb-3 text-gray-300">Sketch Your Idea</h3>
-          <SketchCanvas onExport={handleExport} />
+          <MultiViewSketchCanvas onExport={handleExport} />
         </section>
 
         {/* Generated Image Section */}
