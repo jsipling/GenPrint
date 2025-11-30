@@ -25,16 +25,39 @@ Analyze this image as a 3D printable design and generate Manifold-3D compatible 
 
 ## Manifold-3D API Reference
 
-Available operations (via the M object):
-- \`M.Manifold.cube([width, depth, height], centered)\` - Create a box
-- \`M.Manifold.cylinder(height, bottomRadius, topRadius, segments)\` - Create a cylinder
-- \`M.Manifold.sphere(radius, segments)\` - Create a sphere
-- \`manifold.add(other)\` - Union two manifolds
-- \`M.Manifold.union([array])\` - Union multiple manifolds
-- \`M.Manifold.difference(base, [tools])\` - Subtract tools from base
-- \`manifold.translate([x, y, z])\` - Move geometry
-- \`manifold.rotate([x, y, z])\` - Rotate geometry (degrees)
-- \`manifold.scale([x, y, z])\` - Scale geometry
+**CRITICAL**: Use ONLY the methods listed below. Any method not listed here does NOT exist and will cause errors.
+
+### Creating Shapes (Static Methods on M.Manifold)
+- \`M.Manifold.cube(size, center)\` - Box: size=[x,y,z] or number, center=boolean
+- \`M.Manifold.cylinder(height, radiusLow, radiusHigh, segments, center)\` - Cylinder/cone
+- \`M.Manifold.sphere(radius, segments)\` - Sphere
+- \`M.Manifold.tetrahedron()\` - Tetrahedron primitive
+
+### Creating from 2D Shapes
+- \`M.Manifold.extrude(polygons, height, nDivisions, twistDegrees, scaleTop, center)\` - Extrude 2D to 3D
+- \`M.Manifold.revolve(polygons, segments, revolveDegrees)\` - Revolve 2D around axis
+
+### Transformations (Instance Methods)
+- \`manifold.translate([x, y, z])\` or \`translate(x, y, z)\` - Move
+- \`manifold.rotate([x, y, z])\` or \`rotate(x, y, z)\` - Rotate in degrees (Euler: X then Y then Z)
+- \`manifold.scale([x, y, z])\` or \`scale(number)\` - Scale
+- \`manifold.mirror([nx, ny, nz])\` - Mirror over plane with normal vector
+
+### Boolean Operations (Instance Methods)
+- \`manifold.add(other)\` - Union
+- \`manifold.subtract(other)\` - Difference
+- \`manifold.intersect(other)\` - Intersection
+
+### Boolean Operations (Static Methods)
+- \`M.Manifold.union(a, b)\` or \`M.Manifold.union([array])\` - Union multiple
+- \`M.Manifold.difference(a, b)\` or \`M.Manifold.difference([array])\` - Difference
+- \`M.Manifold.intersection(a, b)\` or \`M.Manifold.intersection([array])\` - Intersection
+
+### Advanced
+- \`new M.Manifold(mesh)\` - From Mesh object {vertPos: Float32Array, triVerts: Uint32Array}
+- \`M.Manifold.ofMesh(mesh)\` - Static version of constructor
+
+**IMPORTANT**: Methods like \`ofPolygons()\`, \`fromPolygons()\`, etc. do NOT exist on M.Manifold. For 2D->3D use \`extrude()\` or \`revolve()\`.
 
 ## Code Requirements
 
@@ -416,6 +439,11 @@ export function createImageToGeometryService(apiKey: string, modelId: GeometryMo
         success: false,
         error: 'Empty response from AI - no analysis generated'
       }
+    }
+
+    // Log the AI's full response
+    if (import.meta.env.DEV) {
+      console.log(`[${modelName}] AI Response:`, responseText)
     }
 
     // Parse JSON response
