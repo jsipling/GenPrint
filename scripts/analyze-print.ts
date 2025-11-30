@@ -20,7 +20,7 @@ import type { Generator, ParameterDef, ParameterValues } from '../src/generators
 import { isBooleanParam, flattenParameters } from '../src/generators/types'
 import { safeAnalyze } from '../src/analysis/printabilityAnalyzer'
 import { formatOutput } from '../src/analysis/outputFormatter'
-import { MIN_WALL_THICKNESS } from '../src/generators/manifold/printingConstants'
+import { MIN_WALL_THICKNESS, MIN_FEATURE_SIZE } from '../src/generators/manifold/printingConstants'
 import type { AnalysisResult } from '../src/analysis/types'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -95,10 +95,10 @@ function buildGeometry(
   M.setCircularSegments(48)
 
   // Create the build function from the generator's code
-  const buildFn = new Function('M', 'MIN_WALL_THICKNESS', 'params', generator.builderCode)
+  const buildFn = new Function('M', 'MIN_WALL_THICKNESS', 'MIN_FEATURE_SIZE', 'params', generator.builderCode)
 
   // Execute the builder
-  const result = buildFn(M, MIN_WALL_THICKNESS, params)
+  const result = buildFn(M, MIN_WALL_THICKNESS, MIN_FEATURE_SIZE, params)
 
   // Return the manifold (handle both direct return and object with build method)
   if (result && typeof result.build === 'function') {

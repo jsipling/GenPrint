@@ -14,16 +14,16 @@ import {
 } from './types'
 import { generators } from './index'
 import { getManifold, setCircularSegments } from '../test/manifoldSetup'
-import { MIN_WALL_THICKNESS } from './manifold/printingConstants'
+import { MIN_WALL_THICKNESS, MIN_FEATURE_SIZE } from './manifold/printingConstants'
 
 // Find v8-engine generator from the auto-discovered generators
 const v8EngineGenerator = generators.find(g => g.id === 'v8-engine')!
 
 // Worker wrapper - matches src/workers/manifold.worker.ts executeUserBuilder()
 function createWorkerBuildFn(builderCode: string, M: ManifoldToplevel) {
-  return new Function('M', 'MIN_WALL_THICKNESS', 'params', `
+  return new Function('M', 'MIN_WALL_THICKNESS', 'MIN_FEATURE_SIZE', 'params', `
     ${builderCode}
-  `).bind(null, M, MIN_WALL_THICKNESS)
+  `).bind(null, M, MIN_WALL_THICKNESS, MIN_FEATURE_SIZE)
 }
 
 describe('flattenParameters', () => {

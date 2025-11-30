@@ -16,6 +16,12 @@ export const MIN_WALL_THICKNESS = 1.2
 export const MIN_SMALL_FEATURE = 1.5
 
 /**
+ * Alias for MIN_SMALL_FEATURE to match the name used in AI-generated code.
+ * @deprecated Use MIN_SMALL_FEATURE instead for internal code.
+ */
+export const MIN_FEATURE_SIZE = MIN_SMALL_FEATURE
+
+/**
  * Number of segments per 90° arc for rounded corners.
  * At 4mm radius, yields ~0.03mm deviation—below FDM nozzle precision (~0.4mm).
  */
@@ -85,4 +91,4 @@ export function printingWarning(component: string, message: string): void {
  * These are reserved and must not be redeclared in builder code.
  * Keep in sync with manifold.worker.ts executeUserBuilder() function signature.
  */
-export const BUILDER_RESERVED_CONSTANTS = ['MIN_WALL_THICKNESS'] as const
+export const BUILDER_RESERVED_CONSTANTS = ['MIN_WALL_THICKNESS', 'MIN_FEATURE_SIZE'] as const

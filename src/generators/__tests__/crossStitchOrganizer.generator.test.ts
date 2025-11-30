@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from 'vitest'
 import type { ManifoldToplevel, Manifold } from 'manifold-3d'
 import { getManifold, setCircularSegments } from '../../test/manifoldSetup'
 import { expectValid } from '../../test/geometryHelpers'
-import { MIN_WALL_THICKNESS } from '../manifold/printingConstants'
+import { MIN_WALL_THICKNESS, MIN_FEATURE_SIZE } from '../manifold/printingConstants'
 import generator from '../crossStitchOrganizer.generator'
 import type { DisplayDimension, ParameterValues } from '../types'
 
@@ -18,9 +18,9 @@ interface NamedManifoldResult {
 
 // Create a build function that matches the worker's wrapper
 function createBuildFn(builderCode: string, M: ManifoldToplevel) {
-  return new Function('M', 'MIN_WALL_THICKNESS', 'params', `
+  return new Function('M', 'MIN_WALL_THICKNESS', 'MIN_FEATURE_SIZE', 'params', `
     ${builderCode}
-  `).bind(null, M, MIN_WALL_THICKNESS)
+  `).bind(null, M, MIN_WALL_THICKNESS, MIN_FEATURE_SIZE)
 }
 
 describe('crossStitchOrganizer.generator', () => {

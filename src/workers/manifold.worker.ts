@@ -1,7 +1,7 @@
 import Module, { type ManifoldToplevel, type Manifold, type Mesh } from 'manifold-3d'
 // Import WASM file URL for proper loading in worker context
 import wasmUrl from 'manifold-3d/manifold.wasm?url'
-import { MIN_WALL_THICKNESS } from '../generators/manifold/printingConstants'
+import { MIN_WALL_THICKNESS, MIN_FEATURE_SIZE } from '../generators/manifold/printingConstants'
 import type { MeshData, BoundingBox, NamedPart } from '../generators/types'
 import type {
   BuildRequest,
@@ -208,13 +208,13 @@ function executeUserBuilder(
   builderCode: string,
   params: Record<string, number | string | boolean>
 ): Manifold | NamedManifoldResult[] {
-  // Create a sandboxed function with access to M, MIN_WALL_THICKNESS, and params
+  // Create a sandboxed function with access to M, MIN_WALL_THICKNESS, MIN_FEATURE_SIZE, and params
   // The code is expected to use M.Manifold methods and return a Manifold or array of named parts
-  const fn = new Function('M', 'MIN_WALL_THICKNESS', 'params', `
+  const fn = new Function('M', 'MIN_WALL_THICKNESS', 'MIN_FEATURE_SIZE', 'params', `
     ${builderCode}
   `)
 
-  const result = fn(M, MIN_WALL_THICKNESS, params)
+  const result = fn(M, MIN_WALL_THICKNESS, MIN_FEATURE_SIZE, params)
 
   // Check for multi-part result first
   if (isNamedManifoldArray(result)) {
