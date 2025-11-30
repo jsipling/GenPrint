@@ -7,6 +7,7 @@ import type { MultiViewSketchData } from '../types/sketch'
 describe('createCompositeImage', () => {
   let mockCanvas: HTMLCanvasElement
   let mockContext: CanvasRenderingContext2D
+  // @ts-expect-error - mockImage is used in setup but not in tests
   let mockImage: {
     src: string
     width: number

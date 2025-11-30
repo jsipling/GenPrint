@@ -35,7 +35,21 @@ Analyze this image as a 3D printable design and generate Manifold-3D compatible 
 
 ### Creating from 2D Shapes
 - \`M.Manifold.extrude(polygons, height, nDivisions, twistDegrees, scaleTop, center)\` - Extrude 2D to 3D
-- \`M.Manifold.revolve(polygons, segments, revolveDegrees)\` - Revolve 2D around axis
+- \`M.Manifold.revolve(polygons, segments, revolveDegrees)\` - Revolve 2D around Y-axis
+
+**2D Polygon Format**: Polygons are arrays of [x, y] points. Example:
+\`\`\`javascript
+// Single polygon (array of Vec2 points)
+const triangle = [[0, 0], [10, 0], [5, 10]];
+const extruded = M.Manifold.extrude(triangle, 5); // extrude 5mm
+
+// Revolve profile around Y-axis
+const profile = [[0, 0], [10, 0], [10, 20], [0, 20]];
+const revolved = M.Manifold.revolve(profile, 32, 360); // 32 segments, 360°
+\`\`\`
+
+**CRITICAL**: DO NOT use \`M.Vector2\`, \`M.Polygon\`, or any constructor for 2D points.
+Simply use plain JavaScript arrays: \`[x, y]\` for points, and array of points for polygons.
 
 ### Transformations (Instance Methods)
 - \`manifold.translate([x, y, z])\` or \`translate(x, y, z)\` - Move
