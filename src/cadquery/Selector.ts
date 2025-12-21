@@ -6,8 +6,7 @@ import { SelectorError } from './errors'
  * Engine for parsing and evaluating CadQuery-style selectors.
  */
 export class SelectorEngine {
-  // @ts-expect-error - M may be used for Manifold API interactions
-  constructor(private M: any) {}
+  constructor() {}
 
   /**
    * Select faces from a mesh based on a selector string.

@@ -3,13 +3,9 @@ import { SelectorEngine } from '../Selector'
 import { SelectorError } from '../errors'
 
 describe('SelectorEngine', () => {
-  // Create a minimal mock Manifold object
-  const createMockManifold = () => ({})
-
   describe('selector parsing and validation', () => {
     it('should reject unknown selector tokens', () => {
-      const mockM = createMockManifold()
-      const engine = new SelectorEngine(mockM)
+      const engine = new SelectorEngine()
 
       // Create a mock mesh with basic structure
       const mockMesh = {
@@ -25,8 +21,7 @@ describe('SelectorEngine', () => {
     })
 
     it('should accept direction selector >X', () => {
-      const mockM = createMockManifold()
-      const engine = new SelectorEngine(mockM)
+      const engine = new SelectorEngine()
 
       // Create a mock mesh with at least one triangle
       const mockMesh = {
@@ -48,8 +43,7 @@ describe('SelectorEngine', () => {
     })
 
     it('should accept direction selector <Z', () => {
-      const mockM = createMockManifold()
-      const engine = new SelectorEngine(mockM)
+      const engine = new SelectorEngine()
 
       const mockMesh = {
         numTri: 1,
@@ -66,8 +60,7 @@ describe('SelectorEngine', () => {
     })
 
     it('should accept parallel selector |Y', () => {
-      const mockM = createMockManifold()
-      const engine = new SelectorEngine(mockM)
+      const engine = new SelectorEngine()
 
       const mockMesh = {
         numTri: 1,
@@ -84,8 +77,7 @@ describe('SelectorEngine', () => {
     })
 
     it('should accept perpendicular selector #X', () => {
-      const mockM = createMockManifold()
-      const engine = new SelectorEngine(mockM)
+      const engine = new SelectorEngine()
 
       const mockMesh = {
         numTri: 1,
@@ -102,8 +94,7 @@ describe('SelectorEngine', () => {
     })
 
     it('should accept boolean operator and', () => {
-      const mockM = createMockManifold()
-      const engine = new SelectorEngine(mockM)
+      const engine = new SelectorEngine()
 
       const mockMesh = {
         numTri: 1,
@@ -120,8 +111,7 @@ describe('SelectorEngine', () => {
     })
 
     it('should accept boolean operator or', () => {
-      const mockM = createMockManifold()
-      const engine = new SelectorEngine(mockM)
+      const engine = new SelectorEngine()
 
       const mockMesh = {
         numTri: 1,
@@ -138,8 +128,7 @@ describe('SelectorEngine', () => {
     })
 
     it('should accept boolean operator not', () => {
-      const mockM = createMockManifold()
-      const engine = new SelectorEngine(mockM)
+      const engine = new SelectorEngine()
 
       const mockMesh = {
         numTri: 1,
@@ -156,8 +145,7 @@ describe('SelectorEngine', () => {
     })
 
     it('should accept radius filter with < operator', () => {
-      const mockM = createMockManifold()
-      const engine = new SelectorEngine(mockM)
+      const engine = new SelectorEngine()
 
       const mockMesh = {
         numTri: 0,
@@ -174,8 +162,7 @@ describe('SelectorEngine', () => {
     })
 
     it('should accept radius filter with > operator', () => {
-      const mockM = createMockManifold()
-      const engine = new SelectorEngine(mockM)
+      const engine = new SelectorEngine()
 
       const mockMesh = {
         numTri: 0,
@@ -189,8 +176,7 @@ describe('SelectorEngine', () => {
     })
 
     it('should accept radius filter with == operator', () => {
-      const mockM = createMockManifold()
-      const engine = new SelectorEngine(mockM)
+      const engine = new SelectorEngine()
 
       const mockMesh = {
         numTri: 0,
@@ -204,8 +190,7 @@ describe('SelectorEngine', () => {
     })
 
     it('should accept direction selector with index notation', () => {
-      const mockM = createMockManifold()
-      const engine = new SelectorEngine(mockM)
+      const engine = new SelectorEngine()
 
       const mockMesh = {
         numTri: 1,
@@ -222,8 +207,7 @@ describe('SelectorEngine', () => {
     })
 
     it('should accept direction selector with negative index', () => {
-      const mockM = createMockManifold()
-      const engine = new SelectorEngine(mockM)
+      const engine = new SelectorEngine()
 
       const mockMesh = {
         numTri: 1,
@@ -242,8 +226,7 @@ describe('SelectorEngine', () => {
 
   describe('face selection', () => {
     it('should return empty result for empty mesh', () => {
-      const mockM = createMockManifold()
-      const engine = new SelectorEngine(mockM)
+      const engine = new SelectorEngine()
 
       const mockMesh = {
         numTri: 0,
@@ -258,8 +241,7 @@ describe('SelectorEngine', () => {
     })
 
     it('should return all faces for empty selector', () => {
-      const mockM = createMockManifold()
-      const engine = new SelectorEngine(mockM)
+      const engine = new SelectorEngine()
 
       const mockMesh = {
         numTri: 2,
@@ -287,8 +269,7 @@ describe('SelectorEngine', () => {
     })
 
     it('should return face centroids in result', () => {
-      const mockM = createMockManifold()
-      const engine = new SelectorEngine(mockM)
+      const engine = new SelectorEngine()
 
       const mockMesh = {
         numTri: 1,
@@ -309,8 +290,7 @@ describe('SelectorEngine', () => {
     })
 
     it('should return face normals in result', () => {
-      const mockM = createMockManifold()
-      const engine = new SelectorEngine(mockM)
+      const engine = new SelectorEngine()
 
       const mockMesh = {
         numTri: 1,
@@ -333,8 +313,7 @@ describe('SelectorEngine', () => {
 
   describe('edge selection', () => {
     it('should return empty result for empty mesh', () => {
-      const mockM = createMockManifold()
-      const engine = new SelectorEngine(mockM)
+      const engine = new SelectorEngine()
 
       const mockMesh = {
         numTri: 0,
@@ -349,8 +328,7 @@ describe('SelectorEngine', () => {
     })
 
     it('should return edge centroids (midpoints) in result', () => {
-      const mockM = createMockManifold()
-      const engine = new SelectorEngine(mockM)
+      const engine = new SelectorEngine()
 
       const mockMesh = {
         numTri: 1,
@@ -371,8 +349,7 @@ describe('SelectorEngine', () => {
 
   describe('vertex selection', () => {
     it('should return empty result for empty mesh', () => {
-      const mockM = createMockManifold()
-      const engine = new SelectorEngine(mockM)
+      const engine = new SelectorEngine()
 
       const mockMesh = {
         numTri: 0,
@@ -387,8 +364,7 @@ describe('SelectorEngine', () => {
     })
 
     it('should return all vertices for empty selector', () => {
-      const mockM = createMockManifold()
-      const engine = new SelectorEngine(mockM)
+      const engine = new SelectorEngine()
 
       const mockMesh = {
         numTri: 1,
@@ -407,8 +383,7 @@ describe('SelectorEngine', () => {
     })
 
     it('should return vertex centroids in result', () => {
-      const mockM = createMockManifold()
-      const engine = new SelectorEngine(mockM)
+      const engine = new SelectorEngine()
 
       const mockMesh = {
         numTri: 1,
@@ -431,8 +406,7 @@ describe('SelectorEngine', () => {
 
   describe('whitespace handling', () => {
     it('should handle extra whitespace in selector', () => {
-      const mockM = createMockManifold()
-      const engine = new SelectorEngine(mockM)
+      const engine = new SelectorEngine()
 
       const mockMesh = {
         numTri: 1,
@@ -450,8 +424,7 @@ describe('SelectorEngine', () => {
     })
 
     it('should handle multiple spaces between tokens', () => {
-      const mockM = createMockManifold()
-      const engine = new SelectorEngine(mockM)
+      const engine = new SelectorEngine()
 
       const mockMesh = {
         numTri: 1,
@@ -470,8 +443,7 @@ describe('SelectorEngine', () => {
 
   describe('error messages', () => {
     it('should provide helpful error message for invalid token', () => {
-      const mockM = createMockManifold()
-      const engine = new SelectorEngine(mockM)
+      const engine = new SelectorEngine()
 
       const mockMesh = {
         numTri: 0,
@@ -492,8 +464,7 @@ describe('SelectorEngine', () => {
 
   describe('integration scenarios', () => {
     it('should handle complex multi-token selectors', () => {
-      const mockM = createMockManifold()
-      const engine = new SelectorEngine(mockM)
+      const engine = new SelectorEngine()
 
       const mockMesh = {
         numTri: 2,
@@ -520,8 +491,7 @@ describe('SelectorEngine', () => {
     })
 
     it('should handle selectors with different axis combinations', () => {
-      const mockM = createMockManifold()
-      const engine = new SelectorEngine(mockM)
+      const engine = new SelectorEngine()
 
       const mockMesh = {
         numTri: 1,

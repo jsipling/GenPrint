@@ -48,7 +48,7 @@ export class Workplane {
   ) {
     this.M = M
     this.memoryManager = memoryManager ?? new MemoryManager()
-    this.selectorEngine = new SelectorEngine(M)
+    this.selectorEngine = new SelectorEngine()
     this.coordinateSystem = typeof plane === 'string'
       ? planeToCoordinateSystem(plane)
       : plane
