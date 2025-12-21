@@ -2,6 +2,7 @@ import Module, { type ManifoldToplevel, type Manifold, type Mesh } from 'manifol
 // Import WASM file URL for proper loading in worker context
 import wasmUrl from 'manifold-3d/manifold.wasm?url'
 import { MIN_WALL_THICKNESS, MIN_FEATURE_SIZE } from '../generators/manifold/printingConstants'
+import { createCQ } from '../cadquery'
 import type { MeshData, BoundingBox, NamedPart } from '../generators/types'
 import type {
   BuildRequest,
@@ -202,30 +203,57 @@ function processNamedManifolds(results: NamedManifoldResult[]): {
 /**
  * Execute user-generated builder code in a sandboxed context.
  * Returns either a single Manifold or an array of NamedManifoldResult for multi-part models.
+ *
+ * The code has access to:
+ * - M: Manifold-3D toplevel (for raw Manifold API)
+ * - cq: CadQuery factory (for fluent API)
+ * - MIN_WALL_THICKNESS, MIN_FEATURE_SIZE: printing constants
+ * - params: user-provided parameters
  */
 function executeUserBuilder(
   M: ManifoldToplevel,
   builderCode: string,
   params: Record<string, number | string | boolean>
 ): Manifold | NamedManifoldResult[] {
-  // Create a sandboxed function with access to M, MIN_WALL_THICKNESS, MIN_FEATURE_SIZE, and params
-  // The code is expected to use M.Manifold methods and return a Manifold or array of named parts
-  const fn = new Function('M', 'MIN_WALL_THICKNESS', 'MIN_FEATURE_SIZE', 'params', `
+  // Create CQ instance for this build
+  const cq = createCQ(M)
+
+  try {
+    // Create a sandboxed function with access to M, cq, constants, and params
+    // The code can return either a Manifold, a Workplane (which has .val()), or an array of named parts
+    const fn = new Function(
+      'M',
+      'cq',
+      'MIN_WALL_THICKNESS',
+      'MIN_FEATURE_SIZE',
+      'params',
+      `
     ${builderCode}
-  `)
+  `
+    )
 
-  const result = fn(M, MIN_WALL_THICKNESS, MIN_FEATURE_SIZE, params)
+    const result = fn(M, cq, MIN_WALL_THICKNESS, MIN_FEATURE_SIZE, params)
 
-  // Check for multi-part result first
-  if (isNamedManifoldArray(result)) {
-    return result
-  }
+    // Handle Workplane return values
+    if (result && typeof result.val === 'function') {
+      // It's a Workplane - extract the Manifold
+      return result.val()
+    }
 
-  // Result should be a Manifold
-  if (result && typeof result.getMesh === 'function') {
-    return result
-  } else {
-    throw new Error('Builder must return a Manifold or array of NamedManifoldResult')
+    // Check for multi-part result
+    if (isNamedManifoldArray(result)) {
+      return result
+    }
+
+    // Result should be a Manifold
+    if (result && typeof result.getMesh === 'function') {
+      return result
+    } else {
+      throw new Error('Builder must return a Manifold, Workplane, or array of NamedManifoldResult')
+    }
+  } finally {
+    // Clean up CQ resources, even if an error occurred
+    cq.dispose()
   }
 }
 
