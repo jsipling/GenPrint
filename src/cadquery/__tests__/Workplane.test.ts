@@ -57,11 +57,9 @@ const createMockM = (): ManifoldToplevel => ({
     sphere: vi.fn().mockReturnValue(createMockManifold()),
     extrude: vi.fn().mockReturnValue(createMockManifold()),
     union: vi.fn().mockReturnValue(createMockManifold()),
-    revolve: vi.fn().mockReturnValue(createMockManifold()),
-    loft: vi.fn().mockReturnValue(createMockManifold()),
-    sweep: vi.fn().mockReturnValue(createMockManifold())
-  }
-})
+    revolve: vi.fn().mockReturnValue(createMockManifold())
+  } as any
+} as any)
 
 describe('Workplane', () => {
   let M: ManifoldToplevel
@@ -97,10 +95,10 @@ describe('Workplane', () => {
 
     it('should create workplane with custom coordinate system', () => {
       const customCS = {
-        origin: [1, 2, 3],
-        xDir: [1, 0, 0],
-        yDir: [0, 1, 0],
-        zDir: [0, 0, 1]
+        origin: [1, 2, 3] as [number, number, number],
+        xDir: [1, 0, 0] as [number, number, number],
+        yDir: [0, 1, 0] as [number, number, number],
+        zDir: [0, 0, 1] as [number, number, number]
       }
       const wp = new Workplane(M, customCS)
       expect(wp).toBeDefined()
@@ -728,10 +726,10 @@ describe('Workplane', () => {
   describe('state management', () => {
     it('should preserve coordinate system across operations', () => {
       const customCS = {
-        origin: [1, 2, 3],
-        xDir: [1, 0, 0],
-        yDir: [0, 1, 0],
-        zDir: [0, 0, 1]
+        origin: [1, 2, 3] as [number, number, number],
+        xDir: [1, 0, 0] as [number, number, number],
+        yDir: [0, 1, 0] as [number, number, number],
+        zDir: [0, 0, 1] as [number, number, number]
       }
       const wp = new Workplane(M, customCS)
       const result = wp.box(10, 10, 5)

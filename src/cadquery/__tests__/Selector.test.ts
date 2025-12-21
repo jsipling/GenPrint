@@ -27,13 +27,13 @@ describe('SelectorEngine', () => {
       const mockMesh = {
         numTri: 1,
         numVert: 3,
-        verts: vi.fn((i) => {
-          if (i === 0) return [0, 1, 2]
+        verts: vi.fn((_i) => {
+          if (_i === 0) return [0, 1, 2]
           return [0, 1, 2]
         }),
-        position: vi.fn((i) => {
-          if (i === 0) return [0, 0, 0]
-          if (i === 1) return [1, 0, 0]
+        position: vi.fn((_i) => {
+          if (_i === 0) return [0, 0, 0]
+          if (_i === 1) return [1, 0, 0]
           return [0, 1, 0]
         })
       }
@@ -48,10 +48,10 @@ describe('SelectorEngine', () => {
       const mockMesh = {
         numTri: 1,
         numVert: 3,
-        verts: vi.fn((i) => [0, 1, 2]),
-        position: vi.fn((i) => {
-          if (i === 0) return [0, 0, 0]
-          if (i === 1) return [1, 0, 0]
+        verts: vi.fn((_i) => [0, 1, 2]),
+        position: vi.fn((_i) => {
+          if (_i === 0) return [0, 0, 0]
+          if (_i === 1) return [1, 0, 0]
           return [0, 1, 0]
         })
       }
@@ -65,10 +65,10 @@ describe('SelectorEngine', () => {
       const mockMesh = {
         numTri: 1,
         numVert: 3,
-        verts: vi.fn((i) => [0, 1, 2]),
-        position: vi.fn((i) => {
-          if (i === 0) return [0, 0, 0]
-          if (i === 1) return [1, 0, 0]
+        verts: vi.fn((_i) => [0, 1, 2]),
+        position: vi.fn((_i) => {
+          if (_i === 0) return [0, 0, 0]
+          if (_i === 1) return [1, 0, 0]
           return [0, 1, 0]
         })
       }
@@ -82,10 +82,10 @@ describe('SelectorEngine', () => {
       const mockMesh = {
         numTri: 1,
         numVert: 3,
-        verts: vi.fn((i) => [0, 1, 2]),
-        position: vi.fn((i) => {
-          if (i === 0) return [0, 0, 0]
-          if (i === 1) return [1, 0, 0]
+        verts: vi.fn((_i) => [0, 1, 2]),
+        position: vi.fn((_i) => {
+          if (_i === 0) return [0, 0, 0]
+          if (_i === 1) return [1, 0, 0]
           return [0, 1, 0]
         })
       }
@@ -99,10 +99,10 @@ describe('SelectorEngine', () => {
       const mockMesh = {
         numTri: 1,
         numVert: 3,
-        verts: vi.fn((i) => [0, 1, 2]),
-        position: vi.fn((i) => {
-          if (i === 0) return [0, 0, 0]
-          if (i === 1) return [1, 0, 0]
+        verts: vi.fn((_i) => [0, 1, 2]),
+        position: vi.fn((_i) => {
+          if (_i === 0) return [0, 0, 0]
+          if (_i === 1) return [1, 0, 0]
           return [0, 1, 0]
         })
       }
@@ -116,10 +116,10 @@ describe('SelectorEngine', () => {
       const mockMesh = {
         numTri: 1,
         numVert: 3,
-        verts: vi.fn((i) => [0, 1, 2]),
-        position: vi.fn((i) => {
-          if (i === 0) return [0, 0, 0]
-          if (i === 1) return [1, 0, 0]
+        verts: vi.fn((_i) => [0, 1, 2]),
+        position: vi.fn((_i) => {
+          if (_i === 0) return [0, 0, 0]
+          if (_i === 1) return [1, 0, 0]
           return [0, 1, 0]
         })
       }
@@ -133,10 +133,10 @@ describe('SelectorEngine', () => {
       const mockMesh = {
         numTri: 1,
         numVert: 3,
-        verts: vi.fn((i) => [0, 1, 2]),
-        position: vi.fn((i) => {
-          if (i === 0) return [0, 0, 0]
-          if (i === 1) return [1, 0, 0]
+        verts: vi.fn((_i) => [0, 1, 2]),
+        position: vi.fn((_i) => {
+          if (_i === 0) return [0, 0, 0]
+          if (_i === 1) return [1, 0, 0]
           return [0, 1, 0]
         })
       }
@@ -195,10 +195,10 @@ describe('SelectorEngine', () => {
       const mockMesh = {
         numTri: 1,
         numVert: 3,
-        verts: vi.fn((i) => [0, 1, 2]),
-        position: vi.fn((i) => {
-          if (i === 0) return [0, 0, 0]
-          if (i === 1) return [1, 0, 0]
+        verts: vi.fn((_i) => [0, 1, 2]),
+        position: vi.fn((_i) => {
+          if (_i === 0) return [0, 0, 0]
+          if (_i === 1) return [1, 0, 0]
           return [0, 1, 0]
         })
       }
@@ -212,10 +212,10 @@ describe('SelectorEngine', () => {
       const mockMesh = {
         numTri: 1,
         numVert: 3,
-        verts: vi.fn((i) => [0, 1, 2]),
-        position: vi.fn((i) => {
-          if (i === 0) return [0, 0, 0]
-          if (i === 1) return [1, 0, 0]
+        verts: vi.fn((_i) => [0, 1, 2]),
+        position: vi.fn((_i) => {
+          if (_i === 0) return [0, 0, 0]
+          if (_i === 1) return [1, 0, 0]
           return [0, 1, 0]
         })
       }
@@ -246,11 +246,11 @@ describe('SelectorEngine', () => {
       const mockMesh = {
         numTri: 2,
         numVert: 6,
-        verts: vi.fn((i) => {
-          if (i === 0) return [0, 1, 2]
+        verts: vi.fn((_i) => {
+          if (_i === 0) return [0, 1, 2]
           return [3, 4, 5]
         }),
-        position: vi.fn((i) => {
+        position: vi.fn((_i) => {
           const positions = [
             [0, 0, 0],
             [1, 0, 0],
@@ -259,7 +259,7 @@ describe('SelectorEngine', () => {
             [2, 0, 0],
             [1, 1, 0]
           ]
-          return positions[i]
+          return positions[_i]
         })
       }
 
@@ -274,10 +274,10 @@ describe('SelectorEngine', () => {
       const mockMesh = {
         numTri: 1,
         numVert: 3,
-        verts: vi.fn((i) => [0, 1, 2]),
-        position: vi.fn((i) => {
-          if (i === 0) return [0, 0, 0]
-          if (i === 1) return [3, 0, 0]
+        verts: vi.fn((_i) => [0, 1, 2]),
+        position: vi.fn((_i) => {
+          if (_i === 0) return [0, 0, 0]
+          if (_i === 1) return [3, 0, 0]
           return [0, 3, 0]
         })
       }
@@ -285,7 +285,7 @@ describe('SelectorEngine', () => {
       const result = engine.selectFaces(mockMesh as any, '>X')
       expect(result.centroids.length).toBeGreaterThanOrEqual(0)
       if (result.centroids.length > 0) {
-        expect(result.centroids[0].length).toBe(3)
+        expect(result.centroids[0]!.length).toBe(3)
       }
     })
 
@@ -295,10 +295,10 @@ describe('SelectorEngine', () => {
       const mockMesh = {
         numTri: 1,
         numVert: 3,
-        verts: vi.fn((i) => [0, 1, 2]),
-        position: vi.fn((i) => {
-          if (i === 0) return [0, 0, 0]
-          if (i === 1) return [3, 0, 0]
+        verts: vi.fn((_i) => [0, 1, 2]),
+        position: vi.fn((_i) => {
+          if (_i === 0) return [0, 0, 0]
+          if (_i === 1) return [3, 0, 0]
           return [0, 3, 0]
         })
       }
@@ -306,7 +306,7 @@ describe('SelectorEngine', () => {
       const result = engine.selectFaces(mockMesh as any, '>X')
       expect(result.normals).toBeDefined()
       if (result.normals && result.normals.length > 0) {
-        expect(result.normals[0].length).toBe(3)
+        expect(result.normals[0]!.length).toBe(3)
       }
     })
   })
@@ -333,10 +333,10 @@ describe('SelectorEngine', () => {
       const mockMesh = {
         numTri: 1,
         numVert: 3,
-        verts: vi.fn((i) => [0, 1, 2]),
-        position: vi.fn((i) => {
-          if (i === 0) return [0, 0, 0]
-          if (i === 1) return [1, 0, 0]
+        verts: vi.fn((_i) => [0, 1, 2]),
+        position: vi.fn((_i) => {
+          if (_i === 0) return [0, 0, 0]
+          if (_i === 1) return [1, 0, 0]
           return [0, 1, 0]
         })
       }
@@ -369,10 +369,10 @@ describe('SelectorEngine', () => {
       const mockMesh = {
         numTri: 1,
         numVert: 3,
-        verts: vi.fn((i) => [0, 1, 2]),
-        position: vi.fn((i) => {
-          if (i === 0) return [0, 0, 0]
-          if (i === 1) return [1, 0, 0]
+        verts: vi.fn((_i) => [0, 1, 2]),
+        position: vi.fn((_i) => {
+          if (_i === 0) return [0, 0, 0]
+          if (_i === 1) return [1, 0, 0]
           return [0, 1, 0]
         })
       }
@@ -388,10 +388,10 @@ describe('SelectorEngine', () => {
       const mockMesh = {
         numTri: 1,
         numVert: 3,
-        verts: vi.fn((i) => [0, 1, 2]),
-        position: vi.fn((i) => {
-          if (i === 0) return [0, 0, 0]
-          if (i === 1) return [1, 0, 0]
+        verts: vi.fn((_i) => [0, 1, 2]),
+        position: vi.fn((_i) => {
+          if (_i === 0) return [0, 0, 0]
+          if (_i === 1) return [1, 0, 0]
           return [0, 1, 0]
         })
       }
@@ -411,10 +411,10 @@ describe('SelectorEngine', () => {
       const mockMesh = {
         numTri: 1,
         numVert: 3,
-        verts: vi.fn((i) => [0, 1, 2]),
-        position: vi.fn((i) => {
-          if (i === 0) return [0, 0, 0]
-          if (i === 1) return [1, 0, 0]
+        verts: vi.fn((_i) => [0, 1, 2]),
+        position: vi.fn((_i) => {
+          if (_i === 0) return [0, 0, 0]
+          if (_i === 1) return [1, 0, 0]
           return [0, 1, 0]
         })
       }
@@ -429,10 +429,10 @@ describe('SelectorEngine', () => {
       const mockMesh = {
         numTri: 1,
         numVert: 3,
-        verts: vi.fn((i) => [0, 1, 2]),
-        position: vi.fn((i) => {
-          if (i === 0) return [0, 0, 0]
-          if (i === 1) return [1, 0, 0]
+        verts: vi.fn((_i) => [0, 1, 2]),
+        position: vi.fn((_i) => {
+          if (_i === 0) return [0, 0, 0]
+          if (_i === 1) return [1, 0, 0]
           return [0, 1, 0]
         })
       }
@@ -469,11 +469,11 @@ describe('SelectorEngine', () => {
       const mockMesh = {
         numTri: 2,
         numVert: 6,
-        verts: vi.fn((i) => {
-          if (i === 0) return [0, 1, 2]
+        verts: vi.fn((_i) => {
+          if (_i === 0) return [0, 1, 2]
           return [3, 4, 5]
         }),
-        position: vi.fn((i) => {
+        position: vi.fn((_i) => {
           const positions = [
             [0, 0, 0],
             [1, 0, 0],
@@ -482,7 +482,7 @@ describe('SelectorEngine', () => {
             [3, 0, 0],
             [2, 1, 0]
           ]
-          return positions[i]
+          return positions[_i]
         })
       }
 
@@ -496,10 +496,10 @@ describe('SelectorEngine', () => {
       const mockMesh = {
         numTri: 1,
         numVert: 3,
-        verts: vi.fn((i) => [0, 1, 2]),
-        position: vi.fn((i) => {
-          if (i === 0) return [0, 0, 0]
-          if (i === 1) return [1, 0, 0]
+        verts: vi.fn((_i) => [0, 1, 2]),
+        position: vi.fn((_i) => {
+          if (_i === 0) return [0, 0, 0]
+          if (_i === 1) return [1, 0, 0]
           return [0, 1, 0]
         })
       }
