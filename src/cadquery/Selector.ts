@@ -1,6 +1,7 @@
 import type { Mesh } from 'manifold-3d'
 import type { Vec3, SelectorString, SelectionResult, FaceData, EdgeData, SelectorToken } from './types'
 import { SelectorError } from './errors'
+import { dot, cross, subtract, length, normalize } from './CoordinateSystem'
 
 /**
  * Engine for parsing and evaluating CadQuery-style selectors.
@@ -71,9 +72,9 @@ export class SelectorEngine {
       const v2 = this.getVertex(mesh, tri[2]!)
 
       // Compute face normal
-      const e1 = this.subtract(v1, v0)
-      const e2 = this.subtract(v2, v0)
-      const normal = this.normalize(this.cross(e1, e2))
+      const e1 = subtract(v1, v0)
+      const e2 = subtract(v2, v0)
+      const normal = normalize(cross(e1, e2))
 
       // Compute centroid
       const centroid: Vec3 = [
@@ -113,7 +114,7 @@ export class SelectorEngine {
         if (!edgeMap.has(key)) {
           const v0 = this.getVertex(mesh, v0idx as number)
           const v1 = this.getVertex(mesh, v1idx as number)
-          const direction = this.normalize(this.subtract(v1, v0))
+          const direction = normalize(subtract(v1, v0))
 
           edgeMap.set(key, {
             index: edgeMap.size,
@@ -125,7 +126,7 @@ export class SelectorEngine {
               (v0[2] + v1[2]) / 2
             ],
             direction,
-            length: this.length(this.subtract(v1, v0))
+            length: length(subtract(v1, v0))
           })
         }
       }
@@ -270,7 +271,7 @@ export class SelectorEngine {
         const axisVec = this.axisToVec(token.axis)
         matches = new Set(
           faces
-            .filter(f => Math.abs(this.dot(f.normal, axisVec)) < 0.1) // Normal perpendicular to axis
+            .filter(f => Math.abs(dot(f.normal, axisVec)) < 0.1) // Normal perpendicular to axis
             .map(f => f.index)
         )
         i++
@@ -278,7 +279,7 @@ export class SelectorEngine {
         const axisVec = this.axisToVec(token.axis)
         matches = new Set(
           faces
-            .filter(f => Math.abs(Math.abs(this.dot(f.normal, axisVec)) - 1) < 0.1) // Normal parallel to axis
+            .filter(f => Math.abs(Math.abs(dot(f.normal, axisVec)) - 1) < 0.1) // Normal parallel to axis
             .map(f => f.index)
         )
         i++
@@ -353,7 +354,7 @@ export class SelectorEngine {
         const axisVec = this.axisToVec(token.axis)
         matches = new Set(
           edges
-            .filter(e => Math.abs(Math.abs(this.dot(e.direction, axisVec)) - 1) < 0.1)
+            .filter(e => Math.abs(Math.abs(dot(e.direction, axisVec)) - 1) < 0.1)
             .map(e => e.index)
         )
         i++
@@ -361,7 +362,7 @@ export class SelectorEngine {
         const axisVec = this.axisToVec(token.axis)
         matches = new Set(
           edges
-            .filter(e => Math.abs(this.dot(e.direction, axisVec)) < 0.1)
+            .filter(e => Math.abs(dot(e.direction, axisVec)) < 0.1)
             .map(e => e.index)
         )
         i++
@@ -468,34 +469,9 @@ export class SelectorEngine {
     return Array.from(result)
   }
 
-  // ==================== Vector Math Utilities ====================
+  // ==================== Utility Methods ====================
 
   private axisToVec(axis: 'X' | 'Y' | 'Z'): Vec3 {
     return axis === 'X' ? [1, 0, 0] : axis === 'Y' ? [0, 1, 0] : [0, 0, 1]
-  }
-
-  private dot(a: Vec3, b: Vec3): number {
-    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
-  }
-
-  private cross(a: Vec3, b: Vec3): Vec3 {
-    return [
-      a[1] * b[2] - a[2] * b[1],
-      a[2] * b[0] - a[0] * b[2],
-      a[0] * b[1] - a[1] * b[0]
-    ]
-  }
-
-  private subtract(a: Vec3, b: Vec3): Vec3 {
-    return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
-  }
-
-  private length(v: Vec3): number {
-    return Math.sqrt(v[0] ** 2 + v[1] ** 2 + v[2] ** 2)
-  }
-
-  private normalize(v: Vec3): Vec3 {
-    const len = this.length(v)
-    return len > 0 ? [v[0] / len, v[1] / len, v[2] / len] : [0, 0, 0]
   }
 }
