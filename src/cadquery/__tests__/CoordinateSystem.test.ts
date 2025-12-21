@@ -11,6 +11,7 @@ import {
   subtract,
   getTransformMatrix
 } from '../CoordinateSystem'
+import type { CoordinateSystem, Vec3 } from '../types'
 
 const EPSILON = 1e-10
 
@@ -124,22 +125,22 @@ describe('CoordinateSystem', () => {
     })
 
     it('should handle origin offset', () => {
-      const cs = {
-        origin: [10, 20, 30],
-        xDir: [1, 0, 0],
-        yDir: [0, 1, 0],
-        zDir: [0, 0, 1]
+      const cs: CoordinateSystem = {
+        origin: [10, 20, 30] as Vec3,
+        xDir: [1, 0, 0] as Vec3,
+        yDir: [0, 1, 0] as Vec3,
+        zDir: [0, 0, 1] as Vec3
       }
       const result = localToGlobal(cs, [5, 3])
       expect(result).toEqual([15, 23, 30])
     })
 
     it('should handle rotated coordinate system', () => {
-      const cs = {
-        origin: [0, 0, 0],
-        xDir: [0, 1, 0],
-        yDir: [-1, 0, 0],
-        zDir: [0, 0, 1]
+      const cs: CoordinateSystem = {
+        origin: [0, 0, 0] as Vec3,
+        xDir: [0, 1, 0] as Vec3,
+        yDir: [-1, 0, 0] as Vec3,
+        zDir: [0, 0, 1] as Vec3
       }
       const result = localToGlobal(cs, [1, 0])
       expect(result[0]).toBeCloseTo(0)
@@ -168,22 +169,22 @@ describe('CoordinateSystem', () => {
     })
 
     it('should handle origin offset in 3D', () => {
-      const cs = {
-        origin: [10, 20, 30],
-        xDir: [1, 0, 0],
-        yDir: [0, 1, 0],
-        zDir: [0, 0, 1]
+      const cs: CoordinateSystem = {
+        origin: [10, 20, 30] as Vec3,
+        xDir: [1, 0, 0] as Vec3,
+        yDir: [0, 1, 0] as Vec3,
+        zDir: [0, 0, 1] as Vec3
       }
       const result = localToGlobal3D(cs, [5, 3, 2])
       expect(result).toEqual([15, 23, 32])
     })
 
     it('should handle rotated 3D coordinate system', () => {
-      const cs = {
-        origin: [0, 0, 0],
-        xDir: [1, 0, 0],
-        yDir: [0, 0, 1],
-        zDir: [0, -1, 0]
+      const cs: CoordinateSystem = {
+        origin: [0, 0, 0] as Vec3,
+        xDir: [1, 0, 0] as Vec3,
+        yDir: [0, 0, 1] as Vec3,
+        zDir: [0, -1, 0] as Vec3
       }
       const result = localToGlobal3D(cs, [1, 1, 1])
       expect(result[0]).toBeCloseTo(1)
@@ -207,11 +208,11 @@ describe('CoordinateSystem', () => {
     })
 
     it('should include origin in last column', () => {
-      const cs = {
-        origin: [10, 20, 30],
-        xDir: [1, 0, 0],
-        yDir: [0, 1, 0],
-        zDir: [0, 0, 1]
+      const cs: CoordinateSystem = {
+        origin: [10, 20, 30] as Vec3,
+        xDir: [1, 0, 0] as Vec3,
+        yDir: [0, 1, 0] as Vec3,
+        zDir: [0, 0, 1] as Vec3
       }
       const matrix = getTransformMatrix(cs)
       expect(matrix[12]).toBe(10)
