@@ -452,49 +452,25 @@ export class Workplane {
   // ==================== Fillet/Chamfer (Approximations) ====================
 
   /**
-   * Apply approximate fillet to selected edges.
-   *
-   * NOTE: This is an approximation. Full fillet support is not yet implemented.
-   * For now, this returns the solid unchanged.
-   * TODO: Implement mesh smoothing-based approximation
+   * Apply fillet to selected edges.
+   * @throws UnsupportedOperationError
    */
-  fillet(_radius: number): Workplane {
-    if (!this.solid) {
-      throw new GeometryError('fillet() requires existing solid geometry')
-    }
-
-    if (!this.selection || this.selection.type !== 'edges') {
-      throw new GeometryError('fillet() requires an edge selection. Call .edges() first.')
-    }
-
-    // TODO: Implement mesh-based approximation
-    // For now, just return the solid unchanged
-    return this.cloneWith({
-      selection: null
-    })
+  fillet(_radius: number): never {
+    throw new UnsupportedOperationError(
+      'fillet() is not yet implemented. Mesh-based fillet approximation is planned for a future release. ' +
+        'For now, consider designing geometry with built-in fillets or using chamfer-like geometry with extrude().'
+    )
   }
 
   /**
-   * Apply approximate chamfer to selected edges.
-   *
-   * NOTE: This is an approximation. Full chamfer support is not yet implemented.
-   * For now, this returns the solid unchanged.
-   * TODO: Implement mesh smoothing-based approximation
+   * Apply chamfer to selected edges.
+   * @throws UnsupportedOperationError
    */
-  chamfer(_distance: number): Workplane {
-    if (!this.solid) {
-      throw new GeometryError('chamfer() requires existing solid geometry')
-    }
-
-    if (!this.selection || this.selection.type !== 'edges') {
-      throw new GeometryError('chamfer() requires an edge selection. Call .edges() first.')
-    }
-
-    // TODO: Implement mesh-based approximation
-    // For now, just return the solid unchanged
-    return this.cloneWith({
-      selection: null
-    })
+  chamfer(_distance: number): never {
+    throw new UnsupportedOperationError(
+      'chamfer() is not yet implemented. Mesh-based chamfer approximation is planned for a future release. ' +
+        'For now, consider creating beveled edges using extrude() or other geometric primitives.'
+    )
   }
 
   // ==================== Unsupported Operations ====================
