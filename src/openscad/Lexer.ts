@@ -132,6 +132,14 @@ class Lexer {
   }
 
   /**
+   * Peek ahead by a specified offset without consuming characters
+   */
+  private peekAhead(offset: number): string {
+    if (this.pos + offset >= this.source.length) return '\0'
+    return this.source[this.pos + offset]
+  }
+
+  /**
    * Consume and return the current character
    */
   private advance(): string {
@@ -430,21 +438,33 @@ class Lexer {
       }
     }
 
-    // Look for exponent part
+    // Look for exponent part - only consume if valid exponent follows
     if (this.peek() === 'e' || this.peek() === 'E') {
-      value += this.advance() // consume the e/E
+      // Look ahead to check if this is a valid exponent
+      let lookAhead = 1
+      const nextChar = this.peekAhead(lookAhead)
 
-      // Optional sign
-      if (this.peek() === '+' || this.peek() === '-') {
-        value += this.advance()
+      // Check for optional sign
+      if (nextChar === '+' || nextChar === '-') {
+        lookAhead++
       }
 
-      // Must have at least one digit after exponent
-      if (this.isDigit(this.peek())) {
+      // Only consume exponent if digit follows (after optional sign)
+      const digitAfterExp = this.peekAhead(lookAhead)
+      if (this.isDigit(digitAfterExp)) {
+        value += this.advance() // consume the e/E
+
+        // Consume optional sign
+        if (this.peek() === '+' || this.peek() === '-') {
+          value += this.advance()
+        }
+
+        // Consume exponent digits
         while (this.isDigit(this.peek())) {
           value += this.advance()
         }
       }
+      // If no valid exponent digits, don't consume the 'e' - treat it as end of number
     }
 
     this.addToken('NUMBER', value, startLine, startColumn)

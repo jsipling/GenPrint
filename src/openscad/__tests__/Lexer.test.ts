@@ -392,6 +392,40 @@ describe('Lexer', () => {
         expect(tokens[0].value).toBe('1.5e-3')
       })
     })
+
+    describe('malformed scientific notation', () => {
+      it('should treat 1e without digits as number followed by identifier', () => {
+        // 1e with no exponent digits should become: NUMBER(1), IDENTIFIER(e), EOF
+        const tokens = lex('1e')
+        expect(tokens[0].type).toBe('NUMBER')
+        expect(tokens[0].value).toBe('1')
+        expect(tokens[1].type).toBe('IDENTIFIER')
+        expect(tokens[1].value).toBe('e')
+        expect(tokens[2].type).toBe('EOF')
+      })
+
+      it('should treat 1e+ without digits as number followed by identifier and plus', () => {
+        // 1e+ with no exponent digits should become: NUMBER(1), IDENTIFIER(e), PLUS, EOF
+        const tokens = lex('1e+')
+        expect(tokens[0].type).toBe('NUMBER')
+        expect(tokens[0].value).toBe('1')
+        expect(tokens[1].type).toBe('IDENTIFIER')
+        expect(tokens[1].value).toBe('e')
+        expect(tokens[2].type).toBe('PLUS')
+        expect(tokens[3].type).toBe('EOF')
+      })
+
+      it('should treat 1E- without digits as number followed by identifier and minus', () => {
+        // 1E- with no exponent digits should become: NUMBER(1), IDENTIFIER(E), MINUS, EOF
+        const tokens = lex('1E-')
+        expect(tokens[0].type).toBe('NUMBER')
+        expect(tokens[0].value).toBe('1')
+        expect(tokens[1].type).toBe('IDENTIFIER')
+        expect(tokens[1].value).toBe('E')
+        expect(tokens[2].type).toBe('MINUS')
+        expect(tokens[3].type).toBe('EOF')
+      })
+    })
   })
 
   // ============================================================================
