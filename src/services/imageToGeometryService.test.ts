@@ -6,6 +6,11 @@ import type {
   ImageToGeometryRequest,
   GeometryAnalysis
 } from './imageToGeometryTypes'
+import {
+  OpenSCADParseError,
+  OpenSCADTranspileError,
+  OpenSCADLexError
+} from '../openscad'
 
 // Mock the image compression utility
 vi.mock('../utils/imageCompression', () => ({
@@ -17,6 +22,17 @@ vi.mock('../utils/imageCompression', () => ({
     data: '/9j/compressed=='
   })
 }))
+
+// Mock the OpenSCAD transpiler
+const mockTranspileOpenSCAD = vi.fn()
+
+vi.mock('../openscad', async (importOriginal) => {
+  const original = await importOriginal<typeof import('../openscad')>()
+  return {
+    ...original,
+    transpileOpenSCAD: (...args: Parameters<typeof original.transpileOpenSCAD>) => mockTranspileOpenSCAD(...args)
+  }
+})
 
 // Valid mock response matching GeometryAnalysis structure
 // Uses multi-part return format to enable hover highlighting
@@ -46,6 +62,41 @@ const mockValidAnalysis: GeometryAnalysis = {
   }
 }
 
+// Valid mock OpenSCAD response (before transpilation)
+const mockValidOpenSCADAnalysis = {
+  description: 'A simple cube with hole',
+  openscadCode: `$fn = 32;
+difference() {
+  cube([20, 20, 10], center=true);
+  cylinder(h=15, r=5, center=true);
+}`,
+  suggestedName: 'Cube with Hole',
+  parameters: [
+    {
+      type: 'number',
+      name: 'size',
+      label: 'Size',
+      min: 5,
+      max: 50,
+      default: 20,
+      step: 1,
+      unit: 'mm',
+      description: 'Size of the cube'
+    }
+  ],
+  defaultParams: {
+    size: 20
+  }
+}
+
+// Valid transpiled Manifold JavaScript output
+const mockValidTranspiledCode = `const _v1 = M.Manifold.cube([20, 20, 10], true);
+const _v2 = M.Manifold.cylinder(15, 5, 5, 32, true);
+const _v3 = _v1.subtract(_v2);
+_v1.delete();
+_v2.delete();
+return _v3;`
+
 // Mock the @google/genai module
 const mockGenerateContent = vi.fn()
 
@@ -69,6 +120,7 @@ describe('ImageToGeometryService', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    mockTranspileOpenSCAD.mockReset()
     service = createImageToGeometryService(testApiKey)
   })
 
@@ -722,5 +774,650 @@ describe('ImageToGeometryService', () => {
       expect(response.success).toBe(false)
       expect(mockGenerateContent).toHaveBeenCalledTimes(1)
     })
+  })
+})
+
+describe('ImageToGeometryService with OpenSCAD format', () => {
+  let service: ReturnType<typeof createImageToGeometryService>
+  const testApiKey = 'test-api-key-123'
+  const validImageDataUrl =
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockTranspileOpenSCAD.mockReset()
+    // Create service with OpenSCAD format
+    service = createImageToGeometryService(testApiKey, 'gemini-3-pro-preview', 'openscad')
+  })
+
+  afterEach(() => {
+    service.cancelAnalysis()
+  })
+
+  describe('successful transpilation', () => {
+    it('returns valid Manifold JavaScript when OpenSCAD transpilation succeeds', async () => {
+      // Mock AI returning OpenSCAD response
+      mockGenerateContent.mockResolvedValueOnce({
+        text: JSON.stringify(mockValidOpenSCADAnalysis)
+      })
+
+      // Mock transpiler returning valid Manifold code
+      mockTranspileOpenSCAD.mockReturnValueOnce(mockValidTranspiledCode)
+
+      const request: ImageToGeometryRequest = {
+        imageDataUrl: validImageDataUrl,
+        prompt: 'Create a cube with hole'
+      }
+
+      const response = await service.analyzeImage(request)
+
+      expect(response.success).toBe(true)
+      expect(response.analysis).toBeDefined()
+      expect(response.analysis?.description).toBe(mockValidOpenSCADAnalysis.description)
+      expect(response.analysis?.suggestedName).toBe(mockValidOpenSCADAnalysis.suggestedName)
+      // The builderCode should be the transpiled Manifold JavaScript, not the OpenSCAD code
+      expect(response.analysis?.builderCode).toBe(mockValidTranspiledCode)
+      expect(response.analysis?.parameters).toEqual(mockValidOpenSCADAnalysis.parameters)
+      expect(response.analysis?.defaultParams).toEqual(mockValidOpenSCADAnalysis.defaultParams)
+      expect(mockTranspileOpenSCAD).toHaveBeenCalledWith(mockValidOpenSCADAnalysis.openscadCode)
+    })
+
+    it('calls transpiler with the OpenSCAD code from AI response', async () => {
+      const customOpenSCAD = {
+        ...mockValidOpenSCADAnalysis,
+        openscadCode: 'sphere(r=10);'
+      }
+
+      mockGenerateContent.mockResolvedValueOnce({
+        text: JSON.stringify(customOpenSCAD)
+      })
+
+      mockTranspileOpenSCAD.mockReturnValueOnce('return M.Manifold.sphere(10, 32);')
+
+      const request: ImageToGeometryRequest = {
+        imageDataUrl: validImageDataUrl,
+        prompt: 'Create a sphere'
+      }
+
+      await service.analyzeImage(request)
+
+      expect(mockTranspileOpenSCAD).toHaveBeenCalledWith('sphere(r=10);')
+    })
+  })
+
+  describe('parse error handling', () => {
+    it('retries when OpenSCAD code has parse error', async () => {
+      const invalidOpenSCAD = {
+        ...mockValidOpenSCADAnalysis,
+        openscadCode: 'cube([10, 10, 10]'  // Missing closing parenthesis
+      }
+
+      // First call returns invalid OpenSCAD
+      mockGenerateContent
+        .mockResolvedValueOnce({
+          text: JSON.stringify(invalidOpenSCAD)
+        })
+        .mockResolvedValueOnce({
+          text: JSON.stringify(mockValidOpenSCADAnalysis)
+        })
+
+      // First transpile throws parse error
+      mockTranspileOpenSCAD
+        .mockImplementationOnce(() => {
+          throw new OpenSCADParseError(
+            'Unexpected end of input',
+            1,
+            17,
+            'EOF',
+            [')', ';']
+          )
+        })
+        .mockReturnValueOnce(mockValidTranspiledCode)
+
+      const request: ImageToGeometryRequest = {
+        imageDataUrl: validImageDataUrl,
+        prompt: 'Create a cube'
+      }
+
+      const response = await service.analyzeImage(request)
+
+      expect(response.success).toBe(true)
+      expect(mockGenerateContent).toHaveBeenCalledTimes(2)
+      expect(mockTranspileOpenSCAD).toHaveBeenCalledTimes(2)
+    })
+
+    it('includes parse error context with line/column info in retry prompt', async () => {
+      const invalidOpenSCAD = {
+        ...mockValidOpenSCADAnalysis,
+        openscadCode: 'cube([10, 10, 10]'
+      }
+
+      mockGenerateContent
+        .mockResolvedValueOnce({
+          text: JSON.stringify(invalidOpenSCAD)
+        })
+        .mockResolvedValueOnce({
+          text: JSON.stringify(mockValidOpenSCADAnalysis)
+        })
+
+      mockTranspileOpenSCAD
+        .mockImplementationOnce(() => {
+          throw new OpenSCADParseError(
+            'Unexpected end of input',
+            3,
+            15,
+            'EOF',
+            [')', ';']
+          )
+        })
+        .mockReturnValueOnce(mockValidTranspiledCode)
+
+      const request: ImageToGeometryRequest = {
+        imageDataUrl: validImageDataUrl,
+        prompt: 'Create a cube'
+      }
+
+      await service.analyzeImage(request)
+
+      // Check that the second API call includes error context
+      expect(mockGenerateContent).toHaveBeenCalledTimes(2)
+      const secondCallArgs = mockGenerateContent.mock.calls[1]!
+      const textPart = secondCallArgs[0].contents[0].parts.find(
+        (p: { text?: string }) => p.text
+      )
+      // Should include parse error details with line/column info
+      expect(textPart.text).toContain('Previous Attempt Failed')
+      expect(textPart.text).toContain('Parse Error')
+      expect(textPart.text).toContain('line 3')
+      expect(textPart.text).toContain('column 15')
+    })
+  })
+
+  describe('lex error handling', () => {
+    it('retries when OpenSCAD code has lex error', async () => {
+      const invalidOpenSCAD = {
+        ...mockValidOpenSCADAnalysis,
+        openscadCode: 'cube([10, 10, @]);'  // Invalid character
+      }
+
+      mockGenerateContent
+        .mockResolvedValueOnce({
+          text: JSON.stringify(invalidOpenSCAD)
+        })
+        .mockResolvedValueOnce({
+          text: JSON.stringify(mockValidOpenSCADAnalysis)
+        })
+
+      mockTranspileOpenSCAD
+        .mockImplementationOnce(() => {
+          throw new OpenSCADLexError(
+            'Unexpected character: @',
+            1,
+            14,
+            '@'
+          )
+        })
+        .mockReturnValueOnce(mockValidTranspiledCode)
+
+      const request: ImageToGeometryRequest = {
+        imageDataUrl: validImageDataUrl,
+        prompt: 'Create a cube'
+      }
+
+      const response = await service.analyzeImage(request)
+
+      expect(response.success).toBe(true)
+      expect(mockGenerateContent).toHaveBeenCalledTimes(2)
+    })
+
+    it('includes lex error context with line/column info in retry prompt', async () => {
+      const invalidOpenSCAD = {
+        ...mockValidOpenSCADAnalysis,
+        openscadCode: 'cube([10, 10, @]);'
+      }
+
+      mockGenerateContent
+        .mockResolvedValueOnce({
+          text: JSON.stringify(invalidOpenSCAD)
+        })
+        .mockResolvedValueOnce({
+          text: JSON.stringify(mockValidOpenSCADAnalysis)
+        })
+
+      mockTranspileOpenSCAD
+        .mockImplementationOnce(() => {
+          throw new OpenSCADLexError(
+            'Unexpected character: @',
+            2,
+            8,
+            '@'
+          )
+        })
+        .mockReturnValueOnce(mockValidTranspiledCode)
+
+      const request: ImageToGeometryRequest = {
+        imageDataUrl: validImageDataUrl,
+        prompt: 'Create a cube'
+      }
+
+      await service.analyzeImage(request)
+
+      expect(mockGenerateContent).toHaveBeenCalledTimes(2)
+      const secondCallArgs = mockGenerateContent.mock.calls[1]!
+      const textPart = secondCallArgs[0].contents[0].parts.find(
+        (p: { text?: string }) => p.text
+      )
+      expect(textPart.text).toContain('Previous Attempt Failed')
+      expect(textPart.text).toContain('Lex Error')
+      expect(textPart.text).toContain('line 2')
+      expect(textPart.text).toContain('column 8')
+    })
+  })
+
+  describe('transpile error handling', () => {
+    it('retries when OpenSCAD code has unsupported feature', async () => {
+      const unsupportedOpenSCAD = {
+        ...mockValidOpenSCADAnalysis,
+        openscadCode: 'hull() { cube(10); sphere(5); }'  // hull is not supported
+      }
+
+      mockGenerateContent
+        .mockResolvedValueOnce({
+          text: JSON.stringify(unsupportedOpenSCAD)
+        })
+        .mockResolvedValueOnce({
+          text: JSON.stringify(mockValidOpenSCADAnalysis)
+        })
+
+      mockTranspileOpenSCAD
+        .mockImplementationOnce(() => {
+          throw new OpenSCADTranspileError('Transform hull is not yet supported')
+        })
+        .mockReturnValueOnce(mockValidTranspiledCode)
+
+      const request: ImageToGeometryRequest = {
+        imageDataUrl: validImageDataUrl,
+        prompt: 'Create something'
+      }
+
+      const response = await service.analyzeImage(request)
+
+      expect(response.success).toBe(true)
+      expect(mockGenerateContent).toHaveBeenCalledTimes(2)
+    })
+
+    it('includes transpile error message in retry prompt', async () => {
+      const unsupportedOpenSCAD = {
+        ...mockValidOpenSCADAnalysis,
+        openscadCode: 'minkowski() { cube(10); sphere(2); }'
+      }
+
+      mockGenerateContent
+        .mockResolvedValueOnce({
+          text: JSON.stringify(unsupportedOpenSCAD)
+        })
+        .mockResolvedValueOnce({
+          text: JSON.stringify(mockValidOpenSCADAnalysis)
+        })
+
+      mockTranspileOpenSCAD
+        .mockImplementationOnce(() => {
+          throw new OpenSCADTranspileError('Transform minkowski is not yet supported')
+        })
+        .mockReturnValueOnce(mockValidTranspiledCode)
+
+      const request: ImageToGeometryRequest = {
+        imageDataUrl: validImageDataUrl,
+        prompt: 'Create something'
+      }
+
+      await service.analyzeImage(request)
+
+      expect(mockGenerateContent).toHaveBeenCalledTimes(2)
+      const secondCallArgs = mockGenerateContent.mock.calls[1]!
+      const textPart = secondCallArgs[0].contents[0].parts.find(
+        (p: { text?: string }) => p.text
+      )
+      expect(textPart.text).toContain('Previous Attempt Failed')
+      expect(textPart.text).toContain('Transpile Error')
+      expect(textPart.text).toContain('minkowski')
+    })
+  })
+
+  describe('max retries for OpenSCAD errors', () => {
+    it('fails after max retries with persistent parse errors', async () => {
+      const invalidOpenSCAD = {
+        ...mockValidOpenSCADAnalysis,
+        openscadCode: 'cube([10, 10'  // Always invalid
+      }
+
+      // All attempts return invalid OpenSCAD
+      mockGenerateContent.mockResolvedValue({
+        text: JSON.stringify(invalidOpenSCAD)
+      })
+
+      // All transpile attempts throw parse error
+      mockTranspileOpenSCAD.mockImplementation(() => {
+        throw new OpenSCADParseError(
+          'Unexpected end of input',
+          1,
+          12,
+          'EOF',
+          [']', ',']
+        )
+      })
+
+      const request: ImageToGeometryRequest = {
+        imageDataUrl: validImageDataUrl,
+        prompt: 'Create a cube'
+      }
+
+      const response = await service.analyzeImage(request)
+
+      expect(response.success).toBe(false)
+      expect(response.error).toBeDefined()
+      expect(response.error?.toLowerCase()).toMatch(/parse|openscad/)
+      // Initial attempt + 2 retries = 3 calls max
+      expect(mockGenerateContent).toHaveBeenCalledTimes(3)
+      expect(mockTranspileOpenSCAD).toHaveBeenCalledTimes(3)
+    })
+
+    it('fails after max retries with persistent transpile errors', async () => {
+      const unsupportedOpenSCAD = {
+        ...mockValidOpenSCADAnalysis,
+        openscadCode: 'hull() { cube(10); }'
+      }
+
+      mockGenerateContent.mockResolvedValue({
+        text: JSON.stringify(unsupportedOpenSCAD)
+      })
+
+      mockTranspileOpenSCAD.mockImplementation(() => {
+        throw new OpenSCADTranspileError('Transform hull is not yet supported')
+      })
+
+      const request: ImageToGeometryRequest = {
+        imageDataUrl: validImageDataUrl,
+        prompt: 'Create something'
+      }
+
+      const response = await service.analyzeImage(request)
+
+      expect(response.success).toBe(false)
+      expect(response.error).toBeDefined()
+      expect(response.error?.toLowerCase()).toMatch(/transpile|hull/)
+      expect(mockGenerateContent).toHaveBeenCalledTimes(3)
+    })
+
+    it('succeeds on final retry attempt', async () => {
+      const invalidOpenSCAD = {
+        ...mockValidOpenSCADAnalysis,
+        openscadCode: 'cube([10, 10'
+      }
+
+      // First two attempts return invalid OpenSCAD, third succeeds
+      mockGenerateContent
+        .mockResolvedValueOnce({
+          text: JSON.stringify(invalidOpenSCAD)
+        })
+        .mockResolvedValueOnce({
+          text: JSON.stringify(invalidOpenSCAD)
+        })
+        .mockResolvedValueOnce({
+          text: JSON.stringify(mockValidOpenSCADAnalysis)
+        })
+
+      // First two transpile attempts fail, third succeeds
+      mockTranspileOpenSCAD
+        .mockImplementationOnce(() => {
+          throw new OpenSCADParseError('Unexpected end of input', 1, 12, 'EOF', [']'])
+        })
+        .mockImplementationOnce(() => {
+          throw new OpenSCADParseError('Unexpected end of input', 1, 12, 'EOF', [']'])
+        })
+        .mockReturnValueOnce(mockValidTranspiledCode)
+
+      const request: ImageToGeometryRequest = {
+        imageDataUrl: validImageDataUrl,
+        prompt: 'Create a cube'
+      }
+
+      const response = await service.analyzeImage(request)
+
+      expect(response.success).toBe(true)
+      expect(mockGenerateContent).toHaveBeenCalledTimes(3)
+    })
+  })
+
+  describe('response validation', () => {
+    it('fails when AI response is missing openscadCode field', async () => {
+      mockGenerateContent.mockResolvedValueOnce({
+        text: JSON.stringify({
+          description: 'A cube',
+          suggestedName: 'Cube',
+          parameters: [],
+          defaultParams: {}
+          // Missing openscadCode
+        })
+      })
+
+      const request: ImageToGeometryRequest = {
+        imageDataUrl: validImageDataUrl,
+        prompt: 'Create a cube'
+      }
+
+      const response = await service.analyzeImage(request)
+
+      expect(response.success).toBe(false)
+      expect(response.error).toBeDefined()
+      expect(response.error).toContain('openscadCode')
+      expect(mockTranspileOpenSCAD).not.toHaveBeenCalled()
+    })
+
+    it('fails when AI response has empty openscadCode', async () => {
+      mockGenerateContent.mockResolvedValueOnce({
+        text: JSON.stringify({
+          description: 'A cube',
+          openscadCode: '',
+          suggestedName: 'Cube',
+          parameters: [],
+          defaultParams: {}
+        })
+      })
+
+      const request: ImageToGeometryRequest = {
+        imageDataUrl: validImageDataUrl,
+        prompt: 'Create a cube'
+      }
+
+      const response = await service.analyzeImage(request)
+
+      expect(response.success).toBe(false)
+      expect(mockTranspileOpenSCAD).not.toHaveBeenCalled()
+    })
+
+    it('validates transpiled code is syntactically valid JavaScript', async () => {
+      mockGenerateContent.mockResolvedValueOnce({
+        text: JSON.stringify(mockValidOpenSCADAnalysis)
+      })
+
+      // Return invalid JavaScript that will fail syntax validation
+      mockTranspileOpenSCAD.mockReturnValueOnce('return { invalid javascript')
+
+      const request: ImageToGeometryRequest = {
+        imageDataUrl: validImageDataUrl,
+        prompt: 'Create a cube'
+      }
+
+      // First attempt fails validation, no retry since it's a transpiler bug
+      mockGenerateContent.mockResolvedValueOnce({
+        text: JSON.stringify(mockValidOpenSCADAnalysis)
+      })
+      mockTranspileOpenSCAD.mockReturnValueOnce(mockValidTranspiledCode)
+
+      const response = await service.analyzeImage(request)
+
+      // Should retry and eventually succeed
+      expect(response.success).toBe(true)
+    })
+  })
+
+  describe('non-retryable errors', () => {
+    it('does not retry on API errors', async () => {
+      mockGenerateContent.mockRejectedValueOnce(new Error('API quota exceeded'))
+
+      const request: ImageToGeometryRequest = {
+        imageDataUrl: validImageDataUrl,
+        prompt: 'Create a cube'
+      }
+
+      const response = await service.analyzeImage(request)
+
+      expect(response.success).toBe(false)
+      expect(response.error).toContain('API quota exceeded')
+      expect(mockGenerateContent).toHaveBeenCalledTimes(1)
+      expect(mockTranspileOpenSCAD).not.toHaveBeenCalled()
+    })
+
+    it('does not retry on JSON parse errors', async () => {
+      mockGenerateContent.mockResolvedValueOnce({
+        text: 'Not valid JSON { broken'
+      })
+
+      const request: ImageToGeometryRequest = {
+        imageDataUrl: validImageDataUrl,
+        prompt: 'Create a cube'
+      }
+
+      const response = await service.analyzeImage(request)
+
+      expect(response.success).toBe(false)
+      expect(response.error?.toLowerCase()).toMatch(/json|parse|invalid|format/)
+      expect(mockGenerateContent).toHaveBeenCalledTimes(1)
+      expect(mockTranspileOpenSCAD).not.toHaveBeenCalled()
+    })
+
+    it('does not retry on missing required fields', async () => {
+      mockGenerateContent.mockResolvedValueOnce({
+        text: JSON.stringify({
+          description: 'A cube'
+          // Missing all other required fields
+        })
+      })
+
+      const request: ImageToGeometryRequest = {
+        imageDataUrl: validImageDataUrl,
+        prompt: 'Create a cube'
+      }
+
+      const response = await service.analyzeImage(request)
+
+      expect(response.success).toBe(false)
+      expect(mockGenerateContent).toHaveBeenCalledTimes(1)
+      expect(mockTranspileOpenSCAD).not.toHaveBeenCalled()
+    })
+  })
+})
+
+describe('ImageToGeometryService Manifold format regression', () => {
+  let service: ReturnType<typeof createImageToGeometryService>
+  const testApiKey = 'test-api-key-123'
+  const validImageDataUrl =
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockTranspileOpenSCAD.mockReset()
+    // Create service with explicit Manifold format
+    service = createImageToGeometryService(testApiKey, 'gemini-3-pro-preview', 'manifold')
+  })
+
+  afterEach(() => {
+    service.cancelAnalysis()
+  })
+
+  it('does not call transpiler for Manifold format', async () => {
+    mockGenerateContent.mockResolvedValueOnce({
+      text: JSON.stringify(mockValidAnalysis)
+    })
+
+    const request: ImageToGeometryRequest = {
+      imageDataUrl: validImageDataUrl,
+      prompt: 'Create a cube'
+    }
+
+    const response = await service.analyzeImage(request)
+
+    expect(response.success).toBe(true)
+    expect(response.analysis?.builderCode).toBe(mockValidAnalysis.builderCode)
+    expect(mockTranspileOpenSCAD).not.toHaveBeenCalled()
+  })
+
+  it('expects builderCode not openscadCode for Manifold format', async () => {
+    // This would be valid for OpenSCAD but should fail for Manifold
+    mockGenerateContent.mockResolvedValueOnce({
+      text: JSON.stringify(mockValidOpenSCADAnalysis)
+    })
+
+    const request: ImageToGeometryRequest = {
+      imageDataUrl: validImageDataUrl,
+      prompt: 'Create a cube'
+    }
+
+    const response = await service.analyzeImage(request)
+
+    // Should fail because openscadCode is not recognized for Manifold format
+    expect(response.success).toBe(false)
+    expect(response.error).toContain('builderCode')
+    expect(mockTranspileOpenSCAD).not.toHaveBeenCalled()
+  })
+
+  it('still validates JavaScript syntax for Manifold format', async () => {
+    const invalidJsAnalysis = {
+      ...mockValidAnalysis,
+      builderCode: 'const x = ; return M.cube([10], true);'
+    }
+
+    mockGenerateContent
+      .mockResolvedValueOnce({
+        text: JSON.stringify(invalidJsAnalysis)
+      })
+      .mockResolvedValueOnce({
+        text: JSON.stringify(mockValidAnalysis)
+      })
+
+    const request: ImageToGeometryRequest = {
+      imageDataUrl: validImageDataUrl,
+      prompt: 'Create a cube'
+    }
+
+    const response = await service.analyzeImage(request)
+
+    expect(response.success).toBe(true)
+    expect(mockGenerateContent).toHaveBeenCalledTimes(2)
+    expect(mockTranspileOpenSCAD).not.toHaveBeenCalled()
+  })
+
+  it('retries on JavaScript syntax errors just like before', async () => {
+    const invalidJsAnalysis = {
+      ...mockValidAnalysis,
+      builderCode: 'invalid javascript {'
+    }
+
+    mockGenerateContent.mockResolvedValue({
+      text: JSON.stringify(invalidJsAnalysis)
+    })
+
+    const request: ImageToGeometryRequest = {
+      imageDataUrl: validImageDataUrl,
+      prompt: 'Create a cube'
+    }
+
+    const response = await service.analyzeImage(request)
+
+    expect(response.success).toBe(false)
+    // Should be called exactly 3 times (1 initial + 2 retries)
+    expect(mockGenerateContent).toHaveBeenCalledTimes(3)
+    expect(mockTranspileOpenSCAD).not.toHaveBeenCalled()
   })
 })
