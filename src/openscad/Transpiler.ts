@@ -14,6 +14,8 @@ import type {
   BooleanOpNode,
   ExtrudeNode,
   SpecialVarAssignNode,
+  VarAssignNode,
+  ArgValue,
   CubeArgs,
   SphereArgs,
   CylinderArgs,
@@ -27,6 +29,7 @@ import type {
   LinearExtrudeArgs,
   RotateExtrudeArgs,
 } from './types'
+import { isVarRef } from './types'
 import { OpenSCADTranspileError } from './errors'
 
 /**
@@ -51,6 +54,8 @@ interface TranspileContext {
   toDelete: string[]
   /** Whether we're in a 2D context (inside extrusion) */
   is2D: boolean
+  /** Map of variable names to their default values */
+  variables: Map<string, ArgValue>
 }
 
 /**
@@ -107,6 +112,7 @@ class Transpiler {
       lines: [],
       toDelete: [],
       is2D: false,
+      variables: new Map(),
     }
 
     // Process all statements
@@ -180,6 +186,9 @@ class Transpiler {
       case 'SpecialVarAssign':
         this.handleSpecialVarAssign(node, ctx)
         return null
+      case 'VarAssign':
+        this.handleVarAssign(node, ctx)
+        return null
       default:
         throw new OpenSCADTranspileError(
           `Unsupported node type: ${(node as ASTNode).nodeType}`,
@@ -199,6 +208,69 @@ class Transpiler {
       ctx.fn = clampFn(node.value)
     }
     // $fa and $fs are not supported in Manifold, ignore them
+  }
+
+  /**
+   * Handle regular variable assignment (width = 50, etc.)
+   * Stores the variable name and its default value in the context.
+   */
+  private handleVarAssign(
+    node: VarAssignNode,
+    ctx: TranspileContext
+  ): void {
+    ctx.variables.set(node.name, node.value)
+  }
+
+  /**
+   * Format an argument value for output in JavaScript code.
+   * Handles numbers, booleans, strings, VarRef, and arrays.
+   * For VarRef, generates a params lookup with nullish coalescing fallback.
+   *
+   * @param value - The argument value to format
+   * @param ctx - The transpile context with variable defaults
+   * @returns JavaScript code string representing the value
+   * @throws OpenSCADTranspileError if a VarRef references an unknown variable
+   */
+  private formatArgValue(value: ArgValue, ctx: TranspileContext): string {
+    // Handle VarRef - generate params lookup with default fallback
+    if (isVarRef(value)) {
+      const defaultValue = ctx.variables.get(value.name)
+      if (defaultValue === undefined) {
+        throw new OpenSCADTranspileError(
+          `Unknown variable: ${value.name}`,
+          value
+        )
+      }
+      // Recursively format the default value
+      const formattedDefault = this.formatArgValue(defaultValue, ctx)
+      return `(params['${value.name}'] ?? ${formattedDefault})`
+    }
+
+    // Handle arrays
+    if (Array.isArray(value)) {
+      const formattedElements = value.map(el => this.formatArgValue(el, ctx))
+      return `[${formattedElements.join(', ')}]`
+    }
+
+    // Handle primitives
+    if (typeof value === 'number') {
+      return formatNumber(value)
+    }
+
+    if (typeof value === 'boolean') {
+      return value ? 'true' : 'false'
+    }
+
+    if (typeof value === 'string') {
+      // Escape the string and wrap in quotes
+      return JSON.stringify(value)
+    }
+
+    // Fallback - should never happen with proper typing
+    throw new OpenSCADTranspileError(
+      `Unsupported value type: ${typeof value}`,
+      value
+    )
   }
 
   /**
@@ -232,18 +304,44 @@ class Transpiler {
   /**
    * Transpile cube primitive
    */
-  private transpileCube(args: CubeArgs, _ctx: TranspileContext): string {
-    let size: [number, number, number]
-    if (typeof args.size === 'number') {
-      size = [args.size, args.size, args.size]
-    } else if (Array.isArray(args.size)) {
-      size = args.size as [number, number, number]
+  private transpileCube(args: CubeArgs, ctx: TranspileContext): string {
+    // Handle size argument which could be number, array, or VarRef
+    const rawSize = args.size as ArgValue | undefined
+
+    let sizeStr: string
+    if (rawSize === undefined) {
+      // Default size
+      sizeStr = '[1, 1, 1]'
+    } else if (isVarRef(rawSize)) {
+      // VarRef - generate params lookup, expand to 3D array at runtime
+      const paramLookup = this.formatArgValue(rawSize, ctx)
+      // Generate code that handles both scalar and array at runtime
+      sizeStr = `(typeof (${paramLookup}) === 'number' ? [(${paramLookup}), (${paramLookup}), (${paramLookup})] : (${paramLookup}))`
+    } else if (typeof rawSize === 'number') {
+      // Scalar number - expand to 3D array
+      sizeStr = `[${formatNumber(rawSize)}, ${formatNumber(rawSize)}, ${formatNumber(rawSize)}]`
+    } else if (Array.isArray(rawSize)) {
+      // Array - could contain VarRefs
+      const formattedElements = (rawSize as ArgValue[]).map(el =>
+        this.formatArgValue(el, ctx)
+      )
+      sizeStr = `[${formattedElements.join(', ')}]`
     } else {
-      size = [1, 1, 1] // default
+      sizeStr = '[1, 1, 1]'
     }
 
-    const center = args.center ?? false
-    return `M.Manifold.cube(${formatArray(size)}, ${center})`
+    // Handle center argument which could be boolean or VarRef
+    const rawCenter = args.center as ArgValue | undefined
+    let centerStr: string
+    if (rawCenter === undefined) {
+      centerStr = 'false'
+    } else if (isVarRef(rawCenter)) {
+      centerStr = this.formatArgValue(rawCenter, ctx)
+    } else {
+      centerStr = rawCenter ? 'true' : 'false'
+    }
+
+    return `M.Manifold.cube(${sizeStr}, ${centerStr})`
   }
 
   /**
@@ -337,14 +435,38 @@ class Transpiler {
 
   /**
    * Transpile polygon primitive (2D) to polygon points
+   * Handles VarRef values in points array
    */
-  private transpilePolygon(args: PolygonArgs, _ctx: TranspileContext): string {
-    const points = args.points ?? []
-    return this.formatPolygonPoints(points)
+  private transpilePolygon(args: PolygonArgs, ctx: TranspileContext): string {
+    const rawPoints = (args.points ?? []) as ArgValue[]
+    return this.formatPolygonPointsWithVarRef(rawPoints, ctx)
   }
 
   /**
-   * Format polygon points for Manifold.extrude
+   * Format polygon points for Manifold.extrude, handling VarRef values
+   */
+  private formatPolygonPointsWithVarRef(
+    points: ArgValue[],
+    ctx: TranspileContext
+  ): string {
+    const formatted = points.map(point => {
+      if (Array.isArray(point)) {
+        // It's a point [x, y] - elements may be numbers or VarRef
+        const formattedElements = point.map(el => this.formatArgValue(el, ctx))
+        return `[${formattedElements.join(', ')}]`
+      } else if (isVarRef(point)) {
+        // The whole point is a variable reference
+        return this.formatArgValue(point, ctx)
+      } else {
+        // Fallback - shouldn't happen with proper input
+        return this.formatArgValue(point, ctx)
+      }
+    })
+    return `[${formatted.join(', ')}]`
+  }
+
+  /**
+   * Format polygon points for Manifold.extrude (legacy method for static points)
    */
   private formatPolygonPoints(points: [number, number][]): string {
     const formatted = points

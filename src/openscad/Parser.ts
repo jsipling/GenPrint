@@ -19,6 +19,7 @@ import type {
   SpecialVarAssignNode,
   VarAssignNode,
   VarRef,
+  ArgValue,
   CubeArgs,
   SphereArgs,
   CylinderArgs,
@@ -958,8 +959,6 @@ interface ParsedArgs {
   positional: ArgValue[]
   named: Record<string, ArgValue>
 }
-
-type ArgValue = number | boolean | string | VarRef | ArgValue[]
 
 /**
  * Parse OpenSCAD source code into an AST

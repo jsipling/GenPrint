@@ -415,10 +415,16 @@ export interface SpecialVarAssignNode extends BaseASTNode {
 }
 
 /**
+ * Represents argument values that can be passed to OpenSCAD functions.
+ * Includes literals (numbers, booleans, strings), variable references, and arrays.
+ */
+export type ArgValue = number | boolean | string | VarRef | ArgValue[];
+
+/**
  * Regular variable assignment (width = 50, dims = [10, 20, 30], etc.)
  * Value is a simple ArgValue type (number, boolean, string, VarRef, or nested arrays)
  */
-export type VarAssignValue = number | boolean | string | VarRef | VarAssignValue[];
+export type VarAssignValue = ArgValue;
 
 export interface VarAssignNode extends BaseASTNode {
   nodeType: 'VarAssign';
