@@ -18,6 +18,29 @@ export interface Position {
 }
 
 /**
+ * Represents a reference to a variable in OpenSCAD.
+ * Used to allow parameter values to reference variables instead of being literal values.
+ */
+export interface VarRef {
+  type: 'VarRef';
+  name: string;
+}
+
+/**
+ * Type guard to check if a value is a VarRef
+ */
+export function isVarRef(value: unknown): value is VarRef {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'type' in value &&
+    'name' in value &&
+    (value as Record<string, unknown>).type === 'VarRef' &&
+    typeof (value as Record<string, unknown>).name === 'string'
+  );
+}
+
+/**
  * Token types supported by the OpenSCAD lexer
  */
 export type TokenType =
