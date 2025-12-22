@@ -80,7 +80,7 @@ export default function App() {
 
   // AI model selection state
   const [sketchModel, setSketchModel] = useState<SketchModel>('openai-gpt-image-1-mini')
-  const [geometryModel, setGeometryModel] = useState<GeometryModel>('gemini-3-pro-preview')
+  const [geometryModel, setGeometryModel] = useState<GeometryModel>('gemini-3-flash-preview')
 
   // Create AI service instances (recreate when model changes)
   const aiService = useMemo(() => createAiService(sketchModel), [sketchModel])

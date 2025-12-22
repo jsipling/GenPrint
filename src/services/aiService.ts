@@ -84,7 +84,7 @@ export function createImageToGeometryAiService(model?: GeometryModel): ImageToGe
 
   // Default: use Google
   if (googleApiKey?.trim()) {
-    const modelToUse = 'gemini-3-pro-preview'
+    const modelToUse = 'gemini-3-flash-preview'
     if (import.meta.env.DEV) {
       console.log(`[AI Service] Using ${modelToUse} for image-to-geometry (OpenSCAD format)`)
     }

@@ -9,7 +9,7 @@ import type { ImageGenerationService, SketchModel, GeometryModel } from '../serv
 // Default props for model selection
 const defaultModelProps = {
   sketchModel: 'openai-gpt-image-1-mini' as SketchModel,
-  geometryModel: 'gemini-3-pro-preview' as GeometryModel,
+  geometryModel: 'gemini-3-flash-preview' as GeometryModel,
   onSketchModelChange: vi.fn(),
   onGeometryModelChange: vi.fn()
 }

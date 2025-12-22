@@ -217,8 +217,9 @@ function getGeometryModelName(modelId: GeometryModelId): string {
     case 'gemini-3-flash-preview':
       return 'gemini-3-flash-preview'
     case 'gemini-3-pro-preview':
-    default:
       return 'gemini-3-pro-preview'
+    default:
+      return 'gemini-3-flash-preview'
   }
 }
 
@@ -252,7 +253,7 @@ function getModelPricing(modelName: string): { input: number; output: number } {
  */
 export function createImageToGeometryService(
   apiKey: string,
-  modelId: GeometryModelId = 'gemini-3-pro-preview',
+  modelId: GeometryModelId = 'gemini-3-flash-preview',
   format: OutputFormat = 'manifold'
 ): ImageToGeometryService {
   const modelName = getGeometryModelName(modelId)
