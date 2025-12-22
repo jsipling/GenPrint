@@ -17,6 +17,9 @@ import type {
   BooleanOpNode,
   ExtrudeNode,
   SpecialVarAssignNode,
+  VarAssignNode,
+  VarRef,
+  ArgValue,
   CubeArgs,
   SphereArgs,
   CylinderArgs,
@@ -134,17 +137,11 @@ class Parser {
       return this.parseExtrude()
     }
 
-    // Identifier followed by = is a variable assignment (unsupported)
+    // Identifier followed by = is a variable assignment
     if (token.type === 'IDENTIFIER') {
       const next = this.peekNext()
       if (next.type === 'ASSIGN') {
-        throw new OpenSCADParseError(
-          `Unsupported feature: variable assignment. Only special variables ($fn, $fa, $fs) are supported.`,
-          token.line,
-          token.column,
-          token.value,
-          []
-        )
+        return this.parseVarAssign()
       }
       // Otherwise unknown identifier usage
       throw new OpenSCADParseError(
@@ -651,6 +648,27 @@ class Parser {
   }
 
   // ============================================================================
+  // Variable Assignment Parsing
+  // ============================================================================
+
+  private parseVarAssign(): VarAssignNode {
+    const token = this.advance()
+    const position = this.getPosition(token)
+    const name = token.value
+
+    this.expect('ASSIGN', '=')
+    const value = this.parseValue()
+    this.expect('SEMICOLON', ';')
+
+    return {
+      nodeType: 'VarAssign',
+      name,
+      value,
+      position,
+    }
+  }
+
+  // ============================================================================
   // Children Block Parsing
   // ============================================================================
 
@@ -819,9 +837,15 @@ class Parser {
       return token.value
     }
 
+    // Variable reference (identifier)
+    if (token.type === 'IDENTIFIER') {
+      this.advance()
+      return { type: 'VarRef', name: token.value } as VarRef
+    }
+
     throw this.error(
       `Expected a value, found '${token.value}'`,
-      ['number', 'array', 'true', 'false', 'string']
+      ['number', 'array', 'true', 'false', 'string', 'identifier']
     )
   }
 
@@ -935,8 +959,6 @@ interface ParsedArgs {
   positional: ArgValue[]
   named: Record<string, ArgValue>
 }
-
-type ArgValue = number | boolean | string | ArgValue[]
 
 /**
  * Parse OpenSCAD source code into an AST

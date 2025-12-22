@@ -18,6 +18,29 @@ export interface Position {
 }
 
 /**
+ * Represents a reference to a variable in OpenSCAD.
+ * Used to allow parameter values to reference variables instead of being literal values.
+ */
+export interface VarRef {
+  type: 'VarRef';
+  name: string;
+}
+
+/**
+ * Type guard to check if a value is a VarRef
+ */
+export function isVarRef(value: unknown): value is VarRef {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'type' in value &&
+    'name' in value &&
+    (value as Record<string, unknown>).type === 'VarRef' &&
+    typeof (value as Record<string, unknown>).name === 'string'
+  );
+}
+
+/**
  * Token types supported by the OpenSCAD lexer
  */
 export type TokenType =
@@ -392,6 +415,24 @@ export interface SpecialVarAssignNode extends BaseASTNode {
 }
 
 /**
+ * Represents argument values that can be passed to OpenSCAD functions.
+ * Includes literals (numbers, booleans, strings), variable references, and arrays.
+ */
+export type ArgValue = number | boolean | string | VarRef | ArgValue[];
+
+/**
+ * Regular variable assignment (width = 50, dims = [10, 20, 30], etc.)
+ * Value is a simple ArgValue type (number, boolean, string, VarRef, or nested arrays)
+ */
+export type VarAssignValue = ArgValue;
+
+export interface VarAssignNode extends BaseASTNode {
+  nodeType: 'VarAssign';
+  name: string;
+  value: VarAssignValue;
+}
+
+/**
  * Module definition
  */
 export interface ModuleDefNode extends BaseASTNode {
@@ -581,6 +622,7 @@ export type ASTNode =
   | BooleanOpNode
   | ExtrudeNode
   | SpecialVarAssignNode
+  | VarAssignNode
   | ModuleDefNode
   | ModuleCallNode
   | FunctionDefNode
