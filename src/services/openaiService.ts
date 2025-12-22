@@ -41,12 +41,12 @@ function dataUrlToFile(dataUrl: string, filename: string): File {
 }
 
 // Map our model IDs to actual OpenAI model names
-type OpenAiModelId = 'openai-gpt-image-1-mini' | 'openai-gpt-image-1'
+type OpenAiModelId = 'openai-gpt-image-1-mini' | 'openai-gpt-image-1.5'
 
 function getOpenAiModelName(modelId: OpenAiModelId): string {
   switch (modelId) {
-    case 'openai-gpt-image-1':
-      return 'gpt-image-1'
+    case 'openai-gpt-image-1.5':
+      return 'gpt-image-1.5'
     case 'openai-gpt-image-1-mini':
     default:
       return 'gpt-image-1-mini'
@@ -56,12 +56,12 @@ function getOpenAiModelName(modelId: OpenAiModelId): string {
 // Pricing per image at 1024x1024
 // Source: https://openai.com/api/pricing/
 // gpt-image-1-mini: low=$0.005, medium=$0.011, high=$0.036
-// gpt-image-1: low=$0.011, medium=$0.042, high=$0.167
+// gpt-image-1.5: low=$0.011, medium=$0.042, high=$0.167
 function getOpenAiImagePricing(modelName: string, quality: 'low' | 'medium' | 'high'): number {
   const defaultPricing = { low: 0.005, medium: 0.011, high: 0.036 }
   const pricing: Record<string, Record<'low' | 'medium' | 'high', number>> = {
     'gpt-image-1-mini': defaultPricing,
-    'gpt-image-1': { low: 0.011, medium: 0.042, high: 0.167 }
+    'gpt-image-1.5': { low: 0.011, medium: 0.042, high: 0.167 }
   }
   return (pricing[modelName] ?? defaultPricing)[quality]
 }

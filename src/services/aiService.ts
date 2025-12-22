@@ -34,7 +34,7 @@ export function createAiService(model?: SketchModel): ImageGenerationService {
       if (import.meta.env.DEV) {
         console.log(`[AI Service] Using OpenAI service (${model})`)
       }
-      return createOpenAiService(openaiApiKey, model as 'openai-gpt-image-1-mini' | 'openai-gpt-image-1')
+      return createOpenAiService(openaiApiKey, model as 'openai-gpt-image-1-mini' | 'openai-gpt-image-1.5')
     }
     if (model.startsWith('gemini-') && googleApiKey?.trim()) {
       if (import.meta.env.DEV) {
@@ -76,18 +76,18 @@ export function createImageToGeometryAiService(model?: GeometryModel): ImageToGe
   // If a specific model is requested, use the appropriate service
   if (model && model.startsWith('gemini-') && googleApiKey?.trim()) {
     if (import.meta.env.DEV) {
-      console.log(`[AI Service] Using Google ${model} for image-to-geometry`)
+      console.log(`[AI Service] Using Google ${model} for image-to-geometry (OpenSCAD format)`)
     }
-    return createImageToGeometryService(googleApiKey, model as 'gemini-3-pro-preview' | 'gemini-2.5-pro' | 'gemini-2.5-flash')
+    return createImageToGeometryService(googleApiKey, model as 'gemini-3-pro-preview' | 'gemini-2.5-pro' | 'gemini-2.5-flash', 'openscad')
   }
 
   // Default: use Google
   if (googleApiKey?.trim()) {
     const modelToUse = 'gemini-3-pro-preview'
     if (import.meta.env.DEV) {
-      console.log(`[AI Service] Using ${modelToUse} for image-to-geometry`)
+      console.log(`[AI Service] Using ${modelToUse} for image-to-geometry (OpenSCAD format)`)
     }
-    return createImageToGeometryService(googleApiKey, modelToUse)
+    return createImageToGeometryService(googleApiKey, modelToUse, 'openscad')
   }
 
   return null  // No mock for this service - requires API key

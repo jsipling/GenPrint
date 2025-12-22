@@ -33,7 +33,7 @@ export interface ImageGenerationService {
 // Available AI models for sketch generation
 export type SketchModel =
   | 'openai-gpt-image-1-mini'
-  | 'openai-gpt-image-1'
+  | 'openai-gpt-image-1.5'
   | 'gemini-2.5-flash-image'
 
 // Available AI models for Apply to 3D Model
@@ -56,7 +56,7 @@ export interface GeometryModelOption {
 
 export const SKETCH_MODELS: SketchModelOption[] = [
   { id: 'openai-gpt-image-1-mini', name: 'GPT Image Mini', provider: 'openai' },
-  { id: 'openai-gpt-image-1', name: 'GPT Image', provider: 'openai' },
+  { id: 'openai-gpt-image-1.5', name: 'GPT Image 1.5', provider: 'openai' },
   { id: 'gemini-2.5-flash-image', name: 'Gemini 2.5 Flash Image', provider: 'google' }
 ]
 
