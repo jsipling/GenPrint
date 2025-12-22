@@ -814,6 +814,732 @@ describe('OpenSCAD Transpiler Integration', () => {
   // Edge Cases
   // ============================================================================
 
+  // ============================================================================
+  // Parametric Model Integration Tests
+  // ============================================================================
+
+  describe('parametric models with variables', () => {
+    describe('default parameters', () => {
+      it('model with default params produces correct geometry', () => {
+        const openscad = `
+          width = 50;
+          cube([width, width, width]);
+        `
+        const jsCode = transpileOpenSCAD(openscad)
+
+        // Execute with empty params - should use default
+        const manifold = executeTranspiled(M, jsCode, {})
+        const bbox = manifold.boundingBox()
+
+        // Cube should be 50x50x50
+        expect(bbox.min[0]).toBeCloseTo(0, 5)
+        expect(bbox.min[1]).toBeCloseTo(0, 5)
+        expect(bbox.min[2]).toBeCloseTo(0, 5)
+        expect(bbox.max[0]).toBeCloseTo(50, 5)
+        expect(bbox.max[1]).toBeCloseTo(50, 5)
+        expect(bbox.max[2]).toBeCloseTo(50, 5)
+
+        manifold.delete()
+      })
+
+      it('sphere with default radius produces correct geometry', () => {
+        const openscad = `
+          radius = 10;
+          sphere(r=radius);
+        `
+        const jsCode = transpileOpenSCAD(openscad)
+
+        const manifold = executeTranspiled(M, jsCode, {})
+        const bbox = manifold.boundingBox()
+
+        // Sphere with radius 10 should span -10 to 10
+        expect(bbox.min[0]).toBeCloseTo(-10, 5)
+        expect(bbox.max[0]).toBeCloseTo(10, 5)
+
+        manifold.delete()
+      })
+
+      it('cylinder with multiple default params produces correct geometry', () => {
+        const openscad = `
+          height = 20;
+          radius = 5;
+          cylinder(h=height, r=radius);
+        `
+        const jsCode = transpileOpenSCAD(openscad)
+
+        const manifold = executeTranspiled(M, jsCode, {})
+        const bbox = manifold.boundingBox()
+
+        // Cylinder with h=20, r=5
+        expect(bbox.min[0]).toBeCloseTo(-5, 5)
+        expect(bbox.max[0]).toBeCloseTo(5, 5)
+        expect(bbox.min[2]).toBeCloseTo(0, 5)
+        expect(bbox.max[2]).toBeCloseTo(20, 5)
+
+        manifold.delete()
+      })
+    })
+
+    describe('custom parameters override defaults', () => {
+      it('model with custom params overrides default values', () => {
+        const openscad = `
+          width = 50;
+          cube([width, width, width]);
+        `
+        const jsCode = transpileOpenSCAD(openscad)
+
+        // Execute with custom params - should override default
+        const manifold = executeTranspiled(M, jsCode, { width: 100 })
+        const bbox = manifold.boundingBox()
+
+        // Cube should now be 100x100x100
+        expect(bbox.min[0]).toBeCloseTo(0, 5)
+        expect(bbox.min[1]).toBeCloseTo(0, 5)
+        expect(bbox.min[2]).toBeCloseTo(0, 5)
+        expect(bbox.max[0]).toBeCloseTo(100, 5)
+        expect(bbox.max[1]).toBeCloseTo(100, 5)
+        expect(bbox.max[2]).toBeCloseTo(100, 5)
+
+        manifold.delete()
+      })
+
+      it('sphere with custom radius overrides default', () => {
+        const openscad = `
+          radius = 10;
+          sphere(r=radius);
+        `
+        const jsCode = transpileOpenSCAD(openscad)
+
+        const manifold = executeTranspiled(M, jsCode, { radius: 20 })
+        const bbox = manifold.boundingBox()
+
+        // Sphere with overridden radius 20
+        expect(bbox.min[0]).toBeCloseTo(-20, 5)
+        expect(bbox.max[0]).toBeCloseTo(20, 5)
+
+        manifold.delete()
+      })
+
+      it('can override only some parameters while using defaults for others', () => {
+        const openscad = `
+          height = 20;
+          radius = 5;
+          cylinder(h=height, r=radius);
+        `
+        const jsCode = transpileOpenSCAD(openscad)
+
+        // Override only height, keep radius default
+        const manifold = executeTranspiled(M, jsCode, { height: 40 })
+        const bbox = manifold.boundingBox()
+
+        // Height should be 40 (overridden), radius should be 5 (default)
+        expect(bbox.min[0]).toBeCloseTo(-5, 5)
+        expect(bbox.max[0]).toBeCloseTo(5, 5)
+        expect(bbox.max[2]).toBeCloseTo(40, 5)
+
+        manifold.delete()
+      })
+    })
+
+    describe('multiple variables in same model', () => {
+      it('handles multiple independent variables', () => {
+        const openscad = `
+          width = 10;
+          depth = 20;
+          height = 30;
+          cube([width, depth, height]);
+        `
+        const jsCode = transpileOpenSCAD(openscad)
+
+        const manifold = executeTranspiled(M, jsCode, {})
+        const bbox = manifold.boundingBox()
+
+        expect(bbox.max[0]).toBeCloseTo(10, 5)
+        expect(bbox.max[1]).toBeCloseTo(20, 5)
+        expect(bbox.max[2]).toBeCloseTo(30, 5)
+
+        manifold.delete()
+      })
+
+      it('handles overriding multiple variables', () => {
+        const openscad = `
+          width = 10;
+          depth = 20;
+          height = 30;
+          cube([width, depth, height]);
+        `
+        const jsCode = transpileOpenSCAD(openscad)
+
+        const manifold = executeTranspiled(M, jsCode, { width: 50, depth: 60, height: 70 })
+        const bbox = manifold.boundingBox()
+
+        expect(bbox.max[0]).toBeCloseTo(50, 5)
+        expect(bbox.max[1]).toBeCloseTo(60, 5)
+        expect(bbox.max[2]).toBeCloseTo(70, 5)
+
+        manifold.delete()
+      })
+
+      it('handles cone with independent top and bottom radii', () => {
+        const openscad = `
+          height = 20;
+          bottom_radius = 10;
+          top_radius = 5;
+          cylinder(h=height, r1=bottom_radius, r2=top_radius, center=true);
+        `
+        const jsCode = transpileOpenSCAD(openscad)
+
+        const manifold = executeTranspiled(M, jsCode, { bottom_radius: 15 })
+        const bbox = manifold.boundingBox()
+
+        // With bottom_radius=15 overridden, max X should be 15
+        expect(bbox.max[0]).toBeCloseTo(15, 5)
+        expect(bbox.max[2]).toBeCloseTo(10, 5) // half of default height=20
+
+        manifold.delete()
+      })
+    })
+
+    describe('variables in boolean operations', () => {
+      it('difference operation with parametric dimensions', () => {
+        const openscad = `
+          outer_size = 20;
+          hole_radius = 5;
+          difference() {
+            cube([outer_size, outer_size, outer_size], center=true);
+            cylinder(h=30, r=hole_radius, center=true);
+          }
+        `
+        const jsCode = transpileOpenSCAD(openscad)
+
+        const manifold = executeTranspiled(M, jsCode, {})
+        const bbox = manifold.boundingBox()
+
+        // Outer cube should define bounds
+        expect(bbox.min[0]).toBeCloseTo(-10, 5)
+        expect(bbox.max[0]).toBeCloseTo(10, 5)
+
+        manifold.delete()
+      })
+
+      it('difference operation with overridden parameters', () => {
+        const openscad = `
+          outer_size = 20;
+          hole_radius = 5;
+          difference() {
+            cube([outer_size, outer_size, outer_size], center=true);
+            cylinder(h=30, r=hole_radius, center=true);
+          }
+        `
+        const jsCode = transpileOpenSCAD(openscad)
+
+        // Override outer_size
+        const manifold = executeTranspiled(M, jsCode, { outer_size: 40 })
+        const bbox = manifold.boundingBox()
+
+        // Outer cube should now be larger
+        expect(bbox.min[0]).toBeCloseTo(-20, 5)
+        expect(bbox.max[0]).toBeCloseTo(20, 5)
+
+        manifold.delete()
+      })
+
+      it('union operation with parametric positions', () => {
+        const openscad = `
+          cube_size = 10;
+          sphere_radius = 5;
+          sphere_offset = 15;
+          union() {
+            cube([cube_size, cube_size, cube_size]);
+            translate([sphere_offset, 0, 0]) sphere(r=sphere_radius);
+          }
+        `
+        const jsCode = transpileOpenSCAD(openscad)
+
+        const manifold = executeTranspiled(M, jsCode, {})
+        const bbox = manifold.boundingBox()
+
+        // Union should span from cube to sphere
+        expect(bbox.min[0]).toBeCloseTo(0, 5)
+        expect(bbox.max[0]).toBeCloseTo(20, 5)  // 15 + 5
+
+        manifold.delete()
+      })
+
+      it('union operation with overridden offset', () => {
+        const openscad = `
+          cube_size = 10;
+          sphere_radius = 5;
+          sphere_offset = 15;
+          union() {
+            cube([cube_size, cube_size, cube_size]);
+            translate([sphere_offset, 0, 0]) sphere(r=sphere_radius);
+          }
+        `
+        const jsCode = transpileOpenSCAD(openscad)
+
+        const manifold = executeTranspiled(M, jsCode, { sphere_offset: 30 })
+        const bbox = manifold.boundingBox()
+
+        // Sphere should now be further away
+        expect(bbox.max[0]).toBeCloseTo(35, 5)  // 30 + 5
+
+        manifold.delete()
+      })
+
+      it('intersection operation with parametric overlapping shapes', () => {
+        const openscad = `
+          cube_size = 10;
+          sphere_radius = 7;
+          intersection() {
+            cube([cube_size, cube_size, cube_size], center=true);
+            sphere(r=sphere_radius);
+          }
+        `
+        const jsCode = transpileOpenSCAD(openscad)
+
+        const manifold = executeTranspiled(M, jsCode, {})
+        const mesh = manifold.getMesh()
+
+        // Should have valid mesh (intersection exists)
+        expect(mesh.numVert).toBeGreaterThan(0)
+        expect(mesh.numTri).toBeGreaterThan(0)
+
+        manifold.delete()
+      })
+    })
+
+    describe('variables in transforms', () => {
+      it('translate with parametric offset vector', () => {
+        const openscad = `
+          x_offset = 10;
+          y_offset = 20;
+          z_offset = 30;
+          translate([x_offset, y_offset, z_offset]) cube([5, 5, 5]);
+        `
+        const jsCode = transpileOpenSCAD(openscad)
+
+        const manifold = executeTranspiled(M, jsCode, {})
+        const bbox = manifold.boundingBox()
+
+        expect(bbox.min[0]).toBeCloseTo(10, 5)
+        expect(bbox.min[1]).toBeCloseTo(20, 5)
+        expect(bbox.min[2]).toBeCloseTo(30, 5)
+
+        manifold.delete()
+      })
+
+      it('translate with overridden offsets', () => {
+        const openscad = `
+          x_offset = 10;
+          y_offset = 20;
+          z_offset = 30;
+          translate([x_offset, y_offset, z_offset]) cube([5, 5, 5]);
+        `
+        const jsCode = transpileOpenSCAD(openscad)
+
+        const manifold = executeTranspiled(M, jsCode, { x_offset: 100, y_offset: 200 })
+        const bbox = manifold.boundingBox()
+
+        expect(bbox.min[0]).toBeCloseTo(100, 5)
+        expect(bbox.min[1]).toBeCloseTo(200, 5)
+        expect(bbox.min[2]).toBeCloseTo(30, 5)  // default
+
+        manifold.delete()
+      })
+
+      it('scale with parametric factor', () => {
+        const openscad = `
+          scale_factor = 2;
+          scale([scale_factor, scale_factor, scale_factor]) cube([5, 5, 5]);
+        `
+        const jsCode = transpileOpenSCAD(openscad)
+
+        const manifold = executeTranspiled(M, jsCode, {})
+        const bbox = manifold.boundingBox()
+
+        // 5 * 2 = 10
+        expect(bbox.max[0]).toBeCloseTo(10, 5)
+        expect(bbox.max[1]).toBeCloseTo(10, 5)
+        expect(bbox.max[2]).toBeCloseTo(10, 5)
+
+        manifold.delete()
+      })
+
+      it('scale with overridden factor', () => {
+        const openscad = `
+          scale_factor = 2;
+          scale([scale_factor, scale_factor, scale_factor]) cube([5, 5, 5]);
+        `
+        const jsCode = transpileOpenSCAD(openscad)
+
+        const manifold = executeTranspiled(M, jsCode, { scale_factor: 4 })
+        const bbox = manifold.boundingBox()
+
+        // 5 * 4 = 20
+        expect(bbox.max[0]).toBeCloseTo(20, 5)
+        expect(bbox.max[1]).toBeCloseTo(20, 5)
+        expect(bbox.max[2]).toBeCloseTo(20, 5)
+
+        manifold.delete()
+      })
+
+      it('rotate with parametric angle', () => {
+        const openscad = `
+          angle = 90;
+          rotate([0, 0, angle]) cube([10, 5, 3]);
+        `
+        const jsCode = transpileOpenSCAD(openscad)
+
+        const manifold = executeTranspiled(M, jsCode, {})
+        const bbox = manifold.boundingBox()
+
+        // After 90 degree Z rotation, X and Y dimensions swap
+        expect(bbox.min[0]).toBeCloseTo(-5, 4)
+        expect(bbox.max[0]).toBeCloseTo(0, 4)
+        expect(bbox.min[1]).toBeCloseTo(0, 4)
+        expect(bbox.max[1]).toBeCloseTo(10, 4)
+
+        manifold.delete()
+      })
+
+      it('chained transforms with parametric values', () => {
+        const openscad = `
+          x_pos = 10;
+          angle = 45;
+          translate([x_pos, 0, 0])
+            rotate([0, 0, angle])
+              cube([5, 5, 5], center=true);
+        `
+        const jsCode = transpileOpenSCAD(openscad)
+
+        const manifold = executeTranspiled(M, jsCode, {})
+        const mesh = manifold.getMesh()
+
+        // Should produce valid geometry
+        expect(mesh.numVert).toBeGreaterThan(0)
+        expect(mesh.numTri).toBeGreaterThan(0)
+
+        manifold.delete()
+      })
+    })
+
+    describe('variables in extrusions', () => {
+      it('linear_extrude with parametric height', () => {
+        const openscad = `
+          height = 10;
+          size = 20;
+          linear_extrude(height=height) { square([size, size], center=true); }
+        `
+        const jsCode = transpileOpenSCAD(openscad)
+
+        const manifold = executeTranspiled(M, jsCode, {})
+        const bbox = manifold.boundingBox()
+
+        expect(bbox.min[0]).toBeCloseTo(-10, 5)
+        expect(bbox.max[0]).toBeCloseTo(10, 5)
+        expect(bbox.max[2]).toBeCloseTo(10, 5)
+
+        manifold.delete()
+      })
+
+      it('linear_extrude with overridden height', () => {
+        const openscad = `
+          height = 10;
+          size = 20;
+          linear_extrude(height=height) { square([size, size], center=true); }
+        `
+        const jsCode = transpileOpenSCAD(openscad)
+
+        const manifold = executeTranspiled(M, jsCode, { height: 30 })
+        const bbox = manifold.boundingBox()
+
+        expect(bbox.max[2]).toBeCloseTo(30, 5)
+
+        manifold.delete()
+      })
+
+      it('linear_extrude with parametric twist', () => {
+        const openscad = `
+          height = 20;
+          twist = 90;
+          linear_extrude(height=height, twist=twist) { square([10, 5], center=true); }
+        `
+        const jsCode = transpileOpenSCAD(openscad)
+
+        const manifold = executeTranspiled(M, jsCode, {})
+        const mesh = manifold.getMesh()
+
+        // Should produce valid twisted geometry
+        expect(mesh.numVert).toBeGreaterThan(0)
+        expect(mesh.numTri).toBeGreaterThan(0)
+
+        manifold.delete()
+      })
+
+      it('linear_extrude with parametric scale', () => {
+        const openscad = `
+          height = 20;
+          top_scale = 0.5;
+          linear_extrude(height=height, scale=top_scale) { square([10, 10], center=true); }
+        `
+        const jsCode = transpileOpenSCAD(openscad)
+
+        const manifold = executeTranspiled(M, jsCode, {})
+        const bbox = manifold.boundingBox()
+
+        // At base, square is 10x10 (-5 to 5), at top it's 5x5
+        expect(bbox.min[2]).toBeCloseTo(0, 5)
+        expect(bbox.max[2]).toBeCloseTo(20, 5)
+
+        manifold.delete()
+      })
+
+      it('linear_extrude with parametric 2D shape radius', () => {
+        const openscad = `
+          height = 15;
+          radius = 5;
+          linear_extrude(height=height) { circle(r=radius); }
+        `
+        const jsCode = transpileOpenSCAD(openscad)
+
+        const manifold = executeTranspiled(M, jsCode, {})
+        const bbox = manifold.boundingBox()
+
+        expect(bbox.min[0]).toBeCloseTo(-5, 4)
+        expect(bbox.max[0]).toBeCloseTo(5, 4)
+        expect(bbox.max[2]).toBeCloseTo(15, 5)
+
+        manifold.delete()
+      })
+
+      it('linear_extrude with overridden 2D shape radius', () => {
+        const openscad = `
+          height = 15;
+          radius = 5;
+          linear_extrude(height=height) { circle(r=radius); }
+        `
+        const jsCode = transpileOpenSCAD(openscad)
+
+        const manifold = executeTranspiled(M, jsCode, { radius: 10 })
+        const bbox = manifold.boundingBox()
+
+        expect(bbox.min[0]).toBeCloseTo(-10, 4)
+        expect(bbox.max[0]).toBeCloseTo(10, 4)
+
+        manifold.delete()
+      })
+
+      it('rotate_extrude with parametric angle', () => {
+        const openscad = `
+          angle = 180;
+          rotate_extrude(angle=angle) {
+            polygon(points=[[7, -3], [13, -3], [13, 3], [7, 3]]);
+          }
+        `
+        const jsCode = transpileOpenSCAD(openscad)
+
+        const manifold = executeTranspiled(M, jsCode, {})
+        const mesh = manifold.getMesh()
+
+        // Should produce valid partial revolution
+        expect(mesh.numVert).toBeGreaterThan(0)
+        expect(mesh.numTri).toBeGreaterThan(0)
+
+        manifold.delete()
+      })
+    })
+
+    describe('complex parametric models', () => {
+      it('box with parametric dimensions', () => {
+        // Note: OpenSCAD transpiler does not support arithmetic expressions like wall * 2
+        // Use pre-computed inner dimensions instead
+        const openscad = `
+          outer_width = 30;
+          outer_height = 20;
+          inner_width = 26;
+          inner_height = 20;
+          wall_offset = 2;
+          difference() {
+            cube([outer_width, outer_width, outer_height], center=true);
+            translate([0, 0, wall_offset])
+              cube([inner_width, inner_width, inner_height], center=true);
+          }
+        `
+        const jsCode = transpileOpenSCAD(openscad)
+
+        const manifold = executeTranspiled(M, jsCode, {})
+        const bbox = manifold.boundingBox()
+
+        // Outer dimensions should be 30x30x20 centered
+        expect(bbox.min[0]).toBeCloseTo(-15, 5)
+        expect(bbox.max[0]).toBeCloseTo(15, 5)
+        expect(bbox.min[2]).toBeCloseTo(-10, 5)
+        expect(bbox.max[2]).toBeCloseTo(10, 5)
+
+        manifold.delete()
+      })
+
+      it('box with overridden dimensions', () => {
+        const openscad = `
+          outer_width = 30;
+          outer_height = 20;
+          inner_width = 26;
+          inner_height = 20;
+          wall_offset = 2;
+          difference() {
+            cube([outer_width, outer_width, outer_height], center=true);
+            translate([0, 0, wall_offset])
+              cube([inner_width, inner_width, inner_height], center=true);
+          }
+        `
+        const jsCode = transpileOpenSCAD(openscad)
+
+        // Verify it runs with overridden parameters
+        const manifold = executeTranspiled(M, jsCode, { outer_width: 50, inner_width: 40 })
+        const bbox = manifold.boundingBox()
+
+        // Outer dimensions should be 50x50x20 centered
+        expect(bbox.min[0]).toBeCloseTo(-25, 5)
+        expect(bbox.max[0]).toBeCloseTo(25, 5)
+
+        manifold.delete()
+      })
+
+      it('extruded triangle with parametric height', () => {
+        // Use literal values for polygon points since expressions not supported
+        const openscad = `
+          extrude_height = 5;
+          linear_extrude(height=extrude_height) {
+            polygon(points=[[0, 0], [10, 0], [5, 10]]);
+          }
+        `
+        const jsCode = transpileOpenSCAD(openscad)
+
+        const manifold = executeTranspiled(M, jsCode, {})
+        const bbox = manifold.boundingBox()
+
+        expect(bbox.max[2]).toBeCloseTo(5, 5)
+
+        manifold.delete()
+      })
+
+      it('extruded triangle with overridden height', () => {
+        const openscad = `
+          extrude_height = 5;
+          linear_extrude(height=extrude_height) {
+            polygon(points=[[0, 0], [10, 0], [5, 10]]);
+          }
+        `
+        const jsCode = transpileOpenSCAD(openscad)
+
+        const manifold = executeTranspiled(M, jsCode, { extrude_height: 20 })
+        const bbox = manifold.boundingBox()
+
+        expect(bbox.max[2]).toBeCloseTo(20, 5)
+
+        manifold.delete()
+      })
+
+      it('multiple parts with independent parameters', () => {
+        // Note: Expressions like size/2 are not supported, use explicit values
+        const openscad = `
+          cube_size = 10;
+          sphere_radius = 5;
+          cylinder_radius = 2.5;
+          spacing1 = 15;
+          spacing2 = 30;
+          cube([cube_size, cube_size, cube_size]);
+          translate([spacing1, 0, 0]) sphere(r=sphere_radius);
+          translate([spacing2, 0, 0]) cylinder(h=cube_size, r=cylinder_radius);
+        `
+        const jsCode = transpileOpenSCAD(openscad)
+
+        const manifold = executeTranspiled(M, jsCode, {})
+        const bbox = manifold.boundingBox()
+
+        // All three objects should be in the combined bounding box
+        expect(bbox.min[0]).toBeCloseTo(0, 5)
+        // Last object is at 30 with radius 2.5
+        expect(bbox.max[0]).toBeCloseTo(32.5, 5)
+
+        manifold.delete()
+      })
+
+      it('multiple parts with overridden parameters', () => {
+        const openscad = `
+          cube_size = 10;
+          sphere_radius = 5;
+          cylinder_radius = 2.5;
+          spacing1 = 15;
+          spacing2 = 30;
+          cube([cube_size, cube_size, cube_size]);
+          translate([spacing1, 0, 0]) sphere(r=sphere_radius);
+          translate([spacing2, 0, 0]) cylinder(h=cube_size, r=cylinder_radius);
+        `
+        const jsCode = transpileOpenSCAD(openscad)
+
+        const manifold = executeTranspiled(M, jsCode, { cube_size: 20, sphere_radius: 10, cylinder_radius: 5 })
+        const bbox = manifold.boundingBox()
+
+        // Cube is 20x20x20, sphere at 15 with r=10, cylinder at 30 with r=5
+        expect(bbox.max[0]).toBeCloseTo(35, 5)
+        expect(bbox.max[1]).toBeCloseTo(20, 5)
+        expect(bbox.max[2]).toBeCloseTo(20, 5)
+
+        manifold.delete()
+      })
+    })
+
+    describe('generated code correctness', () => {
+      it('generated code uses params lookup with nullish coalescing', () => {
+        const openscad = `
+          width = 50;
+          cube([width, width, width]);
+        `
+        const jsCode = transpileOpenSCAD(openscad)
+
+        // Verify the generated code uses the expected pattern
+        expect(jsCode).toContain("params['width']")
+        expect(jsCode).toContain('??')
+        expect(jsCode).toContain('50')
+      })
+
+      it('generated code handles undefined params gracefully', () => {
+        const openscad = `
+          size = 10;
+          cube([size, size, size]);
+        `
+        const jsCode = transpileOpenSCAD(openscad)
+
+        // Execute with undefined passed explicitly
+        const manifold = executeTranspiled(M, jsCode, {})
+        const bbox = manifold.boundingBox()
+
+        expect(bbox.max[0]).toBeCloseTo(10, 5)
+
+        manifold.delete()
+      })
+
+      it('generated code respects numeric 0 as a valid override', () => {
+        const openscad = `
+          x_pos = 10;
+          translate([x_pos, 0, 0]) cube([5, 5, 5]);
+        `
+        const jsCode = transpileOpenSCAD(openscad)
+
+        // 0 should be a valid override, not fall back to default
+        const manifold = executeTranspiled(M, jsCode, { x_pos: 0 })
+        const bbox = manifold.boundingBox()
+
+        expect(bbox.min[0]).toBeCloseTo(0, 5)
+        expect(bbox.max[0]).toBeCloseTo(5, 5)
+
+        manifold.delete()
+      })
+    })
+  })
+
   describe('edge cases', () => {
     it('handles empty program gracefully', () => {
       const jsCode = transpileOpenSCAD('')
