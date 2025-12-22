@@ -7,16 +7,33 @@ import type {
 } from './imageToGeometryTypes'
 import { BUILDER_RESERVED_CONSTANTS } from '../generators/manifold/printingConstants'
 import { compressSketchImage, parseDataUrl } from '../utils/imageCompression'
-import PROMPT_TEMPLATE from '../prompts/manifoldBuilder.prompt.md?raw'
+import MANIFOLD_PROMPT_TEMPLATE from '../prompts/manifoldBuilder.prompt.md?raw'
+import OPENSCAD_PROMPT_TEMPLATE from '../prompts/openscadBuilder.prompt.md?raw'
+import {
+  transpileOpenSCAD,
+  OpenSCADParseError,
+  OpenSCADTranspileError,
+  OpenSCADLexError
+} from '../openscad'
+
+/**
+ * Output format for geometry generation.
+ * - 'manifold': AI generates Manifold JavaScript directly
+ * - 'openscad': AI generates OpenSCAD code which is transpiled to Manifold JS
+ */
+export type OutputFormat = 'manifold' | 'openscad'
 
 // Build the list of all reserved variable names for builder code
 // These are passed as function parameters and must not be redeclared
 const RESERVED_VARIABLES = ['M', 'params', ...BUILDER_RESERVED_CONSTANTS] as const
 
-// Build the analysis prompt from the template
-const ANALYSIS_PROMPT = PROMPT_TEMPLATE
+// Build the Manifold analysis prompt from the template
+const MANIFOLD_ANALYSIS_PROMPT = MANIFOLD_PROMPT_TEMPLATE
   .replace('{{RESERVED_VARIABLES_LIST}}', RESERVED_VARIABLES.map(v => `- \`${v}\``).join('\n'))
   .replace('{{RESERVED_VARIABLES_CONST_LIST}}', RESERVED_VARIABLES.map(v => `\`const ${v}\``).join(', '))
+
+// OpenSCAD prompt doesn't need reserved variables substitution
+const OPENSCAD_ANALYSIS_PROMPT = OPENSCAD_PROMPT_TEMPLATE
 
 /**
  * Build current model context string for the prompt.
@@ -54,9 +71,20 @@ Do NOT merge parts together unless the user explicitly asks to combine/merge/fus
 }
 
 /**
- * Validate that the analysis response contains all required fields.
+ * OpenSCAD analysis response from AI (before transpilation).
  */
-function validateAnalysis(data: unknown): data is GeometryAnalysis {
+interface OpenSCADAnalysis {
+  description: string
+  openscadCode: string
+  suggestedName: string
+  parameters: GeometryAnalysis['parameters']
+  defaultParams: GeometryAnalysis['defaultParams']
+}
+
+/**
+ * Validate that the analysis response contains all required fields for Manifold format.
+ */
+function validateManifoldAnalysis(data: unknown): data is GeometryAnalysis {
   if (typeof data !== 'object' || data === null) {
     return false
   }
@@ -68,6 +96,40 @@ function validateAnalysis(data: unknown): data is GeometryAnalysis {
     return false
   }
   if (typeof obj.builderCode !== 'string' || !obj.builderCode) {
+    return false
+  }
+  if (typeof obj.suggestedName !== 'string' || !obj.suggestedName) {
+    return false
+  }
+
+  // Check parameters array
+  if (!Array.isArray(obj.parameters)) {
+    return false
+  }
+
+  // Check defaultParams object
+  if (typeof obj.defaultParams !== 'object' || obj.defaultParams === null) {
+    return false
+  }
+
+  return true
+}
+
+/**
+ * Validate that the analysis response contains all required fields for OpenSCAD format.
+ */
+function validateOpenSCADAnalysis(data: unknown): data is OpenSCADAnalysis {
+  if (typeof data !== 'object' || data === null) {
+    return false
+  }
+
+  const obj = data as Record<string, unknown>
+
+  // Check required string fields
+  if (typeof obj.description !== 'string' || !obj.description) {
+    return false
+  }
+  if (typeof obj.openscadCode !== 'string' || !obj.openscadCode) {
     return false
   }
   if (typeof obj.suggestedName !== 'string' || !obj.suggestedName) {
@@ -179,9 +241,17 @@ function getModelPricing(modelName: string): { input: number; output: number } {
 
 /**
  * Creates an ImageToGeometryService using Google's Gemini API.
+ * @param apiKey - Google AI API key
+ * @param modelId - Model to use for generation
+ * @param format - Output format: 'manifold' for direct Manifold JS, 'openscad' for OpenSCAD transpilation
  */
-export function createImageToGeometryService(apiKey: string, modelId: GeometryModelId = 'gemini-3-pro-preview'): ImageToGeometryService {
+export function createImageToGeometryService(
+  apiKey: string,
+  modelId: GeometryModelId = 'gemini-3-pro-preview',
+  format: OutputFormat = 'manifold'
+): ImageToGeometryService {
   const modelName = getGeometryModelName(modelId)
+  const analysisPrompt = format === 'openscad' ? OPENSCAD_ANALYSIS_PROMPT : MANIFOLD_ANALYSIS_PROMPT
   let analyzing = false
   let abortController: AbortController | null = null
 
@@ -215,12 +285,13 @@ export function createImageToGeometryService(apiKey: string, modelId: GeometryMo
     // Build the full prompt with user context, optional model context, and error context
     const modelContext = buildCurrentModelContext(request)
     const errorContext = buildErrorContext(previousError)
-    const fullPrompt = `${ANALYSIS_PROMPT}${request.prompt}${modelContext}${errorContext}`
+    const fullPrompt = `${analysisPrompt}${request.prompt}${modelContext}${errorContext}`
 
     // Log the request (without image data)
     if (import.meta.env.DEV) {
       console.log(`[${modelName}] Image-to-Geometry Request:`, {
         model: modelName,
+        format,
         userPrompt: request.prompt,
         hasCurrentModel: !!request.currentBuilderCode,
         currentModelName: request.currentModelName ?? 'N/A',
@@ -309,8 +380,108 @@ export function createImageToGeometryService(apiKey: string, modelId: GeometryMo
       }
     }
 
+    // Handle format-specific validation and processing
+    if (format === 'openscad') {
+      // Validate OpenSCAD response structure
+      if (!validateOpenSCADAnalysis(parsedData)) {
+        return {
+          success: false,
+          error:
+            'AI response missing required fields (description, openscadCode, suggestedName, parameters, defaultParams)'
+        }
+      }
+
+      // Log OpenSCAD code before transpilation
+      if (import.meta.env.DEV) {
+        console.log(`[${modelName}] OpenSCAD code to transpile:`, parsedData.openscadCode)
+      }
+
+      // Transpile OpenSCAD to Manifold JavaScript
+      let manifoldCode: string
+      try {
+        if (import.meta.env.DEV) {
+          console.log(`[${modelName}] OpenSCAD parse phase starting...`)
+        }
+        manifoldCode = transpileOpenSCAD(parsedData.openscadCode)
+        if (import.meta.env.DEV) {
+          console.log(`[${modelName}] OpenSCAD transpile phase completed successfully`)
+          console.log(`[${modelName}] Transpiled Manifold code:`, manifoldCode)
+        }
+      } catch (err) {
+        // Handle parse errors
+        if (err instanceof OpenSCADParseError) {
+          if (import.meta.env.DEV) {
+            console.log(`[${modelName}] OpenSCAD parse error:`, err.message)
+          }
+          return {
+            success: false,
+            error: `OpenSCAD Parse Error: ${err.toRetryContext()}`,
+            isCodeValidationError: true
+          }
+        }
+
+        // Handle lex errors
+        if (err instanceof OpenSCADLexError) {
+          if (import.meta.env.DEV) {
+            console.log(`[${modelName}] OpenSCAD lex error:`, err.message)
+          }
+          return {
+            success: false,
+            error: `OpenSCAD Lex Error at line ${err.line}, column ${err.column}: ${err.message}`,
+            isCodeValidationError: true
+          }
+        }
+
+        // Handle transpile errors
+        if (err instanceof OpenSCADTranspileError) {
+          if (import.meta.env.DEV) {
+            console.log(`[${modelName}] OpenSCAD transpile error:`, err.message)
+          }
+          return {
+            success: false,
+            error: `OpenSCAD Transpile Error: ${err.message}`,
+            isCodeValidationError: true
+          }
+        }
+
+        // Unknown error
+        const errorMessage = err instanceof Error ? err.message : 'Unknown transpilation error'
+        return {
+          success: false,
+          error: `OpenSCAD Transpilation Failed: ${errorMessage}`,
+          isCodeValidationError: true
+        }
+      }
+
+      // Validate the transpiled Manifold JavaScript syntax
+      const codeValidation = validateBuilderCode(manifoldCode)
+      if (!codeValidation.valid) {
+        if (import.meta.env.DEV) {
+          console.log(`[${modelName}] Transpiled code validation failed:`, codeValidation.error)
+        }
+        return {
+          success: false,
+          error: `Invalid JavaScript syntax in transpiled code: ${codeValidation.error}`,
+          isCodeValidationError: true
+        }
+      }
+
+      // Return GeometryAnalysis with transpiled Manifold code as builderCode
+      return {
+        success: true,
+        analysis: {
+          description: parsedData.description,
+          builderCode: manifoldCode,
+          suggestedName: parsedData.suggestedName,
+          parameters: parsedData.parameters,
+          defaultParams: parsedData.defaultParams
+        }
+      }
+    }
+
+    // Manifold format: existing behavior
     // Validate the response structure
-    if (!validateAnalysis(parsedData)) {
+    if (!validateManifoldAnalysis(parsedData)) {
       return {
         success: false,
         error:
@@ -322,10 +493,7 @@ export function createImageToGeometryService(apiKey: string, modelId: GeometryMo
     const codeValidation = validateBuilderCode(parsedData.builderCode)
     if (!codeValidation.valid) {
       if (import.meta.env.DEV) {
-        console.log(
-          '[Gemini 3 Pro Preview] Code validation failed:',
-          codeValidation.error
-        )
+        console.log(`[${modelName}] Code validation failed:`, codeValidation.error)
       }
       return {
         success: false,
