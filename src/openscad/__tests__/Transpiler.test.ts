@@ -231,6 +231,29 @@ describe('Transpiler', () => {
       expect(code).toContain('.translate([5, 0, 0])')
       assertValidJS(code)
     })
+
+    it('should handle color transform as no-op without creating dangling references', () => {
+      // Color is not supported in Manifold, so should pass through the child unchanged
+      const code = transpile('color("red") { cube(10); }')
+
+      // Should still create the cube
+      expect(code).toContain('M.Manifold.cube([10, 10, 10], false)')
+      assertValidJS(code)
+
+      // Should NOT create an assignment like "const _v2 = _v1" followed by "_v1.delete()"
+      // which would leave _v2 referencing a deleted object
+      // Instead, should just return the cube directly
+      expect(code).not.toMatch(/const _v\d+ = _v\d+;/)
+    })
+
+    it('should handle color with nested transforms correctly', () => {
+      // Verify color does not interfere with real transforms
+      const code = transpile('translate([1,2,3]) color("blue") { cube(10); }')
+
+      expect(code).toContain('M.Manifold.cube([10, 10, 10], false)')
+      expect(code).toContain('.translate([1, 2, 3])')
+      assertValidJS(code)
+    })
   })
 
   // ============================================================================

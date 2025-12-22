@@ -394,6 +394,13 @@ class Transpiler {
 
     // Apply the transform
     const transformCode = this.getTransformCode(node, ctx)
+
+    // If no transform code (e.g., color), return source unchanged
+    // Avoids creating assignment that references a deleted object
+    if (!transformCode) {
+      return combined
+    }
+
     const resultVar = genVar(ctx)
 
     // Store the combined value if it's a complex expression
