@@ -120,7 +120,7 @@ class Lexer {
    */
   private peek(): string {
     if (this.isAtEnd()) return '\0'
-    return this.source[this.pos]
+    return this.source[this.pos]!
   }
 
   /**
@@ -128,7 +128,7 @@ class Lexer {
    */
   private peekNext(): string {
     if (this.pos + 1 >= this.source.length) return '\0'
-    return this.source[this.pos + 1]
+    return this.source[this.pos + 1]!
   }
 
   /**
@@ -136,14 +136,14 @@ class Lexer {
    */
   private peekAhead(offset: number): string {
     if (this.pos + offset >= this.source.length) return '\0'
-    return this.source[this.pos + offset]
+    return this.source[this.pos + offset]!
   }
 
   /**
    * Consume and return the current character
    */
   private advance(): string {
-    const char = this.source[this.pos]
+    const char = this.source[this.pos]!
     this.pos++
     if (char === '\n') {
       this.line++
@@ -204,7 +204,7 @@ class Lexer {
 
     // Handle single-character tokens
     if (char in SINGLE_CHAR_TOKENS) {
-      this.addToken(SINGLE_CHAR_TOKENS[char], char, startLine, startColumn)
+      this.addToken(SINGLE_CHAR_TOKENS[char]!, char, startLine, startColumn)
       return
     }
 

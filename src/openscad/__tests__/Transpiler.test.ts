@@ -1,7 +1,6 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { transpile } from '../Transpiler'
 import { parse } from '../Parser'
-import type { ProgramNode } from '../types'
 
 /**
  * Transpiler Tests

@@ -845,21 +845,21 @@ class Parser {
   // ============================================================================
 
   private peek(): Token {
-    return this.tokens[this.pos]
+    return this.tokens[this.pos]!
   }
 
   private peekNext(): Token {
     if (this.pos + 1 >= this.tokens.length) {
-      return this.tokens[this.tokens.length - 1] // EOF
+      return this.tokens[this.tokens.length - 1]! // EOF
     }
-    return this.tokens[this.pos + 1]
+    return this.tokens[this.pos + 1]!
   }
 
   private advance(): Token {
     if (!this.isAtEnd()) {
       this.pos++
     }
-    return this.tokens[this.pos - 1]
+    return this.tokens[this.pos - 1]!
   }
 
   private check(type: TokenType): boolean {

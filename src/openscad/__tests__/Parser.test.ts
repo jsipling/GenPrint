@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { parse } from '../Parser'
 import type {
-  ProgramNode,
   PrimitiveCallNode,
   TransformNode,
   BooleanOpNode,
@@ -870,37 +869,37 @@ describe('Parser', () => {
   describe('position tracking', () => {
     it('should track position for primitives', () => {
       const result = parse('cube(10);')
-      expect(result.body[0].position).toBeDefined()
-      expect(result.body[0].position?.line).toBe(1)
-      expect(result.body[0].position?.column).toBe(1)
+      expect(result.body[0]!.position).toBeDefined()
+      expect(result.body[0]!.position?.line).toBe(1)
+      expect(result.body[0]!.position?.column).toBe(1)
     })
 
     it('should track position for primitives on later lines', () => {
       const result = parse('\n\ncube(10);')
-      expect(result.body[0].position).toBeDefined()
-      expect(result.body[0].position?.line).toBe(3)
-      expect(result.body[0].position?.column).toBe(1)
+      expect(result.body[0]!.position).toBeDefined()
+      expect(result.body[0]!.position?.line).toBe(3)
+      expect(result.body[0]!.position?.column).toBe(1)
     })
 
     it('should track position for transforms', () => {
       const result = parse('translate([1,2,3]) { cube(10); }')
-      expect(result.body[0].position).toBeDefined()
-      expect(result.body[0].position?.line).toBe(1)
-      expect(result.body[0].position?.column).toBe(1)
+      expect(result.body[0]!.position).toBeDefined()
+      expect(result.body[0]!.position?.line).toBe(1)
+      expect(result.body[0]!.position?.column).toBe(1)
     })
 
     it('should track position for boolean operations', () => {
       const result = parse('  union() { cube(10); }')
-      expect(result.body[0].position).toBeDefined()
-      expect(result.body[0].position?.line).toBe(1)
-      expect(result.body[0].position?.column).toBe(3)
+      expect(result.body[0]!.position).toBeDefined()
+      expect(result.body[0]!.position?.line).toBe(1)
+      expect(result.body[0]!.position?.column).toBe(3)
     })
 
     it('should track position for extrusions', () => {
       const result = parse('linear_extrude(10) { circle(5); }')
-      expect(result.body[0].position).toBeDefined()
-      expect(result.body[0].position?.line).toBe(1)
-      expect(result.body[0].position?.column).toBe(1)
+      expect(result.body[0]!.position).toBeDefined()
+      expect(result.body[0]!.position?.line).toBe(1)
+      expect(result.body[0]!.position?.column).toBe(1)
     })
   })
 

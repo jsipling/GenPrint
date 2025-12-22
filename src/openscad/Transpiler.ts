@@ -126,7 +126,7 @@ class Transpiler {
     // For multiple top-level results, combine with union
     let finalResult: string
     if (results.length === 1) {
-      finalResult = results[0]
+      finalResult = results[0]!
     } else {
       // Combine multiple results with union
       const resultVar = genVar(ctx)
@@ -135,9 +135,10 @@ class Transpiler {
       for (let i = 1; i < results.length; i++) {
         const nextVar = genVar(ctx)
         const prevVar = i === 1 ? resultVar : `_v${ctx.varCounter - 1}`
-        ctx.lines.push(`const ${nextVar} = ${prevVar}.add(${results[i]});`)
+        const currentResult = results[i]!
+        ctx.lines.push(`const ${nextVar} = ${prevVar}.add(${currentResult});`)
         ctx.toDelete.push(prevVar)
-        ctx.toDelete.push(results[i].startsWith('_v') ? results[i] : '')
+        ctx.toDelete.push(currentResult.startsWith('_v') ? currentResult : '')
       }
 
       finalResult = `_v${ctx.varCounter}`
@@ -375,7 +376,7 @@ class Transpiler {
     // Combine children if multiple
     let combined: string
     if (childResults.length === 1) {
-      combined = childResults[0]
+      combined = childResults[0]!
     } else {
       // Store first child
       const firstVar = genVar(ctx)
@@ -384,7 +385,7 @@ class Transpiler {
       let currentVar = firstVar
       for (let i = 1; i < childResults.length; i++) {
         const nextVar = genVar(ctx)
-        ctx.lines.push(`const ${nextVar} = ${currentVar}.add(${childResults[i]});`)
+        ctx.lines.push(`const ${nextVar} = ${currentVar}.add(${childResults[i]!});`)
         ctx.lines.push(`${currentVar}.delete();`)
         currentVar = nextVar
       }
@@ -497,7 +498,7 @@ class Transpiler {
     }
 
     if (childResults.length === 1) {
-      return childResults[0]
+      return childResults[0]!
     }
 
     // Get the boolean operation method
@@ -570,7 +571,7 @@ class Transpiler {
 
     // Combine 2D shapes if multiple (simplified: just use first)
     // A more complete implementation would handle 2D boolean operations
-    const polygonPoints = childResults[0]
+    const polygonPoints = childResults[0]!
 
     switch (node.extrude) {
       case 'linear_extrude':
@@ -599,7 +600,7 @@ class Transpiler {
   private transpileLinearExtrude(
     args: LinearExtrudeArgs,
     polygonPoints: string,
-    ctx: TranspileContext
+    _ctx: TranspileContext
   ): string {
     const height = args.height ?? 1
     const nDivisions = args.slices ?? 0

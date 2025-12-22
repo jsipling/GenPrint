@@ -578,6 +578,13 @@ export function createImageToGeometryService(
             }
 
             // API errors are not retried
+            // Log full error details for debugging
+            if (import.meta.env.DEV) {
+              console.error(`[${modelName}] API Error:`, error)
+              if (error && typeof error === 'object') {
+                console.error(`[${modelName}] Error details:`, JSON.stringify(error, null, 2))
+              }
+            }
             const errorMessage =
               error instanceof Error ? error.message : 'Unknown error occurred'
             return {

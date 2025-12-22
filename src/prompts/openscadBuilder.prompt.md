@@ -339,7 +339,7 @@ If you receive an error message from a previous attempt, analyze it carefully:
 - Replace `for` loops with explicit repeated geometry
 - Replace module calls with inline geometry
 - Replace variables with literal values
-- Replace arithmetic expressions with pre-computed values (e.g., `80/2 - 10` → `-30`)
+- Replace arithmetic expressions with pre-computed values (e.g., `80/2 - 10` becomes `-30`)
 - Use `polygon()` instead of complex 2D operations
 
 ## User's Design Intent
