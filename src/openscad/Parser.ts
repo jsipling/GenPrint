@@ -17,6 +17,7 @@ import type {
   BooleanOpNode,
   ExtrudeNode,
   SpecialVarAssignNode,
+  VarAssignNode,
   CubeArgs,
   SphereArgs,
   CylinderArgs,
@@ -134,17 +135,11 @@ class Parser {
       return this.parseExtrude()
     }
 
-    // Identifier followed by = is a variable assignment (unsupported)
+    // Identifier followed by = is a variable assignment
     if (token.type === 'IDENTIFIER') {
       const next = this.peekNext()
       if (next.type === 'ASSIGN') {
-        throw new OpenSCADParseError(
-          `Unsupported feature: variable assignment. Only special variables ($fn, $fa, $fs) are supported.`,
-          token.line,
-          token.column,
-          token.value,
-          []
-        )
+        return this.parseVarAssign()
       }
       // Otherwise unknown identifier usage
       throw new OpenSCADParseError(
@@ -646,6 +641,27 @@ class Parser {
       nodeType: 'SpecialVarAssign',
       variable,
       value: value as number | [number, number, number],
+      position,
+    }
+  }
+
+  // ============================================================================
+  // Variable Assignment Parsing
+  // ============================================================================
+
+  private parseVarAssign(): VarAssignNode {
+    const token = this.advance()
+    const position = this.getPosition(token)
+    const name = token.value
+
+    this.expect('ASSIGN', '=')
+    const value = this.parseValue()
+    this.expect('SEMICOLON', ';')
+
+    return {
+      nodeType: 'VarAssign',
+      name,
+      value,
       position,
     }
   }

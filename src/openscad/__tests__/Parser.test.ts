@@ -6,6 +6,7 @@ import type {
   BooleanOpNode,
   ExtrudeNode,
   SpecialVarAssignNode,
+  VarAssignNode,
   CubeArgs,
   SphereArgs,
   CylinderArgs,
@@ -77,6 +78,18 @@ function assertSpecialVarAssign(
   expect(node).toBeDefined()
   expect((node as SpecialVarAssignNode).nodeType).toBe('SpecialVarAssign')
   expect((node as SpecialVarAssignNode).variable).toBe(variable)
+}
+
+/**
+ * Helper function to assert a node is a VarAssignNode
+ */
+function assertVarAssign(
+  node: unknown,
+  name: string
+): asserts node is VarAssignNode {
+  expect(node).toBeDefined()
+  expect((node as VarAssignNode).nodeType).toBe('VarAssign')
+  expect((node as VarAssignNode).name).toBe(name)
 }
 
 describe('Parser', () => {
@@ -644,6 +657,110 @@ describe('Parser', () => {
   })
 
   // ============================================================================
+  // Variable Assignment Tests
+  // ============================================================================
+
+  describe('variable assignments', () => {
+    it('should parse width = 50; producing VarAssignNode with name=width, value=50', () => {
+      const result = parse('width = 50;')
+      expect(result.body).toHaveLength(1)
+      assertVarAssign(result.body[0], 'width')
+      const assign = result.body[0] as VarAssignNode
+      expect(assign.value).toBe(50)
+    })
+
+    it('should parse two variable assignments: width = 50; height = 30;', () => {
+      const result = parse('width = 50;\nheight = 30;')
+      expect(result.body).toHaveLength(2)
+      assertVarAssign(result.body[0], 'width')
+      assertVarAssign(result.body[1], 'height')
+      const width = result.body[0] as VarAssignNode
+      const height = result.body[1] as VarAssignNode
+      expect(width.value).toBe(50)
+      expect(height.value).toBe(30)
+    })
+
+    it('should parse dims = [10, 20, 30]; producing VarAssignNode with array value', () => {
+      const result = parse('dims = [10, 20, 30];')
+      expect(result.body).toHaveLength(1)
+      assertVarAssign(result.body[0], 'dims')
+      const assign = result.body[0] as VarAssignNode
+      expect(assign.value).toEqual([10, 20, 30])
+    })
+
+    it('should parse centered = true; producing VarAssignNode with boolean value', () => {
+      const result = parse('centered = true;')
+      expect(result.body).toHaveLength(1)
+      assertVarAssign(result.body[0], 'centered')
+      const assign = result.body[0] as VarAssignNode
+      expect(assign.value).toBe(true)
+    })
+
+    it('should parse centered = false; producing VarAssignNode with boolean value', () => {
+      const result = parse('centered = false;')
+      expect(result.body).toHaveLength(1)
+      assertVarAssign(result.body[0], 'centered')
+      const assign = result.body[0] as VarAssignNode
+      expect(assign.value).toBe(false)
+    })
+
+    it('should parse name = "box"; producing VarAssignNode with string value', () => {
+      const result = parse('name = "box";')
+      expect(result.body).toHaveLength(1)
+      assertVarAssign(result.body[0], 'name')
+      const assign = result.body[0] as VarAssignNode
+      expect(assign.value).toBe('box')
+    })
+
+    it('should parse variable assignment followed by primitive: width = 50; cube(10);', () => {
+      const result = parse('width = 50;\ncube(10);')
+      expect(result.body).toHaveLength(2)
+      assertVarAssign(result.body[0], 'width')
+      assertPrimitive(result.body[1], 'cube')
+      const assign = result.body[0] as VarAssignNode
+      expect(assign.value).toBe(50)
+    })
+
+    it('should track position on VarAssignNode', () => {
+      const result = parse('width = 50;')
+      expect(result.body[0]!.position).toBeDefined()
+      expect(result.body[0]!.position?.line).toBe(1)
+      expect(result.body[0]!.position?.column).toBe(1)
+    })
+
+    it('should track position on VarAssignNode on later lines', () => {
+      const result = parse('\n\nwidth = 50;')
+      expect(result.body[0]!.position).toBeDefined()
+      expect(result.body[0]!.position?.line).toBe(3)
+      expect(result.body[0]!.position?.column).toBe(1)
+    })
+
+    it('should parse negative number values', () => {
+      const result = parse('my_offset = -10;')
+      expect(result.body).toHaveLength(1)
+      assertVarAssign(result.body[0], 'my_offset')
+      const assign = result.body[0] as VarAssignNode
+      expect(assign.value).toBe(-10)
+    })
+
+    it('should parse floating point values', () => {
+      const result = parse('scale_factor = 0.5;')
+      expect(result.body).toHaveLength(1)
+      assertVarAssign(result.body[0], 'scale_factor')
+      const assign = result.body[0] as VarAssignNode
+      expect(assign.value).toBe(0.5)
+    })
+
+    it('should parse nested arrays', () => {
+      const result = parse('points = [[0, 0], [10, 0], [5, 10]];')
+      expect(result.body).toHaveLength(1)
+      assertVarAssign(result.body[0], 'points')
+      const assign = result.body[0] as VarAssignNode
+      expect(assign.value).toEqual([[0, 0], [10, 0], [5, 10]])
+    })
+  })
+
+  // ============================================================================
   // Semicolon Handling Tests
   // ============================================================================
 
@@ -734,16 +851,7 @@ describe('Parser', () => {
     }
     )
 
-    it('should throw error for unsupported variable assignment (x = 5;)', () => {
-      try {
-        parse('x = 5;')
-        expect.fail('Expected OpenSCADParseError to be thrown')
-      } catch (e) {
-        expect(e).toBeInstanceOf(OpenSCADParseError)
-        const error = e as OpenSCADParseError
-        expect(error.message).toContain('variable')
-      }
-    })
+    // Note: variable assignment is now supported - see 'variable assignments' test section
 
     it('should throw error for unsupported function definition', () => {
       try {
