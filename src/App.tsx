@@ -134,6 +134,7 @@ export default function App() {
       // Queue the latest params to compile after current finishes
       pendingParamsRef.current = currentParams
       pendingFinalCompileRef.current = null // Cancel any pending final compile
+      if (import.meta.env.DEV) console.log('[doCompile] Queued params, already compiling')
       return
     }
 
@@ -142,6 +143,10 @@ export default function App() {
     // Use Manifold geometry generation
     isCompilingRef.current = true
     pendingParamsRef.current = null
+    // Cancel any pending final compile from a previous draft - prevents race condition
+    // where old params could be queued after user changes to new params
+    pendingFinalCompileRef.current = null
+    if (import.meta.env.DEV) console.log('[doCompile] Starting build, isFinalPass:', isFinalPass)
 
     // Progressive: draft uses fewer segments, final uses full quality
     const circularSegments = isFinalPass ? 64 : 24
@@ -166,9 +171,13 @@ export default function App() {
         pendingFinalCompileRef.current = currentParams
         setTimeout(() => {
           // Compare by value to handle reconstructed parameter objects
+          // If pendingFinalCompileRef was cleared (user changed params), skip final pass
           if (JSON.stringify(pendingFinalCompileRef.current) === paramsKey) {
             pendingFinalCompileRef.current = null
+            if (import.meta.env.DEV) console.log('[doCompile] Starting final quality pass')
             doCompile(currentParams, true)
+          } else if (import.meta.env.DEV) {
+            console.log('[doCompile] Skipped stale final pass (params changed)')
           }
         }, 50)
       }

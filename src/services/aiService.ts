@@ -76,18 +76,20 @@ export function createImageToGeometryAiService(model?: GeometryModel): ImageToGe
   // If a specific model is requested, use the appropriate service
   if (model && model.startsWith('gemini-') && googleApiKey?.trim()) {
     if (import.meta.env.DEV) {
-      console.log(`[AI Service] Using Google ${model} for image-to-geometry (OpenSCAD format)`)
+      console.log(`[AI Service] Using Google ${model} for image-to-geometry (Manifold format)`)
     }
-    return createImageToGeometryService(googleApiKey, model as 'gemini-3-pro-preview' | 'gemini-2.5-pro' | 'gemini-2.5-flash', 'openscad')
+    // Use 'manifold' format so generated code uses params references for parametric updates
+    return createImageToGeometryService(googleApiKey, model as 'gemini-3-pro-preview' | 'gemini-2.5-pro' | 'gemini-2.5-flash', 'manifold')
   }
 
   // Default: use Google
   if (googleApiKey?.trim()) {
     const modelToUse = 'gemini-3-pro-preview'
     if (import.meta.env.DEV) {
-      console.log(`[AI Service] Using ${modelToUse} for image-to-geometry (OpenSCAD format)`)
+      console.log(`[AI Service] Using ${modelToUse} for image-to-geometry (Manifold format)`)
     }
-    return createImageToGeometryService(googleApiKey, modelToUse, 'openscad')
+    // Use 'manifold' format so generated code uses params references for parametric updates
+    return createImageToGeometryService(googleApiKey, modelToUse, 'manifold')
   }
 
   return null  // No mock for this service - requires API key
