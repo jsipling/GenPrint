@@ -206,7 +206,7 @@ Please fix this error in your new response. Common issues:
 const MAX_RETRIES = 2
 
 // Map our model IDs to actual Google model names
-type GeometryModelId = 'gemini-3-pro-preview' | 'gemini-2.5-pro' | 'gemini-2.5-flash'
+type GeometryModelId = 'gemini-3-pro-preview' | 'gemini-3-flash-preview' | 'gemini-2.5-pro' | 'gemini-2.5-flash'
 
 function getGeometryModelName(modelId: GeometryModelId): string {
   switch (modelId) {
@@ -214,6 +214,8 @@ function getGeometryModelName(modelId: GeometryModelId): string {
       return 'gemini-2.5-flash'
     case 'gemini-2.5-pro':
       return 'gemini-2.5-pro'
+    case 'gemini-3-flash-preview':
+      return 'gemini-3-flash-preview'
     case 'gemini-3-pro-preview':
     default:
       return 'gemini-3-pro-preview'
@@ -230,6 +232,9 @@ function getModelPricing(modelName: string): { input: number; output: number } {
     case 'gemini-2.5-pro':
       // Gemini 2.5 Pro: $1.25/1M input, $10.00/1M output (<=200k context)
       return { input: 1.25, output: 10.00 }
+    case 'gemini-3-flash-preview':
+      // Gemini 3 Flash Preview: $0.30/1M input, $1.20/1M output (estimated)
+      return { input: 0.30, output: 1.20 }
     case 'gemini-3-pro-preview':
       // Gemini 3 Pro Preview: $2.00/1M input, $12.00/1M output
       return { input: 2.00, output: 12.00 }
