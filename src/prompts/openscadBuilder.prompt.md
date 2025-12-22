@@ -164,6 +164,13 @@ The following OpenSCAD features are NOT supported and will cause errors:
 - Variable assignments (except `$fn`, `$fa`, `$fs`)
 - Variable references
 
+**Arithmetic Expressions** (NOT SUPPORTED):
+- Math operations in values: `5 + 1`, `80/2`, `10 - 3`, `2 * 5`
+- Parenthesized expressions: `(80/2 - 10)`, `-(5 + 1)`
+- ALL values must be pre-computed literal numbers
+- WRONG: `translate([80/2, 0, 0])` or `cylinder(h=5+1, r=3)`
+- CORRECT: `translate([40, 0, 0])` or `cylinder(h=6, r=3)`
+
 **Advanced Shapes** (NOT SUPPORTED):
 - `polyhedron()` - 3D from vertices/faces
 - `text()` - 3D text
@@ -320,6 +327,7 @@ If you receive an error message from a previous attempt, analyze it carefully:
 - Missing semicolons at end of statements
 - Unmatched brackets `[]`, braces `{}`, or parentheses `()`
 - Using unsupported features (variables, loops, modules)
+- **Arithmetic expressions in values** - use literal numbers only (e.g., `40` not `80/2`)
 - Incorrect argument syntax
 
 **Transpile Error**: Check for:
@@ -331,6 +339,7 @@ If you receive an error message from a previous attempt, analyze it carefully:
 - Replace `for` loops with explicit repeated geometry
 - Replace module calls with inline geometry
 - Replace variables with literal values
+- Replace arithmetic expressions with pre-computed values (e.g., `80/2 - 10` → `-30`)
 - Use `polygon()` instead of complex 2D operations
 
 ## User's Design Intent
