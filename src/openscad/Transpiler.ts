@@ -33,6 +33,18 @@ import { isVarRef } from './types'
 import { OpenSCADTranspileError } from './errors'
 
 /**
+ * Reserved variable names that cannot be used in OpenSCAD code.
+ * These are runtime variables used by the transpiled JavaScript code.
+ */
+const RESERVED_NAMES = new Set([
+  'params',              // User-provided parameters object
+  'M',                   // Manifold module reference
+  'cq',                  // CadQuery compatibility (if used)
+  'MIN_WALL_THICKNESS',  // Design constraint constant
+  'MIN_FEATURE_SIZE',    // Design constraint constant
+])
+
+/**
  * Options for the transpiler
  */
 export interface TranspileOptions {
@@ -213,11 +225,28 @@ class Transpiler {
   /**
    * Handle regular variable assignment (width = 50, etc.)
    * Stores the variable name and its default value in the context.
+   * Throws OpenSCADTranspileError if the variable name is reserved.
+   * Logs a warning if the variable is being redefined.
    */
   private handleVarAssign(
     node: VarAssignNode,
     ctx: TranspileContext
   ): void {
+    // Check for reserved variable names
+    if (RESERVED_NAMES.has(node.name)) {
+      throw new OpenSCADTranspileError(
+        `Variable name '${node.name}' is reserved and cannot be used. Reserved names: ${Array.from(RESERVED_NAMES).join(', ')}`,
+        node
+      )
+    }
+
+    // Warn if variable is being redefined
+    if (ctx.variables.has(node.name)) {
+      console.warn(
+        `OpenSCAD transpiler: Variable '${node.name}' is being redefined. Previous value will be overwritten.`
+      )
+    }
+
     ctx.variables.set(node.name, node.value)
   }
 

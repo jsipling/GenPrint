@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { transpile } from '../Transpiler'
 import { parse } from '../Parser'
+import { OpenSCADTranspileError } from '../errors'
 
 /**
  * Transpiler Tests
@@ -829,6 +830,97 @@ describe('Transpiler', () => {
       // The generated code should reference params object
       expect(code).toContain('params')
       assertValidJS(code)
+    })
+  })
+
+  // ============================================================================
+  // Reserved Variable Names Tests
+  // ============================================================================
+
+  describe('reserved variable names', () => {
+    it('should throw OpenSCADTranspileError for params = 50', () => {
+      expect(() => transpile('params = 50; cube(10);')).toThrow(OpenSCADTranspileError)
+      expect(() => transpile('params = 50; cube(10);')).toThrow(/reserved/)
+    })
+
+    it('should throw OpenSCADTranspileError for M = 10', () => {
+      expect(() => transpile('M = 10; cube(10);')).toThrow(OpenSCADTranspileError)
+      expect(() => transpile('M = 10; cube(10);')).toThrow(/reserved/)
+    })
+
+    it('should throw OpenSCADTranspileError for cq = 20', () => {
+      expect(() => transpile('cq = 20; cube(10);')).toThrow(OpenSCADTranspileError)
+      expect(() => transpile('cq = 20; cube(10);')).toThrow(/reserved/)
+    })
+
+    it('should throw OpenSCADTranspileError for MIN_WALL_THICKNESS = 1', () => {
+      expect(() => transpile('MIN_WALL_THICKNESS = 1; cube(10);')).toThrow(OpenSCADTranspileError)
+      expect(() => transpile('MIN_WALL_THICKNESS = 1; cube(10);')).toThrow(/reserved/)
+    })
+
+    it('should throw OpenSCADTranspileError for MIN_FEATURE_SIZE = 0.5', () => {
+      expect(() => transpile('MIN_FEATURE_SIZE = 0.5; cube(10);')).toThrow(OpenSCADTranspileError)
+      expect(() => transpile('MIN_FEATURE_SIZE = 0.5; cube(10);')).toThrow(/reserved/)
+    })
+
+    it('should allow valid variable names like width', () => {
+      // Valid names should not throw
+      expect(() => transpile('width = 50; cube(width);')).not.toThrow()
+    })
+
+    it('should allow valid variable names like height and depth', () => {
+      expect(() => transpile('height = 20; depth = 30; cube([10, height, depth]);')).not.toThrow()
+    })
+  })
+
+  // ============================================================================
+  // Variable Redefinition Warning Tests
+  // ============================================================================
+
+  describe('variable redefinition warning', () => {
+    let consoleWarnSpy: ReturnType<typeof vi.spyOn>
+
+    beforeEach(() => {
+      consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    })
+
+    afterEach(() => {
+      consoleWarnSpy.mockRestore()
+    })
+
+    it('should use the second value when variable is redefined', () => {
+      const code = transpile('width = 50; width = 60; cube(width);')
+
+      // The second value (60) should be used as the default
+      expect(code).toMatch(/params\['width'\]\s*\?\?\s*60/)
+      assertValidJS(code)
+    })
+
+    it('should log warning when variable is redefined', () => {
+      transpile('width = 50; width = 60; cube(width);')
+
+      expect(consoleWarnSpy).toHaveBeenCalled()
+    })
+
+    it('should include variable name in warning message', () => {
+      transpile('width = 50; width = 60; cube(width);')
+
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('width')
+      )
+    })
+
+    it('should not warn for first assignment of a variable', () => {
+      transpile('width = 50; cube(width);')
+
+      expect(consoleWarnSpy).not.toHaveBeenCalled()
+    })
+
+    it('should warn for each redefinition of different variables', () => {
+      transpile('width = 50; height = 20; width = 60; height = 30; cube([width, height, 10]);')
+
+      // Should have two warnings - one for width, one for height
+      expect(consoleWarnSpy).toHaveBeenCalledTimes(2)
     })
   })
 })
