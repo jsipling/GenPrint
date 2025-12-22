@@ -7,6 +7,7 @@ import type {
   ExtrudeNode,
   SpecialVarAssignNode,
   VarAssignNode,
+  VarRef,
   CubeArgs,
   SphereArgs,
   CylinderArgs,
@@ -18,6 +19,7 @@ import type {
   TranslateArgs,
   RotateArgs,
 } from '../types'
+import { isVarRef } from '../types'
 import { OpenSCADParseError } from '../errors'
 
 /**
@@ -757,6 +759,126 @@ describe('Parser', () => {
       assertVarAssign(result.body[0], 'points')
       const assign = result.body[0] as VarAssignNode
       expect(assign.value).toEqual([[0, 0], [10, 0], [5, 10]])
+    })
+  })
+
+  // ============================================================================
+  // VarRef in parseValue Tests
+  // ============================================================================
+
+  describe('variable references in arguments', () => {
+    it('should parse cube(width); where width produces VarRef in cube.args.size', () => {
+      const result = parse('cube(width);')
+      expect(result.body).toHaveLength(1)
+      assertPrimitive(result.body[0], 'cube')
+      const cube = result.body[0] as PrimitiveCallNode
+      const args = cube.args as CubeArgs
+      expect(isVarRef(args.size)).toBe(true)
+      expect((args.size as unknown as VarRef).name).toBe('width')
+    })
+
+    it('should parse cube([width, 20, 10]); produces array with VarRef at index 0', () => {
+      const result = parse('cube([width, 20, 10]);')
+      expect(result.body).toHaveLength(1)
+      assertPrimitive(result.body[0], 'cube')
+      const cube = result.body[0] as PrimitiveCallNode
+      const args = cube.args as CubeArgs
+      expect(Array.isArray(args.size)).toBe(true)
+      const size = args.size as unknown[]
+      expect(size).toHaveLength(3)
+      expect(isVarRef(size[0])).toBe(true)
+      expect((size[0] as VarRef).name).toBe('width')
+      expect(size[1]).toBe(20)
+      expect(size[2]).toBe(10)
+    })
+
+    it('should parse sphere(r=radius); produces VarRef in sphere.args.r', () => {
+      const result = parse('sphere(r=radius);')
+      expect(result.body).toHaveLength(1)
+      assertPrimitive(result.body[0], 'sphere')
+      const sphere = result.body[0] as PrimitiveCallNode
+      const args = sphere.args as SphereArgs
+      expect(isVarRef(args.r)).toBe(true)
+      expect((args.r as unknown as VarRef).name).toBe('radius')
+    })
+
+    it('should parse cylinder(h=height, r=radius); produces two VarRefs', () => {
+      const result = parse('cylinder(h=height, r=radius);')
+      expect(result.body).toHaveLength(1)
+      assertPrimitive(result.body[0], 'cylinder')
+      const cylinder = result.body[0] as PrimitiveCallNode
+      const args = cylinder.args as CylinderArgs
+      expect(isVarRef(args.h)).toBe(true)
+      expect((args.h as unknown as VarRef).name).toBe('height')
+      expect(isVarRef(args.r)).toBe(true)
+      expect((args.r as unknown as VarRef).name).toBe('radius')
+    })
+
+    it('should parse translate([x, y, z]) cube(10); produces VarRefs in translate.args.v', () => {
+      const result = parse('translate([x, y, z]) cube(10);')
+      expect(result.body).toHaveLength(1)
+      assertTransform(result.body[0], 'translate')
+      const translate = result.body[0] as TransformNode
+      const args = translate.args as TranslateArgs
+      expect(Array.isArray(args.v)).toBe(true)
+      const v = args.v as unknown[]
+      expect(v).toHaveLength(3)
+      expect(isVarRef(v[0])).toBe(true)
+      expect((v[0] as VarRef).name).toBe('x')
+      expect(isVarRef(v[1])).toBe(true)
+      expect((v[1] as VarRef).name).toBe('y')
+      expect(isVarRef(v[2])).toBe(true)
+      expect((v[2] as VarRef).name).toBe('z')
+    })
+
+    it('should parse polygon with nested arrays containing VarRefs: polygon(points=[[x, y], [10, 0], [5, z]]);', () => {
+      const result = parse('polygon(points=[[x, y], [10, 0], [5, z]]);')
+      expect(result.body).toHaveLength(1)
+      assertPrimitive(result.body[0], 'polygon')
+      const polygon = result.body[0] as PrimitiveCallNode
+      const args = polygon.args as PolygonArgs
+      expect(Array.isArray(args.points)).toBe(true)
+      const points = args.points as unknown[][]
+      expect(points).toHaveLength(3)
+
+      // First point: [x, y]
+      expect(isVarRef(points[0]![0])).toBe(true)
+      expect((points[0]![0] as VarRef).name).toBe('x')
+      expect(isVarRef(points[0]![1])).toBe(true)
+      expect((points[0]![1] as VarRef).name).toBe('y')
+
+      // Second point: [10, 0]
+      expect(points[1]![0]).toBe(10)
+      expect(points[1]![1]).toBe(0)
+
+      // Third point: [5, z]
+      expect(points[2]![0]).toBe(5)
+      expect(isVarRef(points[2]![1])).toBe(true)
+      expect((points[2]![1] as VarRef).name).toBe('z')
+    })
+
+    it('should parse linear_extrude with VarRef height: linear_extrude(height=h) circle(5);', () => {
+      const result = parse('linear_extrude(height=h) circle(5);')
+      expect(result.body).toHaveLength(1)
+      assertExtrude(result.body[0], 'linear_extrude')
+      const extrude = result.body[0] as ExtrudeNode
+      const args = extrude.args as LinearExtrudeArgs
+      expect(isVarRef(args.height)).toBe(true)
+      expect((args.height as unknown as VarRef).name).toBe('h')
+    })
+
+    it('should parse mixed VarRefs and literals: cube([width, 20, depth]);', () => {
+      const result = parse('cube([width, 20, depth]);')
+      expect(result.body).toHaveLength(1)
+      assertPrimitive(result.body[0], 'cube')
+      const cube = result.body[0] as PrimitiveCallNode
+      const args = cube.args as CubeArgs
+      const size = args.size as unknown[]
+      expect(isVarRef(size[0])).toBe(true)
+      expect((size[0] as VarRef).name).toBe('width')
+      expect(size[1]).toBe(20)
+      expect(isVarRef(size[2])).toBe(true)
+      expect((size[2] as VarRef).name).toBe('depth')
     })
   })
 

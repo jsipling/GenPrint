@@ -18,6 +18,7 @@ import type {
   ExtrudeNode,
   SpecialVarAssignNode,
   VarAssignNode,
+  VarRef,
   CubeArgs,
   SphereArgs,
   CylinderArgs,
@@ -835,9 +836,15 @@ class Parser {
       return token.value
     }
 
+    // Variable reference (identifier)
+    if (token.type === 'IDENTIFIER') {
+      this.advance()
+      return { type: 'VarRef', name: token.value } as VarRef
+    }
+
     throw this.error(
       `Expected a value, found '${token.value}'`,
-      ['number', 'array', 'true', 'false', 'string']
+      ['number', 'array', 'true', 'false', 'string', 'identifier']
     )
   }
 
@@ -952,7 +959,7 @@ interface ParsedArgs {
   named: Record<string, ArgValue>
 }
 
-type ArgValue = number | boolean | string | ArgValue[]
+type ArgValue = number | boolean | string | VarRef | ArgValue[]
 
 /**
  * Parse OpenSCAD source code into an AST

@@ -416,9 +416,9 @@ export interface SpecialVarAssignNode extends BaseASTNode {
 
 /**
  * Regular variable assignment (width = 50, dims = [10, 20, 30], etc.)
- * Value is a simple ArgValue type (number, boolean, string, or nested arrays)
+ * Value is a simple ArgValue type (number, boolean, string, VarRef, or nested arrays)
  */
-export type VarAssignValue = number | boolean | string | VarAssignValue[];
+export type VarAssignValue = number | boolean | string | VarRef | VarAssignValue[];
 
 export interface VarAssignNode extends BaseASTNode {
   nodeType: 'VarAssign';
