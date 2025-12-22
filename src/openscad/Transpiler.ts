@@ -89,13 +89,6 @@ function formatNumber(n: number): string {
 }
 
 /**
- * Format an array of numbers for output
- */
-function formatArray(arr: number[]): string {
-  return '[' + arr.map(formatNumber).join(', ') + ']'
-}
-
-/**
  * Generate a unique variable name
  */
 function genVar(ctx: TranspileContext): string {
@@ -375,42 +368,64 @@ class Transpiler {
 
   /**
    * Transpile sphere primitive
+   * Handles VarRef for radius
    */
   private transpileSphere(args: SphereArgs, ctx: TranspileContext): string {
-    const radius = args.r ?? 1
+    const rawRadius = (args.r as ArgValue | undefined) ?? 1
+    const radiusStr = this.formatArgValue(rawRadius, ctx)
     const segments = args.$fn !== undefined ? clampFn(args.$fn) : clampFn(ctx.fn)
-    return `M.Manifold.sphere(${formatNumber(radius)}, ${segments})`
+    return `M.Manifold.sphere(${radiusStr}, ${segments})`
   }
 
   /**
    * Transpile cylinder primitive
+   * Handles VarRef for h, r, r1, r2, and center
    */
   private transpileCylinder(args: CylinderArgs, ctx: TranspileContext): string {
-    const height = args.h ?? 1
-    let r1: number
-    let r2: number
+    const rawHeight = (args.h as ArgValue | undefined) ?? 1
+    const heightStr = this.formatArgValue(rawHeight, ctx)
+
+    let r1Str: string
+    let r2Str: string
 
     if (args.r !== undefined) {
-      r1 = r2 = args.r
+      const rStr = this.formatArgValue(args.r as ArgValue, ctx)
+      r1Str = r2Str = rStr
     } else {
-      r1 = args.r1 ?? 1
-      r2 = args.r2 ?? r1
+      const rawR1 = (args.r1 as ArgValue | undefined) ?? 1
+      r1Str = this.formatArgValue(rawR1, ctx)
+      // For r2, default to r1 if not specified
+      if (args.r2 !== undefined) {
+        r2Str = this.formatArgValue(args.r2 as ArgValue, ctx)
+      } else {
+        r2Str = r1Str
+      }
     }
 
-    const center = args.center ?? false
+    const rawCenter = (args.center as ArgValue | undefined) ?? false
+    const centerStr = this.formatArgValue(rawCenter, ctx)
     const segments = args.$fn !== undefined ? clampFn(args.$fn) : clampFn(ctx.fn)
 
-    return `M.Manifold.cylinder(${formatNumber(height)}, ${formatNumber(r1)}, ${formatNumber(r2)}, ${segments}, ${center})`
+    return `M.Manifold.cylinder(${heightStr}, ${r1Str}, ${r2Str}, ${segments}, ${centerStr})`
   }
 
   /**
    * Transpile circle primitive (2D) to polygon points
+   * Handles VarRef for radius - generates runtime code when needed
    */
   private transpileCircle(args: CircleArgs, ctx: TranspileContext): string {
-    const radius = args.r ?? 1
+    const rawRadius = (args.r as ArgValue | undefined) ?? 1
     const segments = args.$fn !== undefined ? clampFn(args.$fn) : clampFn(ctx.fn)
 
-    // Generate polygon points for circle
+    // If radius is a VarRef, generate runtime code to compute polygon points
+    if (isVarRef(rawRadius)) {
+      const radiusStr = this.formatArgValue(rawRadius, ctx)
+      // Generate JavaScript code that creates polygon points at runtime
+      return `Array.from({length: ${segments}}, (_, i) => { const angle = (2 * Math.PI * i) / ${segments}; return [${radiusStr} * Math.cos(angle), ${radiusStr} * Math.sin(angle)]; })`
+    }
+
+    // Static case: generate polygon points at transpile time
+    const radius = rawRadius as number
     const points: [number, number][] = []
     for (let i = 0; i < segments; i++) {
       const angle = (2 * Math.PI * i) / segments
@@ -425,20 +440,36 @@ class Transpiler {
 
   /**
    * Transpile square primitive (2D) to polygon points
+   * Handles VarRef for size and center - generates runtime code when needed
    */
-  private transpileSquare(args: SquareArgs, _ctx: TranspileContext): string {
+  private transpileSquare(args: SquareArgs, ctx: TranspileContext): string {
+    const rawSize = (args.size as ArgValue | undefined) ?? 1
+    const rawCenter = (args.center as ArgValue | undefined) ?? false
+
+    // Check if we have VarRef in size or center
+    const hasVarRefSize = isVarRef(rawSize) || (Array.isArray(rawSize) && rawSize.some(el => isVarRef(el)))
+    const hasVarRefCenter = isVarRef(rawCenter)
+
+    if (hasVarRefSize || hasVarRefCenter) {
+      // Generate runtime code to compute polygon points
+      const sizeStr = this.formatArgValue(rawSize, ctx)
+      const centerStr = this.formatArgValue(rawCenter, ctx)
+      return `(function() { const s = ${sizeStr}; const center = ${centerStr}; const width = typeof s === 'number' ? s : s[0]; const height = typeof s === 'number' ? s : s[1]; if (center) { const hw = width / 2; const hh = height / 2; return [[-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh]]; } else { return [[0, 0], [width, 0], [width, height], [0, height]]; } })()`
+    }
+
+    // Static case: generate polygon points at transpile time
     let width: number
     let height: number
 
-    if (typeof args.size === 'number') {
-      width = height = args.size
-    } else if (Array.isArray(args.size)) {
-      [width, height] = args.size
+    if (typeof rawSize === 'number') {
+      width = height = rawSize
+    } else if (Array.isArray(rawSize)) {
+      [width, height] = rawSize as [number, number]
     } else {
       width = height = 1 // default
     }
 
-    const center = args.center ?? false
+    const center = rawCenter as boolean
 
     let points: [number, number][]
     if (center) {
@@ -571,46 +602,88 @@ class Transpiler {
 
   /**
    * Get the transform method call code
+   * Handles VarRef for transform vectors and angles
    */
-  private getTransformCode(node: TransformNode, _ctx: TranspileContext): string {
+  private getTransformCode(node: TransformNode, ctx: TranspileContext): string {
     switch (node.transform) {
       case 'translate': {
         const args = node.args as TranslateArgs
-        let v = args.v
-        // Extend 2D vector to 3D
-        if (v.length === 2) {
-          v = [v[0], v[1], 0]
+        const rawV = args.v as ArgValue
+
+        // If the whole vector is a VarRef, generate runtime code to extend to 3D if needed
+        if (isVarRef(rawV)) {
+          const vStr = this.formatArgValue(rawV, ctx)
+          return `.translate((function() { const v = ${vStr}; return v.length === 2 ? [v[0], v[1], 0] : v; })())`
         }
-        return `.translate(${formatArray(v as number[])})`
+
+        // Array case - elements may be VarRef
+        let v = rawV as ArgValue[]
+        if (v.length === 2) {
+          v = [...v, 0]
+        }
+        const vStr = this.formatArgValue(v, ctx)
+        return `.translate(${vStr})`
       }
       case 'rotate': {
         const args = node.args as RotateArgs
-        let a = args.a
-        if (typeof a === 'number') {
-          // Single angle is rotation around z-axis
-          a = [0, 0, a]
-        } else if (!a) {
-          a = [0, 0, 0]
+        const rawA = args.a as ArgValue | undefined
+
+        // If the whole angle/vector is a VarRef, generate runtime code
+        if (isVarRef(rawA)) {
+          const aStr = this.formatArgValue(rawA, ctx)
+          return `.rotate((function() { const a = ${aStr}; return typeof a === 'number' ? [0, 0, a] : a; })())`
         }
-        return `.rotate(${formatArray(a as number[])})`
+
+        if (typeof rawA === 'number') {
+          // Single angle is rotation around z-axis
+          return `.rotate([0, 0, ${formatNumber(rawA)}])`
+        } else if (!rawA) {
+          return `.rotate([0, 0, 0])`
+        }
+
+        // Array case - elements may be VarRef
+        const aStr = this.formatArgValue(rawA, ctx)
+        return `.rotate(${aStr})`
       }
       case 'scale': {
         const args = node.args as ScaleArgs
-        let v = args.v
-        if (typeof v === 'number') {
-          v = [v, v, v]
-        } else if (v.length === 2) {
-          v = [v[0], v[1], 1]
+        const rawV = args.v as ArgValue
+
+        // If the whole value is a VarRef, generate runtime code
+        if (isVarRef(rawV)) {
+          const vStr = this.formatArgValue(rawV, ctx)
+          return `.scale((function() { const v = ${vStr}; if (typeof v === 'number') return [v, v, v]; return v.length === 2 ? [v[0], v[1], 1] : v; })())`
         }
-        return `.scale(${formatArray(v as number[])})`
+
+        if (typeof rawV === 'number') {
+          return `.scale([${formatNumber(rawV)}, ${formatNumber(rawV)}, ${formatNumber(rawV)}])`
+        }
+
+        // Array case - elements may be VarRef
+        let v = rawV as ArgValue[]
+        if (v.length === 2) {
+          v = [...v, 1]
+        }
+        const vStr = this.formatArgValue(v, ctx)
+        return `.scale(${vStr})`
       }
       case 'mirror': {
         const args = node.args as MirrorArgs
-        let v = args.v
-        if (v.length === 2) {
-          v = [v[0], v[1], 0]
+        const rawV = args.v as ArgValue
+
+        // If the whole vector is a VarRef, generate runtime code
+        if (isVarRef(rawV)) {
+          const vStr = this.formatArgValue(rawV, ctx)
+          return `.mirror((function() { const v = ${vStr}; return v.length === 2 ? [v[0], v[1], 0] : v; })())`
         }
-        return `.mirror(${formatArray(v as number[])})`
+
+        // Array case - elements may be VarRef
+        let v = rawV as ArgValue[]
+        if (v.length === 2) {
+          v = [...v, 0]
+        }
+        const vStr = this.formatArgValue(v, ctx)
+        return `.mirror(${vStr})`
       }
       case 'color':
         // Color is not supported in Manifold, return identity transform
@@ -747,39 +820,62 @@ class Transpiler {
 
   /**
    * Transpile linear_extrude
+   * Handles VarRef for height, twist, scale, and center
    */
   private transpileLinearExtrude(
     args: LinearExtrudeArgs,
     polygonPoints: string,
-    _ctx: TranspileContext
+    ctx: TranspileContext
   ): string {
-    const height = args.height ?? 1
+    const rawHeight = (args.height as ArgValue | undefined) ?? 1
+    const heightStr = this.formatArgValue(rawHeight, ctx)
+
     const nDivisions = args.slices ?? 0
-    const twist = args.twist ?? 0
-    const scale = typeof args.scale === 'number'
-      ? args.scale
-      : Array.isArray(args.scale)
-        ? args.scale[0]
-        : 1
-    const center = args.center ?? false
+
+    const rawTwist = (args.twist as ArgValue | undefined) ?? 0
+    const twistStr = this.formatArgValue(rawTwist, ctx)
+
+    // Handle scale - can be number, array, or VarRef
+    const rawScale = args.scale as ArgValue | undefined
+    let scaleStr: string
+    if (rawScale === undefined) {
+      scaleStr = '1'
+    } else if (isVarRef(rawScale)) {
+      // VarRef - generate runtime code to extract scalar from array if needed
+      const paramStr = this.formatArgValue(rawScale, ctx)
+      scaleStr = `(typeof (${paramStr}) === 'number' ? (${paramStr}) : (${paramStr})[0])`
+    } else if (typeof rawScale === 'number') {
+      scaleStr = formatNumber(rawScale)
+    } else if (Array.isArray(rawScale)) {
+      // Take first element if array
+      const firstElement = rawScale[0] as ArgValue
+      scaleStr = this.formatArgValue(firstElement, ctx)
+    } else {
+      scaleStr = '1'
+    }
+
+    const rawCenter = (args.center as ArgValue | undefined) ?? false
+    const centerStr = this.formatArgValue(rawCenter, ctx)
 
     // M.Manifold.extrude(polygonPoints, height, nDivisions, twistDegrees, scaleTop, center)
-    return `M.Manifold.extrude(${polygonPoints}, ${formatNumber(height)}, ${nDivisions}, ${formatNumber(twist)}, ${formatNumber(scale)}, ${center})`
+    return `M.Manifold.extrude(${polygonPoints}, ${heightStr}, ${nDivisions}, ${twistStr}, ${scaleStr}, ${centerStr})`
   }
 
   /**
    * Transpile rotate_extrude
+   * Handles VarRef for angle
    */
   private transpileRotateExtrude(
     args: RotateExtrudeArgs,
     polygonPoints: string,
     ctx: TranspileContext
   ): string {
-    const angle = args.angle ?? 360
+    const rawAngle = (args.angle as ArgValue | undefined) ?? 360
+    const angleStr = this.formatArgValue(rawAngle, ctx)
     const segments = args.$fn !== undefined ? clampFn(args.$fn) : clampFn(ctx.fn)
 
     // M.Manifold.revolve(polygonPoints, circularSegments, revolveDegrees)
-    return `M.Manifold.revolve(${polygonPoints}, ${segments}, ${formatNumber(angle)})`
+    return `M.Manifold.revolve(${polygonPoints}, ${segments}, ${angleStr})`
   }
 }
 
